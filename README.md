@@ -1,119 +1,122 @@
-# RunbookForge Landing Page
+# RunbookForge
 
-A modern, dynamic landing page built with:
+A modern platform for creating beautiful technical runbooks.
+
+## Tech Stack
+
 - **Next.js 14** (App Router)
 - **React 18**
 - **TypeScript**
 - **Tailwind CSS**
 - **Framer Motion** (animations)
+- **Clerk** (authentication)
 - **Lucide React** (icons)
 
-## Features
+## Getting Started
 
-- ✨ Smooth scroll animations
-- 🎨 Modern dark theme with gradients
-- 📱 Fully responsive design
-- ⚡ Fast performance
-- 🔄 Interactive components
-- 🎯 SEO optimized
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+ installed
-- npm or yarn
-
-### Installation
+### 1. Clone and Install
 
 ```bash
-# Install dependencies
+cd runbookforge-next
 npm install
+```
 
-# Run development server
+### 2. Set Up Clerk Authentication
+
+1. Go to [clerk.com](https://clerk.com) and create an account
+2. Create a new application
+3. Copy your API keys from the Clerk dashboard
+4. Create `.env.local` file:
+
+```bash
+cp .env.example .env.local
+```
+
+5. Add your Clerk keys to `.env.local`:
+
+```
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
+CLERK_SECRET_KEY=sk_test_xxxxx
+```
+
+### 3. Run Development Server
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-## Deploy to Vercel (Recommended)
+## Deploy to Vercel
 
-### Option 1: One-Click Deploy
-
-1. Push this code to a GitHub repository
-2. Go to [vercel.com](https://vercel.com)
-3. Click "Add New Project"
-4. Import your GitHub repository
-5. Click "Deploy"
-
-### Option 2: Vercel CLI
+### 1. Push to GitHub
 
 ```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
+git add .
+git commit -m "Add authentication and dashboard"
+git push
 ```
 
-## Connect Your Domain
+### 2. Add Environment Variables in Vercel
 
-1. In Vercel dashboard, go to your project
-2. Click "Settings" → "Domains"
-3. Add `runbookforge.com`
-4. Update your domain's DNS:
-   - Add an A record pointing to `76.76.21.21`
-   - Or add a CNAME record pointing to `cname.vercel-dns.com`
+1. Go to your Vercel project
+2. Settings → Environment Variables
+3. Add:
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
+   - `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
+   - `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard`
+   - `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard`
 
-## Customization
+### 3. Redeploy
 
-### Update Waitlist Form
-
-Replace the form action in `src/app/page.tsx`:
-
-```tsx
-// Option 1: Formspree (free)
-<form action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
-
-// Option 2: ConvertKit
-<form action="https://app.convertkit.com/forms/YOUR_FORM_ID/subscriptions">
-```
-
-### Update Colors
-
-Edit `tailwind.config.js` to change the color scheme.
-
-### Update Content
-
-All content is in `src/app/page.tsx`. Edit text, add sections, or modify components.
+Vercel will automatically redeploy when you push changes.
 
 ## Project Structure
 
 ```
-runbookforge-next/
-├── src/
-│   ├── app/
-│   │   ├── globals.css     # Global styles
-│   │   ├── layout.tsx      # Root layout with metadata
-│   │   └── page.tsx        # Main landing page
-│   └── components/         # Reusable components (future)
-├── public/                 # Static assets
-├── package.json
-├── tailwind.config.js
-├── tsconfig.json
-└── next.config.js
+src/
+├── app/
+│   ├── page.tsx              # Landing page
+│   ├── layout.tsx            # Root layout with Clerk
+│   ├── globals.css           # Global styles
+│   ├── sign-in/              # Sign in page
+│   ├── sign-up/              # Sign up page
+│   └── dashboard/            # Protected dashboard
+│       ├── layout.tsx        # Dashboard layout with sidebar
+│       ├── page.tsx          # Dashboard home
+│       ├── create/           # Create runbook
+│       ├── runbooks/         # My runbooks
+│       ├── import/           # AI import
+│       ├── templates/        # Templates
+│       ├── shared/           # Shared with me
+│       └── settings/         # Settings
+├── middleware.ts             # Clerk auth middleware
+└── components/               # Shared components
 ```
+
+## Features
+
+- ✅ Landing page with waitlist
+- ✅ User authentication (Clerk)
+- ✅ Dashboard with sidebar navigation
+- ✅ Create runbook page (form builder)
+- ✅ AI import page (placeholder)
+- ✅ Templates page
+- ✅ Settings page
+- 🚧 Database integration (coming next)
+- 🚧 Save/load runbooks
+- 🚧 Export to HTML/PDF
 
 ## Next Steps
 
-1. Set up email capture (Formspree, ConvertKit, or Mailchimp)
-2. Add analytics (Vercel Analytics, Plausible, or Google Analytics)
-3. Create additional pages (blog, docs, about)
-4. Add authentication when ready for MVP
-
-## Support
-
-Built by StepUpTech Academy.
+1. Add Supabase for database
+2. Save runbooks to database
+3. Add live preview
+4. Add export functionality
+5. Connect AI import to Claude API
 
 ---
 
-© 2025 RunbookForge
+© 2025 RunbookForge by StepUpTech

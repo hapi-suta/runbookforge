@@ -64,13 +64,15 @@ function Navigation() {
             <a href="#features" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Features</a>
             <a href="#demo" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Demo</a>
             <a href="#pricing" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Pricing</a>
-            <motion.button
+            <a href="/sign-in" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sign In</a>
+            <motion.a
+              href="/sign-up"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-sm shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-shadow"
             >
-              Join Waitlist
-            </motion.button>
+              Get Started
+            </motion.a>
           </div>
 
           <button 
