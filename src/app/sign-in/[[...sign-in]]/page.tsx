@@ -20,7 +20,7 @@ export default function SignInPage() {
               card: "bg-slate-900 border border-slate-800 shadow-2xl",
             }
           }}
-          redirectUrl="/dashboard"
+          fallbackRedirectUrl="/dashboard"
           signUpUrl="/sign-up"
         />
       </div>
