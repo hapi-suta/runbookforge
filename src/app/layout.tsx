@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
-import { dark } from '@clerk/themes'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -30,12 +29,12 @@ export default function RootLayout({
   return (
     <ClerkProvider
       appearance={{
-        baseTheme: dark,
         variables: {
           colorPrimary: '#14b8a6',
           colorBackground: '#0a0f1a',
           colorInputBackground: '#111827',
           colorInputText: '#f1f5f9',
+          colorText: '#f1f5f9',
         },
         elements: {
           formButtonPrimary: 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600',
