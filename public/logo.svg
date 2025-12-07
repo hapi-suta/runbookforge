@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#14b8a6"/>
+      <stop offset="100%" style="stop-color:#10b981"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#grad)"/>
+  <!-- Book/document shape -->
+  <path d="M14 12h20c1.1 0 2 .9 2 2v20c0 1.1-.9 2-2 2H14c-1.1 0-2-.9-2-2V14c0-1.1.9-2 2-2z" fill="white" fill-opacity="0.2"/>
+  <!-- Page lines -->
+  <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
+  <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
+  <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
+  <!-- Checkmark/play indicator -->
+  <circle cx="33" cy="33" r="7" fill="white"/>
+  <path d="M30 33l2.5 2.5L36 31" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
