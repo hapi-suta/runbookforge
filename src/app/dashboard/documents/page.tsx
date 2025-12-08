@@ -1,0 +1,622 @@
+'use client'
+
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  FileText, 
+  Presentation, 
+  Folder, 
+  FolderPlus, 
+  Search, 
+  Loader2, 
+  Trash2, 
+  Download,
+  Eye,
+  MoreVertical,
+  ArrowLeft,
+  Grid,
+  List,
+  Plus,
+  X,
+  Check,
+  Calendar,
+  Layers
+} from "lucide-react";
+import Link from "next/link";
+
+interface Category {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+}
+
+interface Document {
+  id: string;
+  title: string;
+  description: string | null;
+  file_type: string;
+  file_url: string | null;
+  file_size: number | null;
+  slide_count: number | null;
+  category_id: string | null;
+  tags: string[];
+  metadata: any;
+  created_at: string;
+  updated_at: string;
+  categories?: Category;
+}
+
+const colorOptions = [
+  { name: 'violet', bg: 'bg-violet-500/20', text: 'text-violet-400', border: 'border-violet-500/30' },
+  { name: 'blue', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
+  { name: 'teal', bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30' },
+  { name: 'amber', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
+  { name: 'emerald', bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  { name: 'pink', bg: 'bg-pink-500/20', text: 'text-pink-400', border: 'border-pink-500/30' },
+  { name: 'red', bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
+  { name: 'orange', bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30' },
+];
+
+const getColorClasses = (colorName: string) => {
+  return colorOptions.find(c => c.name === colorName) || colorOptions[0];
+};
+
+const getFileIcon = (fileType: string) => {
+  switch (fileType) {
+    case 'pptx':
+      return Presentation;
+    default:
+      return FileText;
+  }
+};
+
+export default function DocumentsPage() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('violet');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [docsRes, catsRes] = await Promise.all([
+        fetch('/api/documents'),
+        fetch('/api/categories?type=document')
+      ]);
+      
+      if (docsRes.ok) {
+        const data = await docsRes.json();
+        setDocuments(data);
+      }
+      
+      if (catsRes.ok) {
+        const data = await catsRes.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createCategory = async () => {
+    if (!newFolderName.trim()) return;
+    
+    setCreatingFolder(true);
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newFolderName.trim(),
+          type: 'document',
+          color: newFolderColor
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCategories([...categories, data]);
+        setNewFolderName('');
+        setShowNewFolder(false);
+      } else {
+        alert(data.error || 'Failed to create folder');
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+      alert('Failed to create folder. Please try again.');
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    if (!confirm('Delete this folder? Documents inside will be moved to "Uncategorized".')) return;
+    
+    try {
+      const response = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setCategories(categories.filter(c => c.id !== id));
+        if (selectedCategory === id) setSelectedCategory(null);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    }
+  };
+
+  const deleteDocument = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    
+    setDeleteId(id);
+    try {
+      const response = await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setDocuments(documents.filter(d => d.id !== id));
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+    } finally {
+      setDeleteId(null);
+    }
+  };
+
+  const getFilteredDocuments = () => {
+    let filtered = documents;
+    
+    if (selectedCategory === 'uncategorized') {
+      filtered = filtered.filter(d => !d.category_id);
+    } else if (selectedCategory) {
+      filtered = filtered.filter(d => d.category_id === selectedCategory);
+    }
+    
+    if (searchQuery) {
+      filtered = filtered.filter(d => 
+        d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  };
+
+  const getCategoryCount = (categoryId: string) => {
+    return documents.filter(d => d.category_id === categoryId).length;
+  };
+
+  const getUncategorizedCount = () => {
+    return documents.filter(d => !d.category_id).length;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const filteredDocuments = getFilteredDocuments();
+  const selectedCategoryData = categories.find(c => c.id === selectedCategory);
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
+      >
+        <div className="flex items-center gap-3">
+          {selectedCategory && (
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">
+              {selectedCategory 
+                ? selectedCategory === 'uncategorized' 
+                  ? 'Uncategorized'
+                  : selectedCategoryData?.name || 'Folder' 
+                : 'My Documents'
+              }
+            </h1>
+            <p className="text-slate-400">
+              {selectedCategory 
+                ? `${filteredDocuments.length} documents in this folder`
+                : `${documents.length} documents • ${categories.length} folders`
+              }
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!selectedCategory && (
+            <button
+              onClick={() => setShowNewFolder(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium hover:bg-slate-700 transition-colors"
+            >
+              <FolderPlus size={18} />
+              <span className="hidden sm:inline">New Folder</span>
+            </button>
+          )}
+          <Link
+            href="/dashboard/import"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+          >
+            <Plus size={18} />
+            Generate PPT
+          </Link>
+        </div>
+      </motion.div>
+
+      {/* New Folder Modal */}
+      <AnimatePresence>
+        {showNewFolder && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6 p-4 bg-slate-900 border border-slate-700 rounded-xl"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <input
+                type="text"
+                placeholder="Folder name (e.g., Course 1, Personal)"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && createCategory()}
+                autoFocus
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+              />
+              <button
+                onClick={createCategory}
+                disabled={!newFolderName.trim() || creatingFolder}
+                className="p-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingFolder ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+              </button>
+              <button
+                onClick={() => { setShowNewFolder(false); setNewFolderName(''); }}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">Color:</span>
+              {colorOptions.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => setNewFolderColor(color.name)}
+                  className={`w-6 h-6 rounded-full ${color.bg} ${color.border} border-2 ${
+                    newFolderColor === color.name ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''
+                  }`}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Search */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="flex gap-4 mb-6"
+      >
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Search documents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors"
+          />
+        </div>
+        <div className="flex bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-2.5 ${viewMode === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}
+          >
+            <Grid size={18} />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-2.5 ${viewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}
+          >
+            <List size={18} />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={32} className="text-violet-500 animate-spin" />
+        </div>
+      )}
+
+      {/* Folders Grid */}
+      {!isLoading && !selectedCategory && categories.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-8"
+        >
+          <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">Folders</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {categories.map((category, index) => {
+              const colors = getColorClasses(category.color);
+              const count = getCategoryCount(category.id);
+              return (
+                <motion.button
+                  key={category.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 + index * 0.03 }}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`group relative p-4 ${colors.bg} ${colors.border} border rounded-xl text-left hover:scale-[1.02] transition-all`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <Folder size={24} className={colors.text} />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteCategory(category.id); }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <h3 className="font-medium text-white truncate">{category.name}</h3>
+                  <p className="text-sm text-slate-400">{count} documents</p>
+                </motion.button>
+              );
+            })}
+            
+            {/* Uncategorized folder */}
+            {getUncategorizedCount() > 0 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 + categories.length * 0.03 }}
+                onClick={() => setSelectedCategory('uncategorized')}
+                className="group relative p-4 bg-slate-800/50 border border-slate-700 rounded-xl text-left hover:scale-[1.02] transition-all"
+              >
+                <Folder size={24} className="text-slate-500 mb-2" />
+                <h3 className="font-medium text-white truncate">Uncategorized</h3>
+                <p className="text-sm text-slate-400">{getUncategorizedCount()} documents</p>
+              </motion.button>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Documents Section */}
+      {!isLoading && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          {!selectedCategory && categories.length > 0 && filteredDocuments.length > 0 && (
+            <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">
+              {searchQuery ? 'Search Results' : 'All Documents'}
+            </h2>
+          )}
+
+          {/* Empty State */}
+          {filteredDocuments.length === 0 && (
+            <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
+                <Presentation size={32} className="text-slate-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                {searchQuery ? 'No documents found' : selectedCategory ? 'Empty folder' : 'No documents yet'}
+              </h3>
+              <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                {searchQuery 
+                  ? 'Try a different search term'
+                  : selectedCategory 
+                    ? 'Generate a presentation and save it to this folder'
+                    : 'Generate your first presentation using AI.'
+                }
+              </p>
+              {!searchQuery && (
+                <Link
+                  href="/dashboard/import"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg text-white font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  <Presentation size={18} />
+                  Generate Presentation
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Grid View */}
+          {filteredDocuments.length > 0 && viewMode === 'grid' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDocuments.map((doc, index) => {
+                const FileIcon = getFileIcon(doc.file_type);
+                return (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 + index * 0.03 }}
+                    className="group p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                        <FileIcon size={20} className="text-amber-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-white mb-1 truncate">{doc.title}</h3>
+                        <p className="text-xs text-slate-500 uppercase">{doc.file_type}</p>
+                      </div>
+                    </div>
+                    
+                    {doc.description && (
+                      <p className="text-slate-400 text-sm mb-3 line-clamp-2">{doc.description}</p>
+                    )}
+                    
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Layers size={12} />
+                        {doc.slide_count || 0} slides
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} />
+                        {formatDate(doc.created_at)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-800">
+                      <button
+                        onClick={() => setViewingDoc(doc)}
+                        className="flex-1 flex items-center justify-center gap-1 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm"
+                      >
+                        <Eye size={14} />
+                        View
+                      </button>
+                      <button
+                        onClick={() => deleteDocument(doc.id)}
+                        disabled={deleteId === doc.id}
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        {deleteId === doc.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* List View */}
+          {filteredDocuments.length > 0 && viewMode === 'list' && (
+            <div className="space-y-3">
+              {filteredDocuments.map((doc, index) => {
+                const FileIcon = getFileIcon(doc.file_type);
+                return (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 + index * 0.03 }}
+                    className="group p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                          <FileIcon size={20} className="text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-white truncate">{doc.title}</h3>
+                          <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                            <span className="uppercase">{doc.file_type}</span>
+                            <span>•</span>
+                            <span>{doc.slide_count || 0} slides</span>
+                            <span>•</span>
+                            <span>{formatDate(doc.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setViewingDoc(doc)}
+                          className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={() => deleteDocument(doc.id)}
+                          disabled={deleteId === doc.id}
+                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                          {deleteId === doc.id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Document Viewer Modal */}
+      <AnimatePresence>
+        {viewingDoc && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+            onClick={() => setViewingDoc(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="w-full max-w-3xl max-h-[80vh] bg-slate-900 border border-slate-700 rounded-xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">{viewingDoc.title}</h2>
+                  <p className="text-sm text-slate-400">{viewingDoc.slide_count} slides • {viewingDoc.metadata?.style} style</p>
+                </div>
+                <button
+                  onClick={() => setViewingDoc(null)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-4 max-h-[60vh] overflow-y-auto">
+                {viewingDoc.metadata?.slides?.map((slide: any, index: number) => (
+                  <div key={index} className="mb-4 p-4 bg-slate-800 rounded-lg">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="w-7 h-7 rounded bg-amber-500/20 flex items-center justify-center text-amber-400 text-sm font-bold">
+                        {index + 1}
+                      </span>
+                      <h3 className="font-medium text-white">{slide.title}</h3>
+                      <span className="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-400">{slide.layout}</span>
+                    </div>
+                    <p className="text-sm text-slate-300 mb-2">{slide.content}</p>
+                    {slide.speakerNotes && (
+                      <p className="text-xs text-slate-500 italic">Notes: {slide.speakerNotes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
