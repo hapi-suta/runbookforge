@@ -364,7 +364,7 @@ export default function AIPage() {
                   disabled={isProcessing}
                 />
                 <p className="mt-2 text-xs text-slate-500">
-                  💡 Just describe your environment, requirements, or specific things to include. The AI will figure out the rest.
+                  💡 Keep it simple: describe your environment and key requirements. The AI handles the structure.
                 </p>
               </div>
 

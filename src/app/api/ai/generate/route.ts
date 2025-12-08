@@ -6,94 +6,61 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-const SYSTEM_PROMPT = `You are a senior DevOps/DBA engineer creating production-ready runbooks. Generate detailed, actionable documentation.
+const SYSTEM_PROMPT = `You are a senior DevOps/DBA engineer. Generate runbooks as PURE JSON - no markdown, no explanations, no text before or after.
 
-Output ONLY valid JSON with this structure:
+CRITICAL: Your entire response must be valid JSON starting with { and ending with }. No other text allowed.
+
+JSON Structure:
 {
   "title": "Professional title",
   "description": "Brief description",
   "sections": [
     {
-      "id": "sec_xxx",
+      "id": "sec_001",
       "title": "Section title",
       "blocks": [
         {
-          "id": "blk_xxx",
+          "id": "blk_001",
           "type": "step|code|warning|info|table|checklist",
           "title": "For steps: action title",
-          "content": "Main content",
+          "content": "Main content text",
           "language": "For code: bash|sql|yaml|json|python",
-          "tags": ["All Nodes", "Primary", "Each Node"],
-          "tableData": {"headers": ["Col1", "Col2"], "rows": [["val1", "val2"], ["val3", "val4"]]}
+          "tags": ["All Nodes", "Primary Only"],
+          "tableData": {"headers": ["Col1", "Col2"], "rows": [["val1", "val2"]]}
         }
       ]
     }
   ]
 }
 
-CONTENT GUIDELINES:
+BLOCK TYPES:
+- step: Numbered procedure with title and content
+- code: Commands/scripts with language field
+- warning: Critical cautions (use sparingly)
+- info: Helpful tips
+- table: Data with tableData field containing headers and rows arrays
 
-1. SECTIONS (create 5-10 logical sections):
-   - Prerequisites / Requirements
-   - Installation / Setup
-   - Configuration
-   - Verification / Testing
-   - Operations / Maintenance
-   - Troubleshooting
-   - Backup & Recovery (if applicable)
+TABLE FORMAT (IMPORTANT):
+{
+  "type": "table",
+  "tableData": {
+    "headers": ["Requirement", "Value"],
+    "rows": [
+      ["Operating System", "Ubuntu 22.04"],
+      ["RAM", "4GB minimum"],
+      ["Port", "5432"]
+    ]
+  }
+}
 
-2. STEP BLOCKS (numbered procedures):
-   - Clear, actionable title: "Install PostgreSQL 15", "Configure pg_hba.conf"
-   - Brief explanation in content
-   - Add tags: "All Nodes", "Primary Only", "Replica", "Each Node"
+GUIDELINES:
+- Create 5-12 logical sections
+- Use realistic commands and examples
+- Include verification steps
+- Add troubleshooting section
+- Make it production-ready
 
-3. CODE BLOCKS (realistic commands):
-   - Group related commands together with comments
-   - Use realistic values from user's context if provided
-   - Include verification commands after important operations
-   - Format:
-     # Comment explaining this section
-     command1
-     command2
-
-4. WARNING BLOCKS: Only for genuinely dangerous operations
-
-5. INFO BLOCKS: Helpful tips, not obvious information
-
-6. TABLE BLOCKS - IMPORTANT FORMAT:
-   For specification/requirements tables, use this EXACT format:
-   {
-     "type": "table",
-     "tableData": {
-       "headers": ["Requirement", "Value"],
-       "rows": [
-         ["Operating System", "Ubuntu 22.04 LTS"],
-         ["RAM", "Minimum 2GB"],
-         ["Disk Space", "10GB free"],
-         ["Network Port", "5432"]
-       ]
-     }
-   }
-   
-   For multi-column data tables:
-   {
-     "type": "table", 
-     "tableData": {
-       "headers": ["Server", "Role", "IP", "Region"],
-       "rows": [
-         ["db-01", "Primary", "10.0.1.10", "us-east"],
-         ["db-02", "Replica", "10.0.1.11", "us-east"]
-       ]
-     }
-   }
-
-QUALITY STANDARDS:
-- Use realistic server names, IPs, paths from user context
-- Include error handling and verification steps
-- Add common troubleshooting scenarios
-- Make it copy-paste ready for production use
-
-Output ONLY the JSON, no markdown wrapping.`
+Remember: Output ONLY the JSON object. No markdown. No explanations. Start with { end with }.`
 
 export async function POST(request: NextRequest) {
   try {
@@ -118,15 +85,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Topic is too short' }, { status: 400 })
     }
 
-    if (topic.length > 500) {
-      return NextResponse.json({ error: 'Topic is too long' }, { status: 400 })
+    if (topic.length > 1000) {
+      return NextResponse.json({ error: 'Topic is too long (max 1000 characters)' }, { status: 400 })
     }
 
-    const prompt = details 
+    // Limit details length to prevent overly complex prompts
+    const limitedDetails = details ? details.substring(0, 2000) : ''
+
+    const prompt = limitedDetails 
       ? `Create a comprehensive, production-ready runbook for: ${topic}
 
 User's environment and requirements:
-${details}
+${limitedDetails}
 
 Generate a detailed runbook tailored to these specific needs. Include realistic examples using the details provided (server names, IPs, paths, etc. if mentioned).`
       : `Create a comprehensive, production-ready runbook for: ${topic}
@@ -135,7 +105,7 @@ Generate a detailed runbook with realistic examples, best practices, and common 
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
+      max_tokens: 16384,
       messages: [
         {
           role: 'user',
@@ -149,14 +119,27 @@ Generate a detailed runbook with realistic examples, best practices, and common 
     
     let runbookData
     try {
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
-                        responseText.match(/```\s*([\s\S]*?)\s*```/)
-      const jsonStr = jsonMatch ? jsonMatch[1] : responseText
-      runbookData = JSON.parse(jsonStr.trim())
+      // Try to extract JSON from various formats
+      let jsonStr = responseText.trim()
+      
+      // Remove markdown code blocks if present
+      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim()
+      }
+      
+      // Remove any leading/trailing text before/after JSON
+      const jsonStart = jsonStr.indexOf('{')
+      const jsonEnd = jsonStr.lastIndexOf('}')
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        jsonStr = jsonStr.slice(jsonStart, jsonEnd + 1)
+      }
+      
+      runbookData = JSON.parse(jsonStr)
     } catch (parseError) {
-      console.error('Failed to parse AI response:', responseText)
+      console.error('Failed to parse AI response:', responseText.substring(0, 500))
       return NextResponse.json({ 
-        error: 'Failed to parse AI response. Please try again.' 
+        error: 'Failed to parse AI response. Try a simpler topic or shorter description.' 
       }, { status: 500 })
     }
 
