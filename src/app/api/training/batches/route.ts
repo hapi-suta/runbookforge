@@ -51,7 +51,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: batches, error } = await supabase
+    // First try with sections, fallback without
+    let batches;
+    let error;
+    
+    ({ data: batches, error } = await supabase
       .from('training_batches')
       .select(`
         *,
@@ -60,7 +64,20 @@ export async function GET() {
         training_enrollments (count)
       `)
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }));
+
+    // If sections table doesn't exist, try without it
+    if (error && error.message.includes('training_sections')) {
+      ({ data: batches, error } = await supabase
+        .from('training_batches')
+        .select(`
+          *,
+          training_modules (count),
+          training_enrollments (count)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }));
+    }
 
     if (error) throw error;
 
@@ -111,8 +128,9 @@ export async function POST(request: Request) {
 
     if (batchError) throw batchError;
 
-    // Create default sections based on template
+    // Create default sections based on template (don't fail if table doesn't exist)
     const sectionTemplate = SECTION_TEMPLATES[template as keyof typeof SECTION_TEMPLATES] || SECTION_TEMPLATES.technical_course;
+    let sectionCount = 0;
     
     if (sectionTemplate.length > 0) {
       const sections = sectionTemplate.map(section => ({
@@ -120,12 +138,17 @@ export async function POST(request: Request) {
         batch_id: batch.id
       }));
 
-      await supabase.from('training_sections').insert(sections);
+      const { error: sectionError } = await supabase.from('training_sections').insert(sections);
+      if (!sectionError) {
+        sectionCount = sectionTemplate.length;
+      } else {
+        console.warn('Could not create sections (table may not exist):', sectionError.message);
+      }
     }
 
     return NextResponse.json({ 
       ...batch, 
-      section_count: sectionTemplate.length,
+      section_count: sectionCount,
       module_count: 0,
       student_count: 0 
     }, { status: 201 });

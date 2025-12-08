@@ -20,8 +20,11 @@ export async function GET(
 
     const { id } = await params;
 
-    // Fetch batch with sections
-    const { data: batch, error } = await supabase
+    // Try to fetch with sections first
+    let batch;
+    let error;
+
+    ({ data: batch, error } = await supabase
       .from('training_batches')
       .select(`
         *,
@@ -42,7 +45,35 @@ export async function GET(
       `)
       .eq('id', id)
       .eq('user_id', userId)
-      .single();
+      .single());
+
+    // If sections table doesn't exist, try without it
+    if (error && error.message.includes('training_sections')) {
+      ({ data: batch, error } = await supabase
+        .from('training_batches')
+        .select(`
+          *,
+          training_modules (
+            *,
+            training_content (
+              *,
+              documents (id, title, file_type),
+              runbooks (id, title)
+            )
+          ),
+          training_enrollments (
+            id, student_email, student_name, status, enrolled_at, last_accessed_at
+          )
+        `)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single());
+      
+      // Add empty sections array
+      if (batch) {
+        batch.training_sections = [];
+      }
+    }
 
     if (error) throw error;
     if (!batch) {
