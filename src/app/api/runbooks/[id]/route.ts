@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 // GET - Get a single runbook
 export async function GET(
@@ -25,7 +30,8 @@ export async function GET(
       if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Runbook not found' }, { status: 404 })
       }
-      throw error
+      console.error('Supabase error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json(data)
@@ -50,21 +56,32 @@ export async function PUT(
     const body = await request.json()
     const { title, description, sections, is_public } = body
 
+    // Validation
+    if (title !== undefined && (typeof title !== 'string' || title.trim().length === 0)) {
+      return NextResponse.json({ error: 'Title cannot be empty' }, { status: 400 })
+    }
+
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    }
+    
+    if (title !== undefined) updateData.title = title.trim()
+    if (description !== undefined) updateData.description = description?.trim() || null
+    if (sections !== undefined) updateData.sections = sections
+    if (is_public !== undefined) updateData.is_public = is_public
+
     const { data, error } = await supabase
       .from('runbooks')
-      .update({
-        title,
-        description,
-        sections,
-        is_public,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', params.id)
       .eq('user_id', userId)
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase update error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
     return NextResponse.json(data)
   } catch (error) {
@@ -91,7 +108,10 @@ export async function DELETE(
       .eq('id', params.id)
       .eq('user_id', userId)
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase delete error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
