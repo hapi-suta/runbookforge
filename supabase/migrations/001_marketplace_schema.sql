@@ -276,3 +276,22 @@ CREATE TRIGGER on_review_created
 -- ============================================
 
 -- You can add seed data here if needed
+
+-- ============================================
+-- SHARES TABLE (for sharing documents/runbooks)
+-- ============================================
+CREATE TABLE IF NOT EXISTS shares (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id TEXT NOT NULL,
+  shared_with_email TEXT NOT NULL,
+  resource_type TEXT NOT NULL, -- 'document' or 'runbook'
+  resource_id UUID NOT NULL,
+  permission TEXT NOT NULL DEFAULT 'view', -- 'view', 'edit', 'download'
+  accepted BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(shared_with_email, resource_type, resource_id)
+);
+
+-- Disable RLS for shares (we handle auth in API)
+ALTER TABLE shares DISABLE ROW LEVEL SECURITY;

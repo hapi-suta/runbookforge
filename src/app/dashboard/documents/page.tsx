@@ -22,7 +22,13 @@ import {
   Calendar,
   Layers,
   Edit3,
-  Palette
+  Palette,
+  Share2,
+  Play,
+  Mail,
+  UserPlus,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 
@@ -47,6 +53,13 @@ interface Document {
   created_at: string;
   updated_at: string;
   categories?: Category;
+}
+
+interface Share {
+  id: string;
+  shared_with_email: string;
+  permission: string;
+  created_at: string;
 }
 
 const colorOptions = [
@@ -94,6 +107,14 @@ export default function DocumentsPage() {
   const [savingFolder, setSavingFolder] = useState(false);
   const [folderMenuOpen, setFolderMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Sharing state
+  const [sharingDoc, setSharingDoc] = useState<Document | null>(null);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharePermission, setSharePermission] = useState('view');
+  const [shares, setShares] = useState<Share[]>([]);
+  const [sharingInProgress, setSharingInProgress] = useState(false);
+  const [shareError, setShareError] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -233,6 +254,104 @@ export default function DocumentsPage() {
     } finally {
       setDeleteId(null);
     }
+  };
+
+  // Open presentation in new tab
+  const openPresentation = (doc: Document) => {
+    window.open(`/view/presentation?id=${doc.id}`, '_blank');
+  };
+
+  // Download document as JSON (can be extended for PPTX)
+  const downloadDocument = (doc: Document) => {
+    const data = {
+      title: doc.title,
+      description: doc.description,
+      slides: doc.metadata?.slides || [],
+      style: doc.metadata?.style,
+      created_at: doc.created_at
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = window.document.createElement('a');
+    a.href = url;
+    a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+    window.document.body.appendChild(a);
+    a.click();
+    window.document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Open share modal
+  const openShareModal = async (doc: Document) => {
+    setSharingDoc(doc);
+    setShareEmail('');
+    setSharePermission('view');
+    setShareError('');
+    
+    // Fetch existing shares
+    try {
+      const response = await fetch(`/api/shares?resource_type=document&resource_id=${doc.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setShares(data);
+      }
+    } catch (error) {
+      console.error('Error fetching shares:', error);
+    }
+  };
+
+  // Create a share
+  const createShare = async () => {
+    if (!sharingDoc || !shareEmail.trim()) return;
+    
+    setSharingInProgress(true);
+    setShareError('');
+    
+    try {
+      const response = await fetch('/api/shares', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: shareEmail.trim().toLowerCase(),
+          resource_type: 'document',
+          resource_id: sharingDoc.id,
+          permission: sharePermission
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setShares([data, ...shares]);
+        setShareEmail('');
+      } else {
+        setShareError(data.error || 'Failed to share');
+      }
+    } catch (error) {
+      setShareError('Failed to share. Please try again.');
+    } finally {
+      setSharingInProgress(false);
+    }
+  };
+
+  // Remove a share
+  const removeShare = async (shareId: string) => {
+    try {
+      const response = await fetch(`/api/shares?id=${shareId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setShares(shares.filter(s => s.id !== shareId));
+      }
+    } catch (error) {
+      console.error('Error removing share:', error);
+    }
+  };
+
+  // Copy share link
+  const copyShareLink = (doc: Document) => {
+    const link = `${window.location.origin}/view/presentation?id=${doc.id}`;
+    navigator.clipboard.writeText(link);
+    alert('Link copied to clipboard!');
   };
 
   const getFilteredDocuments = () => {
@@ -594,16 +713,32 @@ export default function DocumentsPage() {
                     
                     <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-800">
                       <button
-                        onClick={() => setViewingDoc(doc)}
-                        className="flex-1 flex items-center justify-center gap-1 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm"
+                        onClick={() => openPresentation(doc)}
+                        className="flex-1 flex items-center justify-center gap-1 p-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors text-sm"
+                        title="Present in new tab"
                       >
-                        <Eye size={14} />
-                        View
+                        <Play size={14} />
+                        Present
+                      </button>
+                      <button
+                        onClick={() => openShareModal(doc)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                        title="Share"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => downloadDocument(doc)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                        title="Download"
+                      >
+                        <Download size={14} />
                       </button>
                       <button
                         onClick={() => deleteDocument(doc.id)}
                         disabled={deleteId === doc.id}
                         className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+                        title="Delete"
                       >
                         {deleteId === doc.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                       </button>
@@ -645,15 +780,31 @@ export default function DocumentsPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => setViewingDoc(doc)}
-                          className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                          onClick={() => openPresentation(doc)}
+                          className="p-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors"
+                          title="Present"
                         >
-                          <Eye size={18} />
+                          <Play size={18} />
+                        </button>
+                        <button
+                          onClick={() => openShareModal(doc)}
+                          className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                          title="Share"
+                        >
+                          <Share2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => downloadDocument(doc)}
+                          className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                          title="Download"
+                        >
+                          <Download size={18} />
                         </button>
                         <button
                           onClick={() => deleteDocument(doc.id)}
                           disabled={deleteId === doc.id}
                           className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+                          title="Delete"
                         >
                           {deleteId === doc.id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                         </button>
@@ -816,6 +967,144 @@ export default function DocumentsPage() {
                       Save Changes
                     </>
                   )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {sharingDoc && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setSharingDoc(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Share Presentation</h2>
+                  <p className="text-sm text-slate-400 truncate">{sharingDoc.title}</p>
+                </div>
+                <button
+                  onClick={() => setSharingDoc(null)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-4">
+                {/* Copy Link */}
+                <div className="p-3 bg-slate-800 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <ExternalLink size={16} />
+                      <span className="text-sm">Anyone with the link can view</span>
+                    </div>
+                    <button
+                      onClick={() => copyShareLink(sharingDoc)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors"
+                    >
+                      <Copy size={14} />
+                      Copy Link
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Share by Email */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <div className="flex items-center gap-2">
+                      <UserPlus size={16} />
+                      Share with specific people
+                    </div>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 flex gap-2">
+                      <input
+                        type="email"
+                        value={shareEmail}
+                        onChange={(e) => setShareEmail(e.target.value)}
+                        placeholder="Enter email address..."
+                        className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                      />
+                      <select
+                        value={sharePermission}
+                        onChange={(e) => setSharePermission(e.target.value)}
+                        className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="view">Can view</option>
+                        <option value="download">Can download</option>
+                        <option value="edit">Can edit</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={createShare}
+                      disabled={!shareEmail.trim() || sharingInProgress}
+                      className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {sharingInProgress ? <Loader2 size={18} className="animate-spin" /> : 'Share'}
+                    </button>
+                  </div>
+                  {shareError && (
+                    <p className="mt-2 text-sm text-red-400">{shareError}</p>
+                  )}
+                </div>
+                
+                {/* Existing Shares */}
+                {shares.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-400 mb-2">Shared with</h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {shares.map((share) => (
+                        <div key={share.id} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Mail size={16} className="text-slate-500" />
+                            <span className="text-sm text-white">{share.shared_with_email}</span>
+                            <span className="px-2 py-0.5 bg-slate-700 text-xs text-slate-400 rounded">
+                              {share.permission}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeShare(share.id)}
+                            className="p-1 text-slate-500 hover:text-red-400 rounded transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div className="flex items-center justify-between p-4 border-t border-slate-800">
+                <button
+                  onClick={() => openPresentation(sharingDoc)}
+                  className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                >
+                  <Play size={16} />
+                  Open Presentation
+                </button>
+                <button
+                  onClick={() => setSharingDoc(null)}
+                  className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  Done
                 </button>
               </div>
             </motion.div>
