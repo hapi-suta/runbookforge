@@ -20,6 +20,33 @@ import {
   BookOpen,
   Play
 } from "lucide-react";
+import { getColorClasses } from "@/components/ColorPicker";
+
+interface Card {
+  title: string;
+  content: string;
+  color?: string;
+}
+
+interface ServerRow {
+  hostname: string;
+  role: string;
+  roleColor: string;
+  ip: string;
+  region: string;
+  components: string;
+}
+
+interface PortItem {
+  name: string;
+  port: string;
+  color: string;
+}
+
+interface FlowItem {
+  flow: string;
+  color: string;
+}
 
 interface Block {
   id: string;
@@ -29,12 +56,18 @@ interface Block {
   language?: string;
   tags?: string[];
   tableData?: { headers: string[]; rows: string[][] };
-  cards?: { title: string; content: string }[];
+  cards?: Card[];
   leftContent?: string;
   rightContent?: string;
   leftTitle?: string;
   rightTitle?: string;
+  leftColor?: string;
+  rightColor?: string;
   checklist?: { id: string; text: string; checked: boolean }[];
+  servers?: ServerRow[];
+  ports?: PortItem[];
+  infocards?: Card[];
+  flows?: FlowItem[];
 }
 
 interface Section {
@@ -175,23 +208,111 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
       if (!block.cards) return null;
       return (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {block.cards.map((card, i) => (
-            <div key={i} className="p-4 bg-slate-800 border border-slate-700 rounded-lg">
-              <div className="text-sm font-medium text-teal-400 mb-1">{card.title}</div>
-              <div className="text-xs text-slate-400">{card.content}</div>
-            </div>
-          ))}
+          {block.cards.map((card, i) => {
+            const colors = getColorClasses(card.color || 'teal');
+            return (
+              <div key={i} className={`p-4 ${colors.bg} border ${colors.border} rounded-lg`}>
+                <div className={`text-sm font-medium ${colors.text} mb-1`}>{card.title}</div>
+                <div className="text-xs text-slate-400">{card.content}</div>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+    case 'servertable':
+      if (!block.servers) return null;
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="px-4 py-3 text-left text-slate-400 font-medium">Hostname</th>
+                <th className="px-4 py-3 text-left text-slate-400 font-medium">Role</th>
+                <th className="px-4 py-3 text-left text-slate-400 font-medium">Private IP</th>
+                <th className="px-4 py-3 text-left text-slate-400 font-medium">Region</th>
+                <th className="px-4 py-3 text-left text-slate-400 font-medium">Components</th>
+              </tr>
+            </thead>
+            <tbody>
+              {block.servers.map((server, i) => {
+                const roleColors = getColorClasses(server.roleColor || 'green');
+                return (
+                  <tr key={i} className="border-b border-slate-800">
+                    <td className="px-4 py-3 text-teal-400 font-mono">{server.hostname}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 ${roleColors.bg} ${roleColors.text} text-xs rounded border ${roleColors.border}`}>
+                        {server.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-300 font-mono">{server.ip}</td>
+                    <td className="px-4 py-3 text-slate-400">{server.region}</td>
+                    <td className="px-4 py-3 text-slate-500">{server.components}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+
+    case 'portref':
+      if (!block.ports) return null;
+      return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {block.ports.map((port, i) => {
+            const colors = getColorClasses(port.color || 'teal');
+            return (
+              <div key={i} className="flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
+                <span className="text-sm text-slate-300">{port.name}</span>
+                <span className={`text-sm font-bold ${colors.text}`}>{port.port}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+    case 'infocards':
+      if (!block.infocards) return null;
+      return (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {block.infocards.map((card, i) => {
+            const colors = getColorClasses(card.color || 'teal');
+            return (
+              <div key={i} className={`p-4 ${colors.bg} border ${colors.border} rounded-lg`}>
+                <div className={`text-sm font-bold ${colors.text} mb-1`}>{card.title}</div>
+                <div className="text-xs text-slate-400 font-mono">{card.content}</div>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+    case 'flowcards':
+      if (!block.flows) return null;
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {block.flows.map((flow, i) => {
+            const colors = getColorClasses(flow.color || 'teal');
+            return (
+              <div key={i} className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                <span className={`text-sm ${colors.text}`}>{flow.flow}</span>
+              </div>
+            );
+          })}
         </div>
       );
 
     case 'twocolumn':
+      const leftColors = getColorClasses(block.leftColor || 'emerald');
+      const rightColors = getColorClasses(block.rightColor || 'amber');
       return (
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-slate-800/50 border border-emerald-500/30 rounded-lg">
+          <div className={`p-4 bg-slate-800/50 border ${leftColors.border} rounded-lg`}>
             {block.leftTitle && (
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                <h4 className="text-emerald-400 font-medium">{block.leftTitle}</h4>
+                <div className={`w-3 h-3 rounded-full ${leftColors.solid}`}></div>
+                <h4 className={`${leftColors.text} font-medium`}>{block.leftTitle}</h4>
               </div>
             )}
             <div 
@@ -199,11 +320,11 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
               dangerouslySetInnerHTML={{ __html: block.leftContent || '' }}
             />
           </div>
-          <div className="p-4 bg-slate-800/50 border border-amber-500/30 rounded-lg">
+          <div className={`p-4 bg-slate-800/50 border ${rightColors.border} rounded-lg`}>
             {block.rightTitle && (
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                <h4 className="text-amber-400 font-medium">{block.rightTitle}</h4>
+                <div className={`w-3 h-3 rounded-full ${rightColors.solid}`}></div>
+                <h4 className={`${rightColors.text} font-medium`}>{block.rightTitle}</h4>
               </div>
             )}
             <div 
