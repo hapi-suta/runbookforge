@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // DELETE - Remove enrollment
 export async function DELETE(
@@ -19,8 +14,8 @@ export async function DELETE(
     }
 
     const { id, enrollmentId } = await params;
+    const supabase = getSupabaseAdmin();
 
-    // Verify batch ownership
     const { data: batch } = await supabase
       .from('training_batches')
       .select('id')
@@ -39,7 +34,6 @@ export async function DELETE(
       .eq('batch_id', id);
 
     if (error) throw error;
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error removing enrollment:', error);

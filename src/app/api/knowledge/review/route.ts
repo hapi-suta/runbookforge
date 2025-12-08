@@ -1,56 +1,30 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// Check if user is admin
-async function isUserAdmin(userId: string): Promise<boolean> {
-  const envAdmins = process.env.ADMIN_USER_IDS?.split(',') || [];
-  if (envAdmins.includes(userId)) return true;
-  
-  const { data } = await supabase
-    .from('admin_users')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('is_active', true)
-    .single();
-  
+async function isAdmin(userId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase.from('admin_users').select('id').eq('user_id', userId).single();
   return !!data;
 }
 
-// GET - List pending entries for admin review
-export async function GET(request: Request) {
+// GET - Get pending entries for review
+export async function GET() {
   try {
     const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!userId || !(await isAdmin(userId))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    if (!(await isUserAdmin(userId))) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'pending';
-
-    const { data: entries, error } = await supabase
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
       .from('kb_entries')
-      .select(`
-        *,
-        kb_categories (id, name, slug),
-        runbooks (id, title, description),
-        documents (id, title, description, file_type)
-      `)
-      .eq('status', status)
+      .select(`*, kb_categories (name), runbooks (title), documents (title)`)
+      .eq('status', 'pending')
       .order('submitted_at', { ascending: true });
 
     if (error) throw error;
-
-    return NextResponse.json(entries || []);
+    return NextResponse.json(data || []);
   } catch (error) {
     console.error('Error fetching pending entries:', error);
     return NextResponse.json({ error: 'Failed to fetch entries' }, { status: 500 });
@@ -61,51 +35,39 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!userId || !(await isAdmin(userId))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    if (!(await isUserAdmin(userId))) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    const supabase = getSupabaseAdmin();
+    const { entry_id, action, rejection_reason } = await request.json();
+
+    if (!entry_id || !action) {
+      return NextResponse.json({ error: 'entry_id and action required' }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { entryId, action, rejectionReason } = body;
-
-    if (!entryId || !action) {
-      return NextResponse.json({ error: 'Entry ID and action required' }, { status: 400 });
-    }
-
-    if (!['approve', 'reject'].includes(action)) {
+    const updates: Record<string, unknown> = { reviewed_by: userId, reviewed_at: new Date().toISOString() };
+    
+    if (action === 'approve') {
+      updates.status = 'approved';
+    } else if (action === 'reject') {
+      updates.status = 'rejected';
+      updates.rejection_reason = rejection_reason || 'Does not meet guidelines';
+    } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
-    const updateData: Record<string, unknown> = {
-      status: action === 'approve' ? 'approved' : 'rejected',
-      reviewed_by: userId,
-      reviewed_at: new Date().toISOString()
-    };
-
-    if (action === 'approve') {
-      updateData.published_at = new Date().toISOString();
-    }
-
-    if (action === 'reject' && rejectionReason) {
-      updateData.rejection_reason = rejectionReason;
-    }
-
-    const { data: entry, error } = await supabase
+    const { data, error } = await supabase
       .from('kb_entries')
-      .update(updateData)
-      .eq('id', entryId)
+      .update(updates)
+      .eq('id', entry_id)
       .select()
       .single();
 
     if (error) throw error;
-
-    return NextResponse.json(entry);
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error reviewing entry:', error);
-    return NextResponse.json({ error: 'Failed to review entry' }, { status: 500 });
+    console.error('Error updating entry:', error);
+    return NextResponse.json({ error: 'Failed to update entry' }, { status: 500 });
   }
 }

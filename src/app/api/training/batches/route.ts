@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // Generate random access code
 function generateAccessCode(length = 10): string {
@@ -51,6 +46,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = getSupabaseAdmin();
+    
     // First try with sections, fallback without
     let batches;
     let error;
@@ -103,6 +100,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
     const { title, description, template = 'technical_course', settings } = body;
 
@@ -156,14 +154,4 @@ export async function POST(request: Request) {
     console.error('Error creating batch:', error);
     return NextResponse.json({ error: 'Failed to create batch' }, { status: 500 });
   }
-}
-
-export async function OPTIONS() {
-  return NextResponse.json({ 
-    templates: Object.keys(SECTION_TEMPLATES).map(key => ({
-      id: key,
-      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      sections: SECTION_TEMPLATES[key as keyof typeof SECTION_TEMPLATES]
-    }))
-  });
 }

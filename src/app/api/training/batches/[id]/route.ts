@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // GET - Get batch details with sections, modules, and content
 export async function GET(
@@ -19,6 +14,7 @@ export async function GET(
     }
 
     const { id } = await params;
+    const supabase = getSupabaseAdmin();
 
     // Try to fetch with sections first
     let batch;
@@ -28,20 +24,9 @@ export async function GET(
       .from('training_batches')
       .select(`
         *,
-        training_sections (
-          *
-        ),
-        training_modules (
-          *,
-          training_content (
-            *,
-            documents (id, title, file_type),
-            runbooks (id, title)
-          )
-        ),
-        training_enrollments (
-          id, student_email, student_name, status, enrolled_at, last_accessed_at
-        )
+        training_sections (*),
+        training_modules (*, training_content (*)),
+        training_enrollments (id, student_email, student_name, status, enrolled_at)
       `)
       .eq('id', id)
       .eq('user_id', userId)
@@ -53,26 +38,14 @@ export async function GET(
         .from('training_batches')
         .select(`
           *,
-          training_modules (
-            *,
-            training_content (
-              *,
-              documents (id, title, file_type),
-              runbooks (id, title)
-            )
-          ),
-          training_enrollments (
-            id, student_email, student_name, status, enrolled_at, last_accessed_at
-          )
+          training_modules (*, training_content (*)),
+          training_enrollments (id, student_email, student_name, status, enrolled_at)
         `)
         .eq('id', id)
         .eq('user_id', userId)
         .single());
       
-      // Add empty sections array
-      if (batch) {
-        batch.training_sections = [];
-      }
+      if (batch) batch.training_sections = [];
     }
 
     if (error) throw error;
@@ -80,26 +53,12 @@ export async function GET(
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
     }
 
-    // Sort sections
+    // Sort sections and modules
     if (batch.training_sections) {
-      batch.training_sections.sort((a: { sort_order: number }, b: { sort_order: number }) => 
-        a.sort_order - b.sort_order
-      );
+      batch.training_sections.sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
     }
-
-    // Sort modules and nest under sections
     if (batch.training_modules) {
-      batch.training_modules.sort((a: { sort_order: number }, b: { sort_order: number }) => 
-        a.sort_order - b.sort_order
-      );
-      
-      batch.training_modules.forEach((module: { training_content: { sort_order: number }[] }) => {
-        if (module.training_content) {
-          module.training_content.sort((a: { sort_order: number }, b: { sort_order: number }) => 
-            a.sort_order - b.sort_order
-          );
-        }
-      });
+      batch.training_modules.sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
     }
 
     return NextResponse.json(batch);
@@ -121,8 +80,8 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
-    const { title, description, status, settings } = body;
 
     const { data: existing } = await supabase
       .from('training_batches')
@@ -136,10 +95,10 @@ export async function PATCH(
     }
 
     const updateData: Record<string, unknown> = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (status !== undefined) updateData.status = status;
-    if (settings !== undefined) updateData.settings = settings;
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.status !== undefined) updateData.status = body.status;
+    if (body.settings !== undefined) updateData.settings = body.settings;
 
     const { data: batch, error } = await supabase
       .from('training_batches')
@@ -149,7 +108,6 @@ export async function PATCH(
       .single();
 
     if (error) throw error;
-
     return NextResponse.json(batch);
   } catch (error) {
     console.error('Error updating batch:', error);
@@ -169,25 +127,15 @@ export async function DELETE(
     }
 
     const { id } = await params;
-
-    const { data: existing } = await supabase
-      .from('training_batches')
-      .select('id')
-      .eq('id', id)
-      .eq('user_id', userId)
-      .single();
-
-    if (!existing) {
-      return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
-    }
+    const supabase = getSupabaseAdmin();
 
     const { error } = await supabase
       .from('training_batches')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) throw error;
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting batch:', error);

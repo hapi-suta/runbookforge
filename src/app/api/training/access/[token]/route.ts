@@ -1,108 +1,62 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// GET - Access training content via access token (no auth required)
+// GET - Validate access token and get training content
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await params;
+    const supabase = getSupabaseAdmin();
 
     // Find enrollment by access token
-    const { data: enrollment, error: enrollmentError } = await supabase
+    const { data: enrollment, error } = await supabase
       .from('training_enrollments')
       .select(`
         *,
         training_batches (
-          id,
-          title,
-          description,
-          settings,
-          status,
-          training_modules (
-            id,
-            title,
-            description,
-            sort_order,
-            is_published,
-            training_content (
-              id,
-              title,
-              content_type,
-              document_id,
-              runbook_id,
-              external_url,
-              sort_order,
-              estimated_duration,
-              is_required
-            )
-          )
+          id, title, description, status,
+          training_sections (*),
+          training_modules (*, training_content (*))
         )
       `)
       .eq('access_token', token)
       .eq('status', 'active')
       .single();
 
-    if (enrollmentError || !enrollment) {
-      return NextResponse.json({ error: 'Invalid or expired access link' }, { status: 404 });
+    if (error || !enrollment) {
+      return NextResponse.json({ error: 'Invalid or expired access token' }, { status: 404 });
     }
 
-    const batch = enrollment.training_batches;
-    
-    // Check if batch is active
-    if (batch.status !== 'active') {
+    if (enrollment.training_batches.status !== 'active') {
       return NextResponse.json({ error: 'This training is not currently available' }, { status: 403 });
     }
 
-    // Update last accessed timestamp
+    // Update last accessed
     await supabase
       .from('training_enrollments')
       .update({ last_accessed_at: new Date().toISOString() })
       .eq('id', enrollment.id);
 
-    // Filter to only published modules and sort
-    const modules = (batch.training_modules || [])
-      .filter((m: { is_published: boolean }) => m.is_published)
-      .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
-      .map((module: { training_content: { sort_order: number }[] }) => ({
-        ...module,
-        training_content: (module.training_content || [])
-          .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
-      }));
-
-    // Get progress for this enrollment
+    // Get progress
     const { data: progress } = await supabase
       .from('training_progress')
-      .select('content_id, status, completed_at')
+      .select('*')
       .eq('enrollment_id', enrollment.id);
-
-    const progressMap = new Map(progress?.map(p => [p.content_id, p]) || []);
 
     return NextResponse.json({
       enrollment: {
         id: enrollment.id,
-        student_name: enrollment.student_name,
         student_email: enrollment.student_email,
-        enrolled_at: enrollment.enrolled_at
+        student_name: enrollment.student_name
       },
-      batch: {
-        id: batch.id,
-        title: batch.title,
-        description: batch.description,
-        settings: batch.settings
-      },
-      modules,
-      progress: Object.fromEntries(progressMap)
+      batch: enrollment.training_batches,
+      progress: progress || []
     });
   } catch (error) {
-    console.error('Error accessing training:', error);
-    return NextResponse.json({ error: 'Failed to access training' }, { status: 500 });
+    console.error('Error validating access:', error);
+    return NextResponse.json({ error: 'Failed to validate access' }, { status: 500 });
   }
 }
 
@@ -113,14 +67,9 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
-    const body = await request.json();
-    const { contentId, status } = body;
+    const supabase = getSupabaseAdmin();
+    const { content_id, completed } = await request.json();
 
-    if (!contentId || !status) {
-      return NextResponse.json({ error: 'Content ID and status are required' }, { status: 400 });
-    }
-
-    // Verify enrollment
     const { data: enrollment } = await supabase
       .from('training_enrollments')
       .select('id')
@@ -129,26 +78,22 @@ export async function POST(
       .single();
 
     if (!enrollment) {
-      return NextResponse.json({ error: 'Invalid access' }, { status: 403 });
+      return NextResponse.json({ error: 'Invalid token' }, { status: 404 });
     }
 
-    // Upsert progress
-    const { data: progress, error } = await supabase
+    const { data, error } = await supabase
       .from('training_progress')
       .upsert({
         enrollment_id: enrollment.id,
-        content_id: contentId,
-        status,
-        completed_at: status === 'completed' ? new Date().toISOString() : null
-      }, {
-        onConflict: 'enrollment_id,content_id'
-      })
+        content_id,
+        completed,
+        completed_at: completed ? new Date().toISOString() : null
+      }, { onConflict: 'enrollment_id,content_id' })
       .select()
       .single();
 
     if (error) throw error;
-
-    return NextResponse.json(progress);
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error updating progress:', error);
     return NextResponse.json({ error: 'Failed to update progress' }, { status: 500 });

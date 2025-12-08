@@ -1,10 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // GET - Get a public runbook (no auth required)
 export async function GET(
@@ -13,8 +8,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const supabase = getSupabaseAdmin();
 
-    // First check if it's from Knowledge Base (approved entry)
+    // Check if it's from Knowledge Base
     const { data: kbEntry } = await supabase
       .from('kb_entries')
       .select('runbook_id')
@@ -33,14 +29,13 @@ export async function GET(
       return NextResponse.json({ error: 'Runbook not found' }, { status: 404 });
     }
 
-    // Check if accessible (public or in KB)
+    // Check if accessible
     if (!runbook.is_public && !kbEntry) {
       return NextResponse.json({ error: 'This runbook is not public' }, { status: 403 });
     }
 
     // Increment view count if from KB
     if (kbEntry) {
-      // Simple increment
       const { data: currentEntry } = await supabase
         .from('kb_entries')
         .select('view_count')

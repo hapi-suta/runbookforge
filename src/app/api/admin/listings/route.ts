@@ -1,22 +1,27 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
-// Admin user IDs - in production, store these in environment variables or database
-const ADMIN_USER_IDS = process.env.ADMIN_USER_IDS?.split(',') || [];
-
-function isAdmin(userId: string): boolean {
-  return ADMIN_USER_IDS.includes(userId);
+// Check if user is admin (from database)
+async function isAdmin(userId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from('admin_users')
+    .select('id')
+    .eq('user_id', userId)
+    .single();
+  return !!data;
 }
 
 // GET - Get all listings for admin review
 export async function GET(request: Request) {
   try {
     const { userId } = await auth();
-    if (!userId || !isAdmin(userId)) {
+    if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
@@ -55,18 +60,19 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const { userId } = await auth();
-    if (!userId || !isAdmin(userId)) {
+    if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
-    const { listing_id, action, rejection_reason, featured } = body;
+    const { listing_id, action, rejection_reason } = body;
 
     if (!listing_id || !action) {
       return NextResponse.json({ error: 'listing_id and action required' }, { status: 400 });
     }
 
-    const updates: any = { updated_at: new Date().toISOString() };
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
     switch (action) {
       case 'approve':
