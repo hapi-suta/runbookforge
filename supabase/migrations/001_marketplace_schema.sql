@@ -2,6 +2,43 @@
 -- Run this in your Supabase SQL Editor
 
 -- ============================================
+-- CATEGORIES TABLE (for organizing runbooks and documents)
+-- ============================================
+CREATE TABLE IF NOT EXISTS categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'runbook', -- 'runbook' or 'document'
+  color TEXT DEFAULT 'teal',
+  icon TEXT DEFAULT 'folder',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, name, type)
+);
+
+-- ============================================
+-- DOCUMENTS TABLE (for PPTs, PDFs, etc.)
+-- ============================================
+CREATE TABLE IF NOT EXISTS documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  file_type TEXT NOT NULL DEFAULT 'pptx', -- 'pptx', 'pdf', 'docx'
+  file_url TEXT, -- Storage URL or base64 data
+  file_size INTEGER, -- in bytes
+  slide_count INTEGER,
+  thumbnail_url TEXT,
+  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+  tags TEXT[] DEFAULT '{}',
+  metadata JSONB DEFAULT '{}', -- Additional metadata
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add category support to runbooks (run separately if runbooks table exists)
+-- ALTER TABLE runbooks ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE SET NULL;
+
+-- ============================================
 -- MARKETPLACE LISTINGS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS marketplace_listings (

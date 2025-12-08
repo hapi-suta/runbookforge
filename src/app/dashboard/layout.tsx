@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  Shield
+  Shield,
+  Presentation
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,6 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'My Runbooks', href: '/dashboard/runbooks', icon: FileText },
+  { name: 'My Documents', href: '/dashboard/documents', icon: Presentation },
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },

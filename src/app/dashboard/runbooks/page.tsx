@@ -2,8 +2,20 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Plus, FileText, Search, Filter, MoreVertical, Trash2, Edit, Eye, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Plus, FileText, Search, Trash2, Edit, Eye, Loader2, 
+  Folder, FolderPlus, ChevronRight, ArrowLeft, Grid, List,
+  MoreVertical, X, Check
+} from "lucide-react";
+
+interface Category {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  runbookCount?: number;
+}
 
 interface Runbook {
   id: string;
@@ -11,31 +23,106 @@ interface Runbook {
   description: string | null;
   sections: any[];
   is_public: boolean;
+  category_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
+const colorOptions = [
+  { name: 'teal', bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30' },
+  { name: 'blue', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
+  { name: 'violet', bg: 'bg-violet-500/20', text: 'text-violet-400', border: 'border-violet-500/30' },
+  { name: 'amber', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
+  { name: 'emerald', bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  { name: 'pink', bg: 'bg-pink-500/20', text: 'text-pink-400', border: 'border-pink-500/30' },
+  { name: 'red', bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
+  { name: 'orange', bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30' },
+];
+
+const getColorClasses = (colorName: string) => {
+  return colorOptions.find(c => c.name === colorName) || colorOptions[0];
+};
+
 export default function RunbooksPage() {
   const [runbooks, setRunbooks] = useState<Runbook[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('teal');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [creatingFolder, setCreatingFolder] = useState(false);
 
   useEffect(() => {
-    fetchRunbooks();
+    fetchData();
   }, []);
 
-  const fetchRunbooks = async () => {
+  const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/runbooks');
-      if (response.ok) {
-        const data = await response.json();
+      const [runbooksRes, categoriesRes] = await Promise.all([
+        fetch('/api/runbooks'),
+        fetch('/api/categories?type=runbook')
+      ]);
+      
+      if (runbooksRes.ok) {
+        const data = await runbooksRes.json();
         setRunbooks(data);
       }
+      
+      if (categoriesRes.ok) {
+        const data = await categoriesRes.json();
+        setCategories(data);
+      }
     } catch (error) {
-      console.error('Error fetching runbooks:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const createCategory = async () => {
+    if (!newFolderName.trim()) return;
+    
+    setCreatingFolder(true);
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newFolderName.trim(),
+          type: 'runbook',
+          color: newFolderColor
+        })
+      });
+      
+      if (response.ok) {
+        const newCategory = await response.json();
+        setCategories([...categories, newCategory]);
+        setNewFolderName('');
+        setShowNewFolder(false);
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    if (!confirm('Delete this folder? Runbooks inside will be moved to "Uncategorized".')) return;
+    
+    try {
+      const response = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setCategories(categories.filter(c => c.id !== id));
+        if (selectedCategory === id) setSelectedCategory(null);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
     }
   };
 
@@ -44,9 +131,7 @@ export default function RunbooksPage() {
     
     setDeleteId(id);
     try {
-      const response = await fetch(`/api/runbooks/${id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(`/api/runbooks/${id}`, { method: 'DELETE' });
       if (response.ok) {
         setRunbooks(runbooks.filter(r => r.id !== id));
       }
@@ -57,10 +142,35 @@ export default function RunbooksPage() {
     }
   };
 
-  const filteredRunbooks = runbooks.filter(r => 
-    r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Get runbooks for current view
+  const getFilteredRunbooks = () => {
+    let filtered = runbooks;
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(r => r.category_id === selectedCategory);
+    } else if (selectedCategory === null && categories.length > 0) {
+      // Show uncategorized when "All" is selected but we have categories
+      // Actually show all runbooks in this case
+    }
+    
+    if (searchQuery) {
+      filtered = filtered.filter(r => 
+        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  };
+
+  // Count runbooks per category
+  const getCategoryCount = (categoryId: string) => {
+    return runbooks.filter(r => r.category_id === categoryId).length;
+  };
+
+  const getUncategorizedCount = () => {
+    return runbooks.filter(r => !r.category_id).length;
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -74,32 +184,116 @@ export default function RunbooksPage() {
     return sections?.reduce((acc, section) => acc + (section.blocks?.length || 0), 0) || 0;
   };
 
+  const filteredRunbooks = getFilteredRunbooks();
+  const selectedCategoryData = categories.find(c => c.id === selectedCategory);
+
   return (
     <div className="max-w-6xl mx-auto">
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-1">My Runbooks</h1>
-          <p className="text-slate-400">Manage all your technical procedures</p>
+        <div className="flex items-center gap-3">
+          {selectedCategory && (
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">
+              {selectedCategory 
+                ? selectedCategoryData?.name || 'Folder' 
+                : 'My Runbooks'
+              }
+            </h1>
+            <p className="text-slate-400">
+              {selectedCategory 
+                ? `${filteredRunbooks.length} runbooks in this folder`
+                : `${runbooks.length} runbooks • ${categories.length} folders`
+              }
+            </p>
+          </div>
         </div>
-        <Link
-          href="/dashboard/create"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white text-sm font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20"
-        >
-          <Plus size={18} />
-          New Runbook
-        </Link>
+        <div className="flex items-center gap-2">
+          {!selectedCategory && (
+            <button
+              onClick={() => setShowNewFolder(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium hover:bg-slate-700 transition-colors"
+            >
+              <FolderPlus size={18} />
+              <span className="hidden sm:inline">New Folder</span>
+            </button>
+          )}
+          <Link
+            href="/dashboard/create"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white text-sm font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20"
+          >
+            <Plus size={18} />
+            New Runbook
+          </Link>
+        </div>
       </motion.div>
 
-      {/* Search and Filter */}
+      {/* New Folder Modal */}
+      <AnimatePresence>
+        {showNewFolder && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6 p-4 bg-slate-900 border border-slate-700 rounded-xl"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <input
+                type="text"
+                placeholder="Folder name (e.g., Course 1, Personal)"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && createCategory()}
+                autoFocus
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
+              />
+              <button
+                onClick={createCategory}
+                disabled={!newFolderName.trim() || creatingFolder}
+                className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingFolder ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+              </button>
+              <button
+                onClick={() => { setShowNewFolder(false); setNewFolderName(''); }}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">Color:</span>
+              {colorOptions.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => setNewFolderColor(color.name)}
+                  className={`w-6 h-6 rounded-full ${color.bg} ${color.border} border-2 ${
+                    newFolderColor === color.name ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''
+                  }`}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Search */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="flex flex-col sm:flex-row gap-4 mb-6"
+        className="flex gap-4 mb-6"
       >
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -111,118 +305,229 @@ export default function RunbooksPage() {
             className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors"
           />
         </div>
+        <div className="flex bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-2.5 ${viewMode === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}
+          >
+            <Grid size={18} />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-2.5 ${viewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}
+          >
+            <List size={18} />
+          </button>
+        </div>
       </motion.div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
           <Loader2 size={32} className="text-teal-500 animate-spin" />
         </div>
       )}
 
-      {/* Empty State */}
-      {!isLoading && filteredRunbooks.length === 0 && (
+      {/* Folders Grid (only when not in a folder) */}
+      {!isLoading && !selectedCategory && categories.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center"
+          transition={{ delay: 0.15 }}
+          className="mb-8"
         >
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
-            <FileText size={32} className="text-slate-600" />
+          <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">Folders</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {categories.map((category, index) => {
+              const colors = getColorClasses(category.color);
+              const count = getCategoryCount(category.id);
+              return (
+                <motion.button
+                  key={category.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 + index * 0.03 }}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`group relative p-4 ${colors.bg} ${colors.border} border rounded-xl text-left hover:scale-[1.02] transition-all`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <Folder size={24} className={colors.text} />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteCategory(category.id); }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <h3 className="font-medium text-white truncate">{category.name}</h3>
+                  <p className="text-sm text-slate-400">{count} runbooks</p>
+                </motion.button>
+              );
+            })}
+            
+            {/* Uncategorized folder */}
+            {getUncategorizedCount() > 0 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 + categories.length * 0.03 }}
+                onClick={() => setSelectedCategory('uncategorized')}
+                className="group relative p-4 bg-slate-800/50 border border-slate-700 rounded-xl text-left hover:scale-[1.02] transition-all"
+              >
+                <Folder size={24} className="text-slate-500 mb-2" />
+                <h3 className="font-medium text-white truncate">Uncategorized</h3>
+                <p className="text-sm text-slate-400">{getUncategorizedCount()} runbooks</p>
+              </motion.button>
+            )}
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">
-            {searchQuery ? 'No runbooks found' : 'No runbooks yet'}
-          </h3>
-          <p className="text-slate-400 mb-6 max-w-md mx-auto">
-            {searchQuery 
-              ? 'Try a different search term'
-              : 'Create your first runbook to start documenting your technical procedures.'
-            }
-          </p>
-          {!searchQuery && (
-            <Link
-              href="/dashboard/create"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20"
-            >
-              <Plus size={18} />
-              Create Runbook
-            </Link>
-          )}
         </motion.div>
       )}
 
-      {/* Runbooks List */}
-      {!isLoading && filteredRunbooks.length > 0 && (
+      {/* Runbooks Section */}
+      {!isLoading && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="space-y-3 sm:space-y-4"
         >
-          {filteredRunbooks.map((runbook, index) => (
-            <motion.div
-              key={runbook.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + index * 0.05 }}
-              className="group p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0">
-                  <Link 
-                    href={`/dashboard/runbooks/${runbook.id}`}
-                    className="block"
-                  >
-                    <h3 className="text-base sm:text-lg font-semibold text-white mb-1 group-hover:text-teal-400 transition-colors truncate">
+          {!selectedCategory && categories.length > 0 && filteredRunbooks.length > 0 && (
+            <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">
+              {searchQuery ? 'Search Results' : 'All Runbooks'}
+            </h2>
+          )}
+
+          {/* Empty State */}
+          {filteredRunbooks.length === 0 && (
+            <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
+                <FileText size={32} className="text-slate-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                {searchQuery ? 'No runbooks found' : selectedCategory ? 'Empty folder' : 'No runbooks yet'}
+              </h3>
+              <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                {searchQuery 
+                  ? 'Try a different search term'
+                  : selectedCategory 
+                    ? 'Create a runbook and add it to this folder'
+                    : 'Create your first runbook to start documenting your technical procedures.'
+                }
+              </p>
+              {!searchQuery && (
+                <Link
+                  href="/dashboard/create"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20"
+                >
+                  <Plus size={18} />
+                  Create Runbook
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Grid View */}
+          {filteredRunbooks.length > 0 && viewMode === 'grid' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredRunbooks.map((runbook, index) => (
+                <motion.div
+                  key={runbook.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 + index * 0.03 }}
+                  className="group p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+                >
+                  <Link href={`/dashboard/runbooks/${runbook.id}`}>
+                    <h3 className="font-semibold text-white mb-2 group-hover:text-teal-400 transition-colors line-clamp-1">
                       {runbook.title}
                     </h3>
-                  </Link>
-                  {runbook.description && (
-                    <p className="text-slate-400 text-sm mb-2 sm:mb-3 line-clamp-2">
-                      {runbook.description}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-500">
-                    <span>{runbook.sections?.length || 0} sections</span>
-                    <span className="hidden sm:inline">•</span>
-                    <span>{countBlocks(runbook.sections)} blocks</span>
-                    <span className="hidden sm:inline">•</span>
-                    <span className="text-slate-600 sm:text-slate-500">Updated {formatDate(runbook.updated_at)}</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-1 sm:gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                  <Link
-                    href={`/dashboard/runbooks/${runbook.id}`}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors sm:p-2"
-                  >
-                    <Eye size={18} />
-                    <span className="text-sm sm:hidden">View</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/runbooks/${runbook.id}/edit`}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors sm:p-2"
-                  >
-                    <Edit size={18} />
-                    <span className="text-sm sm:hidden">Edit</span>
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(runbook.id)}
-                    disabled={deleteId === runbook.id}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 sm:p-2"
-                  >
-                    {deleteId === runbook.id ? (
-                      <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={18} />
+                    {runbook.description && (
+                      <p className="text-slate-400 text-sm mb-3 line-clamp-2">{runbook.description}</p>
                     )}
-                    <span className="text-sm sm:hidden">Delete</span>
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+                  </Link>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{runbook.sections?.length || 0} sections • {countBlocks(runbook.sections)} blocks</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-800">
+                    <span className="text-xs text-slate-600">{formatDate(runbook.updated_at)}</span>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/dashboard/runbooks/${runbook.id}`}
+                        className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                      >
+                        <Eye size={16} />
+                      </Link>
+                      <Link
+                        href={`/dashboard/runbooks/${runbook.id}/edit`}
+                        className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                      >
+                        <Edit size={16} />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(runbook.id)}
+                        disabled={deleteId === runbook.id}
+                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded transition-colors disabled:opacity-50"
+                      >
+                        {deleteId === runbook.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* List View */}
+          {filteredRunbooks.length > 0 && viewMode === 'list' && (
+            <div className="space-y-3">
+              {filteredRunbooks.map((runbook, index) => (
+                <motion.div
+                  key={runbook.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 + index * 0.03 }}
+                  className="group p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/dashboard/runbooks/${runbook.id}`}>
+                        <h3 className="font-semibold text-white group-hover:text-teal-400 transition-colors truncate">
+                          {runbook.title}
+                        </h3>
+                      </Link>
+                      <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                        <span>{runbook.sections?.length || 0} sections</span>
+                        <span>•</span>
+                        <span>{countBlocks(runbook.sections)} blocks</span>
+                        <span>•</span>
+                        <span>{formatDate(runbook.updated_at)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/dashboard/runbooks/${runbook.id}`}
+                        className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <Eye size={18} />
+                      </Link>
+                      <Link
+                        href={`/dashboard/runbooks/${runbook.id}/edit`}
+                        className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <Edit size={18} />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(runbook.id)}
+                        disabled={deleteId === runbook.id}
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {deleteId === runbook.id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </motion.div>
       )}
     </div>
