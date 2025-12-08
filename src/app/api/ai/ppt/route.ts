@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { generatePPTXBuffer, PresentationData } from '@/lib/pptx-generator';
 
 const anthropic = new Anthropic();
 
@@ -13,115 +14,164 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { topic, style = 'workshop', slideCount = 15, additionalContext = '' } = body;
+    const { topic, style = 'workshop', slideCount = 14, additionalContext = '', generateFile = true, organization = '' } = body;
 
     if (!topic) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
 
-    const styleGuides: Record<string, string> = {
-      workshop: `Create an interactive workshop presentation with:
-        - Hands-on exercises and labs
-        - Step-by-step instructions
-        - Practice scenarios
-        - Clear learning objectives
-        - Technical depth with practical examples`,
-      training: `Create a comprehensive training presentation with:
-        - Module-based structure
-        - Theory followed by practical application
-        - Assessment checkpoints
-        - Key takeaways per section
-        - Progressive difficulty`,
-      overview: `Create a high-level overview presentation with:
-        - Executive summary style
-        - Key concepts and benefits
-        - Architecture diagrams (describe them)
-        - Use cases and examples
-        - Clear value proposition`,
-      technical: `Create a deep technical presentation with:
-        - Detailed architecture explanations
-        - Code examples and configurations
-        - Best practices and patterns
-        - Troubleshooting guides
-        - Performance considerations`
-    };
+    const systemPrompt = `You are an expert presentation designer creating professional enterprise training presentations.
 
-    const systemPrompt = `You are an expert presentation designer specializing in technical content. Create professional, visually-oriented slide content.
+OUTPUT FORMAT: Return a JSON object with this structure:
+{
+  "title": "Main presentation title",
+  "subtitle": "Training subtitle or tagline",
+  "author": "Author name",
+  "organization": "Organization name",
+  "slides": [array of slide objects]
+}
 
-For each slide, provide:
-1. title: Clear, concise title (max 8 words)
-2. layout: One of: "title", "content", "two-column", "image-text", "bullets", "code", "diagram", "quote"
-3. content: Main content (be concise, use bullet points where appropriate)
-4. speakerNotes: What the presenter should say (2-3 sentences)
-5. visualSuggestion: Description of any diagram, chart, or visual element
+AVAILABLE SLIDE LAYOUTS (use these exactly):
 
-IMPORTANT RULES:
-- Keep text minimal - presentations are visual, not documents
-- Maximum 5-6 bullet points per slide
-- Each bullet should be 1-2 lines max
-- Use concrete examples and real-world scenarios
-- Include code snippets where relevant (keep them short, 5-10 lines max)
-- For diagrams, describe what should be shown clearly
+1. "title" - Opening slide
+   Required: title, subtitle, content (topic keywords separated by " • ")
 
-Output as JSON array of slide objects.`;
+2. "agenda" - Two-column numbered list
+   Required: title, leftColumn, rightColumn
+   Format: { "title": "Agenda Title", "items": [{"title": "Item text"}, ...] }
 
-    const userPrompt = `Create a ${slideCount}-slide presentation about: "${topic}"
+3. "pain-points" - Red warning cards (for challenges/problems)
+   Required: title, items
+   Format: [{"title": "Issue name", "description": "Details", "type": "danger"}, ...]
 
-Style: ${styleGuides[style] || styleGuides.workshop}
+4. "two-column" - Benefits vs Considerations
+   Required: title, leftColumn (benefits), rightColumn (considerations), optional keyInsight
+   Format: leftColumn/rightColumn: { "title": "BENEFITS", "items": [{"title": "Benefit", "description": "Detail"}, ...] }
+   keyInsight: { "title": "KEY INSIGHT", "content": "Important point" }
 
+5. "comparison" - Before/After or Challenges/Solutions columns
+   Required: title, leftColumn, rightColumn
+   Format: leftColumn: { "title": "CHALLENGES", "items": [{"title": "Challenge text"}, ...] }
+   rightColumn: { "title": "SOLUTIONS", "items": [{"title": "Solution text"}, ...] }
+
+6. "three-column" - Category columns (great for security, architecture layers)
+   Required: title, columns, optional keyInsight
+   Format: columns: [{ "title": "Category Name", "items": ["Item 1", "Item 2", ...] }, ...]
+
+7. "table" - Comparison table
+   Required: title, tableData
+   Format: tableData: { "headers": ["", "Option 1", "Option 2", ...], "rows": [["Feature", "Value", "Value", ...], ...] }
+   Use ✓ for recommended, ✗ for not recommended
+
+8. "problems" - Problem → Solution pairs (for troubleshooting)
+   Required: title, problems
+   Format: [{ "problem": "Problem description", "solution": "Solution description" }, ...]
+
+9. "operations" - Day-2 operations with commands
+   Required: title, operations
+   Format: [{ "title": "Operation name", "description": "What it does", "command": "kubectl command" }, ...]
+
+10. "content" - Generic content cards
+    Required: title, items, optional keyInsight
+    Format: [{ "title": "Point", "description": "Details", "type": "success|warning|danger|info" }, ...]
+
+11. "takeaways" - Key takeaways (navy background)
+    Required: title, items
+    Format: [{ "title": "Takeaway point" }, ...]
+
+12. "questions" - Closing Q&A slide
+    Required: title, optional subtitle, optional items (for resource links)
+    Format items: [{ "title": "DOCS", "description": "example.com" }, ...]
+
+RULES:
+- Maximum 5-6 items per section/column
+- Keep text concise (titles max 6 words, descriptions max 15 words)
+- Use appropriate layouts for content type
+- Include speakerNotes for presenter guidance
+- First slide must be "title" layout
+- Last slide should be "questions" layout
+- Second-to-last should be "takeaways" layout
+
+Return ONLY valid JSON.`;
+
+    const userPrompt = `Create a ${slideCount}-slide ${style} presentation about: "${topic}"
+
+${organization ? `Organization: ${organization}` : ''}
 ${additionalContext ? `Additional context: ${additionalContext}` : ''}
 
-Structure the presentation with:
-1. Title slide
-2. Agenda/Overview slide
-3. Main content slides (organized logically)
-4. Summary/Key Takeaways slide
-5. Q&A or Next Steps slide
+STRUCTURE FOR ${slideCount} SLIDES:
+1. Title slide (layout: "title")
+2. Agenda (layout: "agenda")
+3-${slideCount - 2}. Content slides - use variety of layouts:
+   - "pain-points" for challenges/problems
+   - "two-column" for benefits vs considerations  
+   - "comparison" for before/after transformations
+   - "three-column" for categorized features (security, architecture)
+   - "table" for feature comparisons
+   - "problems" for troubleshooting guides
+   - "operations" for commands/procedures
+   - "content" for general information
+${slideCount - 1}. Key Takeaways (layout: "takeaways")
+${slideCount}. Questions (layout: "questions")
 
-Return ONLY a valid JSON array, no markdown formatting.`;
+Match the professional quality of enterprise training presentations. Return ONLY JSON.`;
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 8000,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ],
+      messages: [{ role: 'user', content: userPrompt }],
       system: systemPrompt
     });
 
-    // Extract text content
     const textContent = response.content.find(block => block.type === 'text');
     if (!textContent || textContent.type !== 'text') {
       return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });
     }
 
-    // Parse JSON response
-    let slides;
+    let presentationData: PresentationData;
     try {
-      // Clean up the response - remove markdown code blocks if present
       let jsonText = textContent.text.trim();
       if (jsonText.startsWith('```')) {
         jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
       }
-      slides = JSON.parse(jsonText);
+      presentationData = JSON.parse(jsonText);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      console.error('Raw response:', textContent.text);
       return NextResponse.json({ 
         error: 'Failed to parse presentation structure',
         rawContent: textContent.text 
       }, { status: 500 });
     }
 
-    // Generate presentation metadata
-    const presentation = {
-      title: topic,
+    // Validate structure
+    if (!presentationData.slides || !Array.isArray(presentationData.slides)) {
+      return NextResponse.json({ error: 'Invalid presentation structure' }, { status: 500 });
+    }
+
+    // Set defaults
+    presentationData.organization = presentationData.organization || organization || 'RunbookForge';
+    presentationData.author = presentationData.author || 'RunbookForge';
+
+    // Generate PPTX file
+    let pptxBase64: string | undefined;
+    if (generateFile) {
+      try {
+        const buffer = await generatePPTXBuffer(presentationData);
+        pptxBase64 = buffer.toString('base64');
+      } catch (pptxError) {
+        console.error('PPTX generation error:', pptxError);
+      }
+    }
+
+    const result = {
+      title: presentationData.title || topic,
+      subtitle: presentationData.subtitle,
+      author: presentationData.author,
+      organization: presentationData.organization,
       style,
-      slideCount: slides.length,
-      slides,
+      slideCount: presentationData.slides.length,
+      slides: presentationData.slides,
+      pptxBase64,
       createdAt: new Date().toISOString(),
       metadata: {
         model: 'claude-sonnet-4-20250514',
@@ -129,7 +179,7 @@ Return ONLY a valid JSON array, no markdown formatting.`;
       }
     };
 
-    return NextResponse.json(presentation);
+    return NextResponse.json(result);
 
   } catch (error) {
     console.error('Error in POST /api/ai/ppt:', error);

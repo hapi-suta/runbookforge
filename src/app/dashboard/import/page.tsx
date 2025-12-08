@@ -74,6 +74,9 @@ interface PPTData {
   style: string;
   slideCount: number;
   slides: Slide[];
+  pptxBase64?: string;
+  author?: string;
+  organization?: string;
 }
 
 interface Category {
@@ -277,7 +280,9 @@ export default function AIPage() {
           topic: pptTopic,
           style: pptStyle,
           slideCount: pptSlideCount,
-          additionalContext: pptContext
+          additionalContext: pptContext,
+          generateFile: true,
+          organization: 'RunbookForge'
         }),
       });
 
@@ -293,6 +298,30 @@ export default function AIPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Download PPTX file
+  const handleDownloadPPTX = () => {
+    if (!pptResult?.pptxBase64) return;
+    
+    // Convert base64 to blob
+    const byteCharacters = atob(pptResult.pptxBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${pptResult.title.replace(/[^a-z0-9]/gi, '_')}.pptx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleSavePPT = async () => {
@@ -796,6 +825,16 @@ export default function AIPage() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3">
+                {/* Download PPTX Button */}
+                {pptResult.pptxBase64 && (
+                  <button
+                    onClick={handleDownloadPPTX}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 rounded-lg text-white font-semibold hover:bg-blue-600 transition-all"
+                  >
+                    <Download size={18} />
+                    Download PPTX
+                  </button>
+                )}
                 <button
                   onClick={handleSavePPT}
                   disabled={isSaving}
