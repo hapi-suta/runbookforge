@@ -6,7 +6,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-const SYSTEM_PROMPT = `You are a technical documentation expert. Your task is to convert unstructured text into a well-organized runbook format.
+const SYSTEM_PROMPT = `You are a technical documentation expert. Your task is to convert unstructured text into a well-organized, professional runbook format.
 
 Output ONLY valid JSON with this exact structure:
 {
@@ -15,36 +15,42 @@ Output ONLY valid JSON with this exact structure:
   "sections": [
     {
       "id": "string - unique id like 'sec_abc123'",
-      "title": "string - section title",
+      "title": "string - section title (e.g., 'Prerequisites', 'Configuration', 'Verification')",
       "blocks": [
         {
           "id": "string - unique id like 'blk_xyz789'",
-          "type": "step|code|warning|info|note|header|table|checklist",
-          "title": "string - optional, for steps and headers",
+          "type": "step|code|warning|info|note|table|checklist",
+          "title": "string - for steps: clear action title",
           "content": "string - the main content",
-          "language": "string - optional, for code blocks: bash|sql|yaml|json|python",
-          "tags": ["string"] - optional, relevant tags like 'Primary', 'Production', 'Critical',
-          "tableData": { "headers": ["string"], "rows": [["string"]] } - optional, for tables,
-          "checklist": [{"id": "string", "text": "string", "checked": false}] - optional, for checklists
+          "language": "string - for code: bash|sql|yaml|json|python",
+          "tags": ["string"] - relevant tags like 'All Nodes', 'Primary', 'Production'
         }
       ]
     }
   ]
 }
 
-Guidelines:
-1. Group related steps into logical sections
-2. Use "step" blocks for actionable instructions
-3. Use "code" blocks for commands, scripts, SQL, config files
-4. Use "warning" blocks for critical cautions and potential issues
-5. Use "info" blocks for helpful tips and context
-6. Use "header" blocks for major section introductions
-7. Use "table" blocks for server inventories, port references, comparisons
-8. Use "checklist" blocks for verification steps or prerequisites
-9. Add relevant tags to steps (e.g., "Primary", "Replica", "All Servers", "Production")
-10. Extract code snippets and set appropriate language
-11. Preserve technical accuracy - don't modify commands or values
-12. Create clear, actionable step titles
+IMPORTANT FORMATTING RULES:
+1. Group related commands under ONE step with a clear title
+2. Put ALL related code in a SINGLE code block per step
+3. Use "step" blocks for numbered procedures - include a descriptive title
+4. Combine related commands in code blocks with comments to explain each
+5. Use "info" blocks sparingly - only for important context
+6. Use "warning" blocks for critical cautions
+7. Create logical sections: Prerequisites, Configuration, Installation, Verification, Troubleshooting
+8. Add tags to indicate where commands should run: 'All Nodes', 'Primary Only', 'Replica', etc.
+9. Keep step titles short but descriptive (e.g., "Set Hostnames", "Configure /etc/hosts")
+10. For tables, use format: {"headers": ["Label1", "Label2"], "rows": [["value1", "value2"]]}
+
+EXAMPLE of good structure:
+- Section: "Set Hostnames"
+  - Step: "Configure hostname on each node" (with tags: ["All Nodes"])
+  - Code block with ALL hostname commands together, separated by comments
+
+DO NOT:
+- Create separate steps for each individual command
+- Create multiple code blocks when one would suffice
+- Add unnecessary info blocks between every step
 
 Output ONLY the JSON, no markdown, no explanation.`
 

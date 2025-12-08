@@ -8,21 +8,17 @@ import {
   ArrowLeft, 
   Edit, 
   Trash2, 
-  Share2, 
   Loader2,
   CheckCircle,
-  Code,
   AlertTriangle,
   Info,
   FileText,
-  Table,
-  LayoutGrid,
-  Columns,
-  ListChecks,
   Tag,
-  Play,
   Copy,
-  Check
+  Check,
+  ExternalLink,
+  BookOpen,
+  Play
 } from "lucide-react";
 
 interface Block {
@@ -57,7 +53,7 @@ interface Runbook {
   updated_at: string;
 }
 
-function CodeBlock({ content, language }: { content: string; language?: string }) {
+function CodeBlock({ content, language, tags }: { content: string; language?: string; tags?: string[] }) {
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {
@@ -67,155 +63,107 @@ function CodeBlock({ content, language }: { content: string; language?: string }
   };
 
   return (
-    <div className="relative group">
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700 rounded-t-lg">
+    <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-900">
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
         <span className="text-xs text-slate-400 font-mono">{language || 'bash'}</span>
-        <button 
-          onClick={copyToClipboard}
-          className="text-slate-400 hover:text-white transition-colors"
-        >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-        </button>
+        <div className="flex items-center gap-2">
+          {tags?.map(tag => (
+            <span key={tag} className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded border border-teal-500/30">
+              {tag}
+            </span>
+          ))}
+          <button 
+            onClick={copyToClipboard}
+            className="p-1 text-slate-400 hover:text-white transition-colors"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
       </div>
-      <pre className="p-4 bg-slate-900 border border-t-0 border-slate-700 rounded-b-lg overflow-x-auto">
-        <code className="text-sm text-slate-300 font-mono">{content}</code>
+      <pre className="p-4 overflow-x-auto">
+        <code className="text-sm text-emerald-400 font-mono whitespace-pre">{content}</code>
       </pre>
     </div>
   );
 }
 
-function BlockRenderer({ block }: { block: Block }) {
+function StepBlock({ block, stepNumber }: { block: Block; stepNumber: number }) {
+  return (
+    <div className="flex gap-4">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold text-sm">
+        {stepNumber}
+      </div>
+      <div className="flex-1 space-y-3">
+        {block.title && <h3 className="text-lg font-semibold text-white">{block.title}</h3>}
+        {block.content && (
+          <div 
+            className="prose prose-invert prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: number }) {
   switch (block.type) {
     case 'step':
-      return (
-        <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
-          <div className="flex items-start gap-3">
-            <div className="mt-1 w-6 h-6 rounded-full bg-teal-500/20 flex items-center justify-center">
-              <CheckCircle size={14} className="text-teal-400" />
-            </div>
-            <div className="flex-1">
-              {block.title && <h4 className="text-white font-medium mb-2">{block.title}</h4>}
-              {block.tags && block.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {block.tags.map(tag => (
-                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded border border-teal-500/30">
-                      <Tag size={10} />{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {block.content && (
-                <div 
-                  className="prose prose-invert prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: block.content }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      );
+      return <StepBlock block={block} stepNumber={stepNumber || 1} />;
 
     case 'code':
-      return (
-        <div>
-          {block.tags && block.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {block.tags.map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-500/20 text-slate-400 text-xs rounded border border-slate-500/30">
-                  <Tag size={10} />{tag}
-                </span>
-              ))}
-            </div>
-          )}
-          <CodeBlock content={block.content} language={block.language} />
-        </div>
-      );
+      return <CodeBlock content={block.content} language={block.language} tags={block.tags} />;
 
     case 'warning':
       return (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="text-amber-400 mt-0.5" />
-            <div className="flex-1">
-              {block.tags && block.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {block.tags.map(tag => (
-                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded border border-amber-500/30">
-                      <Tag size={10} />{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div 
-                className="prose prose-invert prose-sm max-w-none prose-p:text-amber-200"
-                dangerouslySetInnerHTML={{ __html: block.content }}
-              />
-            </div>
-          </div>
+        <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+          <div 
+            className="prose prose-invert prose-sm max-w-none prose-p:text-amber-200"
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
         </div>
       );
 
     case 'info':
       return (
-        <div className="p-4 bg-sky-500/10 border border-sky-500/30 rounded-lg">
-          <div className="flex items-start gap-3">
-            <Info size={18} className="text-sky-400 mt-0.5" />
-            <div 
-              className="prose prose-invert prose-sm max-w-none prose-p:text-sky-200"
-              dangerouslySetInnerHTML={{ __html: block.content }}
-            />
-          </div>
+        <div className="flex items-start gap-3 p-4 bg-sky-500/10 border border-sky-500/30 rounded-lg">
+          <Info size={20} className="text-sky-400 flex-shrink-0 mt-0.5" />
+          <div 
+            className="prose prose-invert prose-sm max-w-none prose-p:text-sky-200"
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
         </div>
       );
 
     case 'note':
       return (
-        <div className="p-4 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-          <div className="flex items-start gap-3">
-            <FileText size={18} className="text-violet-400 mt-0.5" />
-            <div 
-              className="prose prose-invert prose-sm max-w-none prose-p:text-violet-200"
-              dangerouslySetInnerHTML={{ __html: block.content }}
-            />
-          </div>
+        <div className="flex items-start gap-3 p-4 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+          <FileText size={20} className="text-violet-400 flex-shrink-0 mt-0.5" />
+          <div 
+            className="prose prose-invert prose-sm max-w-none prose-p:text-violet-200"
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
         </div>
       );
 
     case 'header':
-      return (
-        <div className="p-4 bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/30 rounded-lg">
-          {block.title && <h3 className="text-xl font-semibold text-teal-400 mb-1">{block.title}</h3>}
-          {block.content && (
-            <div 
-              className="prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: block.content }}
-            />
-          )}
-        </div>
-      );
+      return null; // Headers are rendered as section titles
 
     case 'table':
       if (!block.tableData) return null;
       return (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-slate-700 rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-slate-800">
-                {block.tableData.headers.map((header, i) => (
-                  <th key={i} className="px-4 py-3 text-left text-slate-300 font-medium border-b border-slate-700">
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        <div className="overflow-x-auto border border-slate-700 rounded-lg">
+          <table className="w-full text-sm">
             <tbody>
-              {block.tableData.rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-b border-slate-800 last:border-0">
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-4 py-3 text-slate-400">
-                      {cell}
-                    </td>
-                  ))}
+              {block.tableData.headers.map((header, i) => (
+                <tr key={i} className="border-b border-slate-800 last:border-0">
+                  <td className="px-4 py-3 text-slate-400 font-medium bg-slate-800/50 w-1/4">
+                    {header}:
+                  </td>
+                  <td className="px-4 py-3 text-white font-medium">
+                    {block.tableData!.rows[0]?.[i] || ''}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -230,7 +178,7 @@ function BlockRenderer({ block }: { block: Block }) {
           {block.cards.map((card, i) => (
             <div key={i} className="p-4 bg-slate-800 border border-slate-700 rounded-lg">
               <div className="text-sm font-medium text-teal-400 mb-1">{card.title}</div>
-              <div className="text-xs text-slate-400 font-mono">{card.content}</div>
+              <div className="text-xs text-slate-400">{card.content}</div>
             </div>
           ))}
         </div>
@@ -269,10 +217,10 @@ function BlockRenderer({ block }: { block: Block }) {
     case 'checklist':
       if (!block.checklist) return null;
       return (
-        <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg space-y-2">
+        <div className="space-y-2">
           {block.checklist.map((item) => (
-            <div key={item.id} className="flex items-center gap-3">
-              <div className={`w-5 h-5 rounded border flex items-center justify-center ${item.checked ? 'bg-teal-500 border-teal-500' : 'border-slate-600'}`}>
+            <div key={item.id} className="flex items-center gap-3 p-2">
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${item.checked ? 'bg-teal-500 border-teal-500' : 'border-slate-600'}`}>
                 {item.checked && <Check size={12} className="text-white" />}
               </div>
               <span className={`text-sm ${item.checked ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
@@ -285,12 +233,10 @@ function BlockRenderer({ block }: { block: Block }) {
 
     default:
       return (
-        <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
-          <div 
-            className="prose prose-invert prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: block.content }}
-          />
-        </div>
+        <div 
+          className="prose prose-invert prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: block.content }}
+        />
       );
   }
 }
@@ -302,6 +248,7 @@ export default function ViewRunbookPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeSection, setActiveSection] = useState(0);
 
   useEffect(() => {
     fetchRunbook();
@@ -344,14 +291,21 @@ export default function ViewRunbookPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+  // Extract all unique tags from blocks
+  const getAllTags = () => {
+    if (!runbook) return [];
+    const tags = new Set<string>();
+    runbook.sections.forEach(section => {
+      section.blocks.forEach(block => {
+        block.tags?.forEach(tag => tags.add(tag));
+      });
     });
+    return Array.from(tags);
+  };
+
+  // Count steps in a section
+  const countSteps = (section: Section) => {
+    return section.blocks.filter(b => b.type === 'step').length;
   };
 
   if (isLoading) {
@@ -377,89 +331,156 @@ export default function ViewRunbookPage() {
     );
   }
 
+  const allTags = getAllTags();
+  const currentSection = runbook.sections[activeSection];
+
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+    <div className="flex gap-6 max-w-7xl mx-auto">
+      {/* Left Sidebar */}
+      <motion.aside
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="w-64 flex-shrink-0"
       >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard/runbooks" className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
-              <ArrowLeft size={20} />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-white">{runbook.title}</h1>
-              {runbook.description && (
-                <p className="text-slate-400 mt-1">{runbook.description}</p>
-              )}
+        <div className="sticky top-24 space-y-4">
+          {/* Runbook Info */}
+          <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center">
+                <BookOpen size={20} className="text-white" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-white text-sm line-clamp-1">{runbook.title}</h2>
+                <p className="text-xs text-slate-500">Runbook</p>
+              </div>
+            </div>
+            
+            {/* Tags */}
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {allTags.slice(0, 4).map(tag => (
+                  <span key={tag} className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded border border-teal-500/30">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Section Navigation */}
+            <nav className="space-y-1">
+              {runbook.sections.map((section, index) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(index)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    activeSection === index
+                      ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {index + 1}. {section.title}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Quick Links - Example */}
+          <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl">
+            <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">Quick Links</h3>
+            <div className="space-y-2">
+              <a href="#" className="flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300">
+                <ExternalLink size={14} />
+                Documentation
+              </a>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/runbooks/${runbook.id}/edit`}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg text-white text-sm hover:bg-slate-700 transition-colors"
-            >
-              <Edit size={16} />
-              Edit
-            </Link>
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm hover:bg-red-500/20 transition-colors disabled:opacity-50"
-            >
-              {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              Delete
-            </button>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4 text-sm text-slate-500">
-          <span>Updated {formatDate(runbook.updated_at)}</span>
-          <span>•</span>
-          <span>{runbook.sections?.length || 0} sections</span>
-        </div>
-      </motion.div>
 
-      {/* Content */}
-      <motion.div
+          {/* Edit Mode Button */}
+          <Link
+            href={`/dashboard/runbooks/${runbook.id}/edit`}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-medium hover:from-teal-600 hover:to-emerald-600 transition-all"
+          >
+            <Edit size={16} />
+            Enable Edit Mode
+          </Link>
+
+          {/* Delete Button */}
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-red-500/30 rounded-xl text-red-400 text-sm hover:bg-red-500/10 transition-colors disabled:opacity-50"
+          >
+            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            Delete Runbook
+          </button>
+        </div>
+      </motion.aside>
+
+      {/* Main Content */}
+      <motion.main
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="space-y-8"
+        className="flex-1 min-w-0"
       >
-        {runbook.sections?.length === 0 ? (
-          <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
-            <p className="text-slate-400 mb-4">This runbook is empty.</p>
-            <Link
-              href={`/dashboard/runbooks/${runbook.id}/edit`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 rounded-lg text-white hover:bg-teal-600 transition-colors"
-            >
-              <Edit size={16} />
-              Add Content
-            </Link>
-          </div>
-        ) : (
-          runbook.sections?.map((section, sectionIndex) => (
-            <div key={section.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-              <div className="px-6 py-4 bg-slate-800/50 border-b border-slate-800">
-                <h2 className="text-lg font-semibold text-white">{section.title}</h2>
-              </div>
-              <div className="p-6 space-y-4">
-                {section.blocks?.length === 0 ? (
-                  <p className="text-slate-500 text-sm">No content in this section.</p>
-                ) : (
-                  section.blocks?.map((block) => (
-                    <BlockRenderer key={block.id} block={block} />
-                  ))
-                )}
-              </div>
+        {/* Back Button */}
+        <Link href="/dashboard/runbooks" className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors">
+          <ArrowLeft size={16} />
+          Back to Runbooks
+        </Link>
+
+        {/* Section Title */}
+        <h1 className="text-3xl font-bold text-white mb-8">{currentSection?.title}</h1>
+
+        {/* Content */}
+        <div className="space-y-6">
+          {currentSection?.blocks.length === 0 ? (
+            <div className="p-8 bg-slate-900 border border-slate-800 rounded-xl text-center">
+              <p className="text-slate-400">This section is empty.</p>
             </div>
-          ))
-        )}
-      </motion.div>
+          ) : (
+            (() => {
+              let stepCounter = 0;
+              return currentSection?.blocks.map((block) => {
+                if (block.type === 'step') {
+                  stepCounter++;
+                  return (
+                    <div key={block.id} className="space-y-4">
+                      <BlockRenderer block={block} stepNumber={stepCounter} />
+                    </div>
+                  );
+                }
+                return (
+                  <div key={block.id}>
+                    <BlockRenderer block={block} />
+                  </div>
+                );
+              });
+            })()
+          )}
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex items-center justify-between mt-12 pt-6 border-t border-slate-800">
+          <button
+            onClick={() => setActiveSection(prev => Math.max(0, prev - 1))}
+            disabled={activeSection === 0}
+            className="px-4 py-2 text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Previous Section
+          </button>
+          <span className="text-sm text-slate-500">
+            {activeSection + 1} of {runbook.sections.length}
+          </span>
+          <button
+            onClick={() => setActiveSection(prev => Math.min(runbook.sections.length - 1, prev + 1))}
+            disabled={activeSection === runbook.sections.length - 1}
+            className="px-4 py-2 text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next Section →
+          </button>
+        </div>
+      </motion.main>
     </div>
   );
 }

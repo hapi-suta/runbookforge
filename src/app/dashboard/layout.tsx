@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'My Runbooks', href: '/dashboard/runbooks', icon: FileText },
-  { name: 'AI Import', href: '/dashboard/import', icon: Sparkles },
+  { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Shared with Me', href: '/dashboard/shared', icon: Share2 },
 ];

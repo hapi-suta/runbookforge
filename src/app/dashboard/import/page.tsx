@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sparkles, 
@@ -13,16 +14,24 @@ import {
   CheckCircle,
   Table,
   ListChecks,
-  ArrowRight,
   Save,
   RefreshCw,
   X,
   Tag,
-  Copy,
-  Check,
+  Wand2,
   Upload,
-  Wand2
+  PenTool,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  GripVertical,
+  Plus
 } from "lucide-react";
+
+const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { 
+  ssr: false,
+  loading: () => <div className="h-20 bg-slate-800 rounded-lg animate-pulse" />
+});
 
 interface Block {
   id: string;
@@ -39,6 +48,7 @@ interface Section {
   id: string;
   title: string;
   blocks: Block[];
+  isCollapsed?: boolean;
 }
 
 interface RunbookData {
@@ -69,76 +79,68 @@ const blockColors: Record<string, string> = {
   checklist: 'text-pink-400 bg-pink-500/10 border-pink-500/30',
 };
 
-const exampleTexts = [
-  {
-    title: "PostgreSQL Backup",
-    text: `PostgreSQL Backup Procedure
-
-Prerequisites:
-- Ensure pgBackRest is installed
-- Verify backup repository is accessible
-- Check disk space on backup server
-
-Steps:
-
-1. On the primary server, verify PostgreSQL is running:
-systemctl status postgresql
-
-2. Check current backup status:
-sudo -u postgres pgbackrest info
-
-3. Run a full backup:
-sudo -u postgres pgbackrest --stanza=main --type=full backup
-
-WARNING: Do not run backups during peak hours (9 AM - 6 PM)
-
-4. Verify backup completed:
-sudo -u postgres pgbackrest info
-
-5. Test restore capability monthly`
-  },
-  {
-    title: "Kubernetes Deployment",
-    text: `Deploy Application to Kubernetes
-
-Environment: Production cluster (us-east-1)
-
-Server inventory:
-- k8s-master-01: 10.0.1.10 (Control Plane)
-- k8s-worker-01: 10.0.1.11 (Worker)
-- k8s-worker-02: 10.0.1.12 (Worker)
-
-Deployment Steps:
-
-1. Update kubeconfig
-aws eks update-kubeconfig --name prod-cluster --region us-east-1
-
-2. Apply deployment manifest
-kubectl apply -f deployment.yaml
-
-3. Check rollout status
-kubectl rollout status deployment/myapp
-
-4. Verify pods are running
-kubectl get pods -l app=myapp
-
-CRITICAL: Always verify health checks pass before routing traffic
-
-5. Update service
-kubectl apply -f service.yaml`
-  }
+const exampleTopics = [
+  "PostgreSQL High Availability with Patroni",
+  "Kubernetes Pod Debugging",
+  "Docker Container Deployment",
+  "AWS EC2 Instance Setup",
+  "Nginx Load Balancer Configuration",
+  "MySQL Backup and Recovery",
 ];
 
-export default function AIImportPage() {
+export default function AIPage() {
   const router = useRouter();
-  const [text, setText] = useState('');
+  const [activeTab, setActiveTab] = useState<'generate' | 'import'>('generate');
+  
+  // Generate state
+  const [topic, setTopic] = useState('');
+  const [details, setDetails] = useState('');
+  
+  // Import state
+  const [importText, setImportText] = useState('');
+  
+  // Shared state
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RunbookData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleGenerate = async () => {
+    if (!topic.trim()) {
+      setError('Please enter a topic');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, details }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate runbook');
+      }
+
+      // Add isCollapsed to sections
+      data.sections = data.sections.map((s: Section) => ({ ...s, isCollapsed: false }));
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate runbook');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleImport = async () => {
-    if (!text.trim()) {
+    if (!importText.trim()) {
       setError('Please enter some text to convert');
       return;
     }
@@ -151,7 +153,7 @@ export default function AIImportPage() {
       const response = await fetch('/api/ai/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: importText }),
       });
 
       const data = await response.json();
@@ -160,6 +162,7 @@ export default function AIImportPage() {
         throw new Error(data.error || 'Failed to process text');
       }
 
+      data.sections = data.sections.map((s: Section) => ({ ...s, isCollapsed: false }));
       setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process text');
@@ -198,274 +201,439 @@ export default function AIImportPage() {
     }
   };
 
-  const handleTryAgain = () => {
+  const handleReset = () => {
     setResult(null);
     setError(null);
+    setIsEditing(false);
   };
 
-  const loadExample = (example: typeof exampleTexts[0]) => {
-    setText(example.text);
-    setResult(null);
-    setError(null);
+  // Editing functions
+  const updateTitle = (title: string) => {
+    if (result) setResult({ ...result, title });
+  };
+
+  const updateDescription = (description: string) => {
+    if (result) setResult({ ...result, description });
+  };
+
+  const updateSection = (sectionId: string, updates: Partial<Section>) => {
+    if (result) {
+      setResult({
+        ...result,
+        sections: result.sections.map(s => s.id === sectionId ? { ...s, ...updates } : s)
+      });
+    }
+  };
+
+  const deleteSection = (sectionId: string) => {
+    if (result && result.sections.length > 1) {
+      setResult({
+        ...result,
+        sections: result.sections.filter(s => s.id !== sectionId)
+      });
+    }
+  };
+
+  const updateBlock = (sectionId: string, blockId: string, updates: Partial<Block>) => {
+    if (result) {
+      setResult({
+        ...result,
+        sections: result.sections.map(s => 
+          s.id === sectionId 
+            ? { ...s, blocks: s.blocks.map(b => b.id === blockId ? { ...b, ...updates } : b) }
+            : s
+        )
+      });
+    }
+  };
+
+  const deleteBlock = (sectionId: string, blockId: string) => {
+    if (result) {
+      setResult({
+        ...result,
+        sections: result.sections.map(s => 
+          s.id === sectionId 
+            ? { ...s, blocks: s.blocks.filter(b => b.id !== blockId) }
+            : s
+        )
+      });
+    }
   };
 
   const countStats = () => {
-    if (!result) return { sections: 0, steps: 0, codeBlocks: 0, warnings: 0 };
-    
-    let steps = 0, codeBlocks = 0, warnings = 0;
+    if (!result) return { sections: 0, steps: 0, codeBlocks: 0 };
+    let steps = 0, codeBlocks = 0;
     result.sections.forEach(section => {
       section.blocks.forEach(block => {
         if (block.type === 'step') steps++;
         if (block.type === 'code') codeBlocks++;
-        if (block.type === 'warning') warnings++;
       });
     });
-    
-    return { sections: result.sections.length, steps, codeBlocks, warnings };
+    return { sections: result.sections.length, steps, codeBlocks };
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
-            <Sparkles size={20} className="text-white" />
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+            <Sparkles size={24} className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">AI Import</h1>
-            <p className="text-slate-400">Paste your documentation and let AI structure it into a runbook</p>
+            <h1 className="text-2xl font-bold text-white">AI Runbook Builder</h1>
+            <p className="text-slate-400">Generate or import runbooks with AI assistance</p>
           </div>
         </div>
       </motion.div>
 
-      {/* Main Content */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Input Section */}
+      {/* Tabs */}
+      {!result && (
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('generate')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'generate'
+                ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Wand2 size={18} />
+            Generate New
+          </button>
+          <button
+            onClick={() => setActiveTab('import')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'import'
+                ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Upload size={18} />
+            Import Text
+          </button>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
+          <AlertTriangle size={18} className="text-red-400 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Input Section */}
+      {!result && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="space-y-4"
         >
-          <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl">
-            <div className="flex items-center justify-between mb-4">
-              <label className="text-sm font-medium text-slate-300">Paste your text</label>
-              <span className="text-xs text-slate-500">{text.length.toLocaleString()} / 50,000</span>
-            </div>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste your documentation, notes, or procedures here...
+          {activeTab === 'generate' ? (
+            <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  What would you like a runbook for?
+                </label>
+                <input
+                  type="text"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g., PostgreSQL High Availability with Patroni"
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white text-lg placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors"
+                  disabled={isProcessing}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Additional details (optional)
+                </label>
+                <textarea
+                  value={details}
+                  onChange={(e) => setDetails(e.target.value)}
+                  placeholder="Add any specific requirements, tech stack, or context..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors resize-none"
+                  disabled={isProcessing}
+                />
+              </div>
 
-Example:
-- Step-by-step instructions
-- Shell commands
-- Configuration snippets
-- Server information
-- Warnings and notes"
-              rows={16}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm font-mono placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors resize-none"
-              disabled={isProcessing}
-            />
-            
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 mt-4">
+              <div className="flex flex-wrap gap-2 pt-2">
+                <span className="text-xs text-slate-500">Try:</span>
+                {exampleTopics.slice(0, 4).map((t, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setTopic(t)}
+                    className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 hover:text-white hover:border-slate-600"
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
               <button
-                onClick={handleImport}
-                disabled={isProcessing || !text.trim()}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleGenerate}
+                disabled={isProcessing || !topic.trim()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50"
               >
                 {isProcessing ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={20} className="animate-spin" />
+                    Generating Runbook...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={20} />
+                    Generate Runbook
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-300">Paste your text</label>
+                  <span className="text-xs text-slate-500">{importText.length.toLocaleString()} / 50,000</span>
+                </div>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="Paste your documentation, notes, or procedures here..."
+                  rows={12}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors resize-none"
+                  disabled={isProcessing}
+                />
+              </div>
+
+              <button
+                onClick={handleImport}
+                disabled={isProcessing || !importText.trim()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
                     Converting...
                   </>
                 ) : (
                   <>
-                    <Wand2 size={18} />
+                    <Upload size={20} />
                     Convert to Runbook
                   </>
                 )}
               </button>
-              {text && (
-                <button
-                  onClick={() => { setText(''); setResult(null); setError(null); }}
-                  className="px-4 py-3 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              )}
             </div>
-          </div>
-
-          {/* Example Templates */}
-          <div className="p-4 bg-slate-900/50 border border-slate-800 rounded-xl">
-            <p className="text-xs text-slate-500 mb-3">Try an example:</p>
-            <div className="flex flex-wrap gap-2">
-              {exampleTexts.map((example, i) => (
-                <button
-                  key={i}
-                  onClick={() => loadExample(example)}
-                  className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-400 hover:text-white hover:border-slate-600 transition-colors"
-                >
-                  {example.title}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tips */}
-          <div className="p-4 bg-violet-500/5 border border-violet-500/20 rounded-xl">
-            <h3 className="text-sm font-medium text-violet-400 mb-2">Tips for best results</h3>
-            <ul className="text-xs text-slate-400 space-y-1">
-              <li>• Include clear step-by-step instructions</li>
-              <li>• Add code blocks and commands</li>
-              <li>• Mention server roles (primary, replica, etc.)</li>
-              <li>• Include warnings and important notes</li>
-              <li>• Add context about the environment</li>
-            </ul>
-          </div>
+          )}
         </motion.div>
+      )}
 
-        {/* Result Section */}
+      {/* Result Preview / Editor */}
+      {result && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          className="space-y-4"
         >
-          {/* Error */}
-          {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle size={18} className="text-red-400 mt-0.5" />
-                <div>
-                  <p className="text-red-400 text-sm">{error}</p>
-                  <button
-                    onClick={() => setError(null)}
-                    className="text-xs text-red-400/70 hover:text-red-400 mt-1"
-                  >
-                    Dismiss
-                  </button>
-                </div>
+          {/* Stats Bar */}
+          <div className="flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <CheckCircle size={20} className="text-emerald-400" />
+              <div>
+                <p className="text-emerald-400 font-medium">Runbook Generated!</p>
+                <p className="text-emerald-400/70 text-sm">
+                  {countStats().sections} sections • {countStats().steps} steps • {countStats().codeBlocks} code blocks
+                </p>
               </div>
             </div>
-          )}
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                isEditing 
+                  ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30' 
+                  : 'bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              <PenTool size={14} />
+              {isEditing ? 'Editing Mode' : 'Edit Before Saving'}
+            </button>
+          </div>
 
-          {/* Processing State */}
-          {isProcessing && (
-            <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-violet-500/20 flex items-center justify-center">
-                <Loader2 size={32} className="text-violet-400 animate-spin" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Analyzing your content...</h3>
-              <p className="text-slate-400 text-sm">AI is structuring your documentation into a runbook</p>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isProcessing && !result && !error && (
-            <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
-                <FileText size={32} className="text-slate-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Preview will appear here</h3>
-              <p className="text-slate-400 text-sm">Paste your text and click "Convert to Runbook"</p>
-            </div>
-          )}
-
-          {/* Result Preview */}
-          {result && (
-            <div className="space-y-4">
-              {/* Stats Bar */}
-              <div className="flex items-center gap-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-                <CheckCircle size={20} className="text-emerald-400" />
-                <div className="flex-1">
-                  <p className="text-emerald-400 font-medium text-sm">Conversion successful!</p>
-                  <p className="text-emerald-400/70 text-xs">
-                    {countStats().sections} sections • {countStats().steps} steps • {countStats().codeBlocks} code blocks
-                  </p>
+          {/* Editable Content */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            {/* Title & Description */}
+            <div className="p-6 border-b border-slate-800">
+              {isEditing ? (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={result.title}
+                    onChange={(e) => updateTitle(e.target.value)}
+                    className="w-full text-2xl font-bold bg-transparent text-white focus:outline-none border-b border-slate-700 pb-2"
+                  />
+                  <textarea
+                    value={result.description}
+                    onChange={(e) => updateDescription(e.target.value)}
+                    className="w-full bg-transparent text-slate-400 focus:outline-none resize-none"
+                    rows={2}
+                  />
                 </div>
-              </div>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-2">{result.title}</h2>
+                  <p className="text-slate-400">{result.description}</p>
+                </>
+              )}
+            </div>
 
-              {/* Preview Card */}
-              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-800">
-                  <h2 className="text-lg font-semibold text-white">{result.title}</h2>
-                  {result.description && (
-                    <p className="text-slate-400 text-sm mt-1">{result.description}</p>
-                  )}
-                </div>
-                
-                <div className="max-h-[400px] overflow-y-auto p-4 space-y-4">
-                  {result.sections.map((section) => (
-                    <div key={section.id} className="border border-slate-800 rounded-lg overflow-hidden">
-                      <div className="px-4 py-2 bg-slate-800/50">
-                        <h3 className="text-sm font-medium text-white">{section.title}</h3>
-                      </div>
-                      <div className="p-3 space-y-2">
-                        {section.blocks.slice(0, 3).map((block) => {
+            {/* Sections */}
+            <div className="max-h-[500px] overflow-y-auto">
+              {result.sections.map((section, sectionIndex) => (
+                <div key={section.id} className="border-b border-slate-800 last:border-0">
+                  {/* Section Header */}
+                  <div className="flex items-center gap-3 px-6 py-3 bg-slate-800/50">
+                    <button
+                      onClick={() => updateSection(section.id, { isCollapsed: !section.isCollapsed })}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      {section.isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    </button>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={section.title}
+                        onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                        className="flex-1 bg-transparent text-white font-medium focus:outline-none"
+                      />
+                    ) : (
+                      <span className="flex-1 text-white font-medium">{section.title}</span>
+                    )}
+                    <span className="text-xs text-slate-500">{section.blocks.length} blocks</span>
+                    {isEditing && result.sections.length > 1 && (
+                      <button
+                        onClick={() => deleteSection(section.id)}
+                        className="text-slate-500 hover:text-red-400"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Blocks */}
+                  <AnimatePresence>
+                    {!section.isCollapsed && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="px-6 py-4 space-y-3"
+                      >
+                        {section.blocks.map((block) => {
                           const Icon = blockIcons[block.type] || FileText;
                           const colorClass = blockColors[block.type] || blockColors.note;
+                          
                           return (
-                            <div key={block.id} className={`p-2 rounded border ${colorClass}`}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <Icon size={12} />
-                                <span className="text-xs font-medium capitalize">{block.type}</span>
-                                {block.tags?.map(tag => (
-                                  <span key={tag} className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-400">{tag}</span>
-                                ))}
+                            <div key={block.id} className={`p-3 rounded-lg border ${colorClass}`}>
+                              <div className="flex items-start gap-2">
+                                <Icon size={14} className="mt-1 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-medium capitalize">{block.type}</span>
+                                    {block.tags?.map(tag => (
+                                      <span key={tag} className="px-1.5 py-0.5 bg-slate-800/50 rounded text-[10px]">{tag}</span>
+                                    ))}
+                                  </div>
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      {block.title !== undefined && (
+                                        <input
+                                          type="text"
+                                          value={block.title || ''}
+                                          onChange={(e) => updateBlock(section.id, block.id, { title: e.target.value })}
+                                          placeholder="Title..."
+                                          className="w-full bg-slate-800/50 px-2 py-1 rounded text-sm text-white focus:outline-none"
+                                        />
+                                      )}
+                                      {block.type === 'code' ? (
+                                        <textarea
+                                          value={block.content}
+                                          onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })}
+                                          className="w-full bg-slate-900 px-2 py-1 rounded text-xs text-emerald-400 font-mono focus:outline-none resize-none"
+                                          rows={4}
+                                        />
+                                      ) : (
+                                        <textarea
+                                          value={block.content}
+                                          onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })}
+                                          className="w-full bg-slate-800/50 px-2 py-1 rounded text-sm text-slate-300 focus:outline-none resize-none"
+                                          rows={2}
+                                        />
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {block.title && <p className="text-sm font-medium text-white">{block.title}</p>}
+                                      <p className={`text-xs ${block.type === 'code' ? 'font-mono text-emerald-400' : ''} line-clamp-3`}>
+                                        {block.content}
+                                      </p>
+                                    </>
+                                  )}
+                                </div>
+                                {isEditing && (
+                                  <button
+                                    onClick={() => deleteBlock(section.id, block.id)}
+                                    className="text-slate-500 hover:text-red-400"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
                               </div>
-                              {block.title && <p className="text-xs font-medium text-white">{block.title}</p>}
-                              <p className="text-xs text-slate-400 line-clamp-2">{block.content}</p>
                             </div>
                           );
                         })}
-                        {section.blocks.length > 3 && (
-                          <p className="text-xs text-slate-500 text-center py-1">
-                            +{section.blocks.length - 3} more blocks
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Actions */}
-                <div className="px-6 py-4 border-t border-slate-800 flex items-center gap-3">
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all disabled:opacity-50"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save size={16} />
-                        Save Runbook
-                      </>
+                      </motion.div>
                     )}
-                  </button>
-                  <button
-                    onClick={handleTryAgain}
-                    className="px-4 py-2.5 bg-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors"
-                  >
-                    <RefreshCw size={16} />
-                  </button>
+                  </AnimatePresence>
                 </div>
-              </div>
+              ))}
             </div>
-          )}
+
+            {/* Actions */}
+            <div className="px-6 py-4 border-t border-slate-800 flex items-center gap-3">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Save Runbook
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-4 py-3 bg-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors"
+              >
+                <RefreshCw size={18} />
+              </button>
+            </div>
+          </div>
         </motion.div>
-      </div>
+      )}
     </div>
   );
 }
