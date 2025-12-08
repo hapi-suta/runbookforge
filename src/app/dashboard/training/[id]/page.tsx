@@ -203,6 +203,25 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     } catch (e) { console.error(e); }
   };
 
+  const addDefaultSections = async () => {
+    setIsSubmitting(true);
+    try {
+      const template = batch?.settings?.template_type || 'technical_course';
+      const res = await fetch(`/api/training/batches/${id}/sections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template })
+      });
+      if (res.ok) {
+        fetchBatch();
+      } else {
+        const err = await res.json();
+        console.error('Failed to add sections:', err);
+      }
+    } catch (e) { console.error(e); }
+    finally { setIsSubmitting(false); }
+  };
+
   const enrollStudents = async () => {
     if (!studentEmails.trim()) return;
     setIsSubmitting(true);
@@ -448,8 +467,15 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
           {batch.training_sections.length === 0 ? (
             <div className="text-center py-16 bg-slate-800/30 rounded-xl border border-slate-700">
               <FolderOpen size={48} className="mx-auto text-slate-600 mb-4" />
-              <p className="text-slate-400 mb-4">No sections found. This batch may have been created before sections were added.</p>
-              <button className="px-4 py-2 bg-purple-500 text-white rounded-lg">Add Default Sections</button>
+              <p className="text-slate-400 mb-4">No sections found. Click below to add the default section structure.</p>
+              <button 
+                onClick={addDefaultSections}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+              >
+                {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                Add Default Sections
+              </button>
             </div>
           ) : (
             batch.training_sections

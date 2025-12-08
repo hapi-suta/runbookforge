@@ -36,45 +36,49 @@ export async function GET(
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
     }
 
-    // Try to get sections (may not exist)
+    // Get sections
     let sections: unknown[] = [];
-    try {
-      const { data: sectionData } = await supabase
-        .from('training_sections')
-        .select('*')
-        .eq('batch_id', id)
-        .order('sort_order', { ascending: true });
+    const { data: sectionData, error: sectionError } = await supabase
+      .from('training_sections')
+      .select('*')
+      .eq('batch_id', id)
+      .order('sort_order', { ascending: true });
+    
+    if (sectionError) {
+      console.warn('Could not fetch sections:', sectionError.message);
+    } else {
       sections = sectionData || [];
-    } catch (e) {
-      console.warn('Could not fetch sections:', e);
     }
+    console.log('Fetched sections:', sections.length);
 
-    // Try to get modules with content (may not exist)
+    // Get modules with content
     let modules: unknown[] = [];
-    try {
-      const { data: moduleData } = await supabase
-        .from('training_modules')
-        .select('*, training_content (*)')
-        .eq('batch_id', id)
-        .order('sort_order', { ascending: true });
+    const { data: moduleData, error: moduleError } = await supabase
+      .from('training_modules')
+      .select('*, training_content (*)')
+      .eq('batch_id', id)
+      .order('sort_order', { ascending: true });
+    
+    if (moduleError) {
+      console.warn('Could not fetch modules:', moduleError.message);
+    } else {
       modules = (moduleData || []).map((m: Record<string, unknown>) => ({
         ...m,
         training_content: m.training_content || []
       }));
-    } catch (e) {
-      console.warn('Could not fetch modules:', e);
     }
 
-    // Try to get enrollments (may not exist)
+    // Get enrollments
     let enrollments: unknown[] = [];
-    try {
-      const { data: enrollmentData } = await supabase
-        .from('training_enrollments')
-        .select('id, student_email, student_name, status, enrolled_at, access_token')
-        .eq('batch_id', id);
+    const { data: enrollmentData, error: enrollmentError } = await supabase
+      .from('training_enrollments')
+      .select('id, student_email, student_name, status, enrolled_at, access_token')
+      .eq('batch_id', id);
+    
+    if (enrollmentError) {
+      console.warn('Could not fetch enrollments:', enrollmentError.message);
+    } else {
       enrollments = enrollmentData || [];
-    } catch (e) {
-      console.warn('Could not fetch enrollments:', e);
     }
 
     return NextResponse.json({

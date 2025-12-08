@@ -10,15 +10,7 @@ export async function GET(
     const { id } = await params;
     const supabase = getSupabaseAdmin();
 
-    // Check if it's from Knowledge Base
-    const { data: kbEntry } = await supabase
-      .from('kb_entries')
-      .select('runbook_id')
-      .eq('runbook_id', id)
-      .eq('status', 'approved')
-      .single();
-
-    // Get the runbook
+    // Get the runbook first
     const { data: runbook, error } = await supabase
       .from('runbooks')
       .select('id, title, description, sections, is_public, created_at')
@@ -29,25 +21,41 @@ export async function GET(
       return NextResponse.json({ error: 'Runbook not found' }, { status: 404 });
     }
 
-    // Check if accessible
-    if (!runbook.is_public && !kbEntry) {
-      return NextResponse.json({ error: 'This runbook is not public' }, { status: 403 });
-    }
-
-    // Increment view count if from KB
-    if (kbEntry) {
-      const { data: currentEntry } = await supabase
+    // Check if it's from Knowledge Base (don't fail if table doesn't exist)
+    let isFromKB = false;
+    try {
+      const { data: kbEntry } = await supabase
         .from('kb_entries')
-        .select('view_count')
+        .select('runbook_id')
         .eq('runbook_id', id)
+        .eq('status', 'approved')
         .single();
       
-      if (currentEntry) {
-        await supabase
+      isFromKB = !!kbEntry;
+      
+      // Increment view count if from KB
+      if (kbEntry) {
+        const { data: currentEntry } = await supabase
           .from('kb_entries')
-          .update({ view_count: (currentEntry.view_count || 0) + 1 })
-          .eq('runbook_id', id);
+          .select('view_count')
+          .eq('runbook_id', id)
+          .single();
+        
+        if (currentEntry) {
+          await supabase
+            .from('kb_entries')
+            .update({ view_count: (currentEntry.view_count || 0) + 1 })
+            .eq('runbook_id', id);
+        }
       }
+    } catch (kbError) {
+      // KB tables might not exist, that's okay
+      console.warn('KB check failed:', kbError);
+    }
+
+    // Check if accessible - allow if public OR from approved KB entry
+    if (!runbook.is_public && !isFromKB) {
+      return NextResponse.json({ error: 'This runbook is not public' }, { status: 403 });
     }
 
     return NextResponse.json(runbook);

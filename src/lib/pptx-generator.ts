@@ -170,35 +170,42 @@ function createAgendaSlide(slide: pptxgen.Slide, data: SlideData) {
   const leftItems = data.leftColumn?.items || [];
   const rightItems = data.rightColumn?.items || [];
   
+  // Calculate spacing based on item count
+  const maxItems = Math.max(leftItems.length, rightItems.length);
+  const spacing = maxItems > 8 ? 0.55 : 0.65;
+  const fontSize = maxItems > 8 ? 12 : 14;
+  
   // Left column items with teal circles
   leftItems.forEach((item, i) => {
     // Numbered circle
     slide.addShape('ellipse', {
-      x: 0.5, y: 1.3 + i * 0.7, w: 0.4, h: 0.4, fill: { color: colors.teal }
+      x: 0.5, y: 1.2 + i * spacing, w: 0.4, h: 0.4, fill: { color: colors.teal }
     });
     slide.addText(String(i + 1), {
-      x: 0.5, y: 1.3 + i * 0.7, w: 0.4, h: 0.4,
+      x: 0.5, y: 1.2 + i * spacing, w: 0.4, h: 0.4,
       fontSize: 14, bold: true, color: colors.white, align: 'center', valign: 'middle'
     });
-    // Item text
-    slide.addText(item.title, {
-      x: 1.1, y: 1.35 + i * 0.7, w: 4, h: 0.35,
-      fontSize: 14, color: colors.slate, fontFace: 'Arial'
+    // Item text - with shrinkText to prevent overflow
+    slide.addText(truncateText(item.title, 45), {
+      x: 1.0, y: 1.22 + i * spacing, w: 4, h: 0.4,
+      fontSize: fontSize, color: colors.slate, fontFace: 'Arial', valign: 'middle',
+      shrinkText: true
     });
   });
   
   // Right column items with orange circles
   rightItems.forEach((item, i) => {
     slide.addShape('ellipse', {
-      x: 5.2, y: 1.3 + i * 0.7, w: 0.4, h: 0.4, fill: { color: colors.warning }
+      x: 5.2, y: 1.2 + i * spacing, w: 0.4, h: 0.4, fill: { color: colors.warning }
     });
     slide.addText(String(leftItems.length + i + 1), {
-      x: 5.2, y: 1.3 + i * 0.7, w: 0.4, h: 0.4,
+      x: 5.2, y: 1.2 + i * spacing, w: 0.4, h: 0.4,
       fontSize: 14, bold: true, color: colors.white, align: 'center', valign: 'middle'
     });
-    slide.addText(item.title, {
-      x: 5.8, y: 1.35 + i * 0.7, w: 4, h: 0.35,
-      fontSize: 14, color: colors.slate, fontFace: 'Arial'
+    slide.addText(truncateText(item.title, 45), {
+      x: 5.7, y: 1.22 + i * spacing, w: 4, h: 0.4,
+      fontSize: fontSize, color: colors.slate, fontFace: 'Arial', valign: 'middle',
+      shrinkText: true
     });
   });
 }
@@ -211,27 +218,28 @@ function createPainPointsSlide(slide: pptxgen.Slide, data: SlideData) {
   addHeaderBar(slide, data.title);
   
   const items = data.items || [];
+  const spacing = items.length > 5 ? 0.65 : 0.8;
   
-  items.forEach((item, i) => {
+  items.slice(0, 6).forEach((item, i) => {
     // Red background card
     slide.addShape('rect', {
-      x: 0.5, y: 1.1 + i * 0.8, w: 9, h: 0.7,
+      x: 0.5, y: 1.1 + i * spacing, w: 9, h: spacing - 0.1,
       fill: { color: colors.dangerBg }, line: { color: colors.danger, pt: 0 }
     });
     // Left accent border
     slide.addShape('rect', {
-      x: 0.5, y: 1.1 + i * 0.8, w: 0.05, h: 0.7, fill: { color: colors.danger }
+      x: 0.5, y: 1.1 + i * spacing, w: 0.05, h: spacing - 0.1, fill: { color: colors.danger }
     });
     // Title
-    slide.addText(item.title, {
-      x: 0.7, y: 1.15 + i * 0.8, w: 8, h: 0.3,
-      fontSize: 13, bold: true, color: colors.dangerDark
+    slide.addText(truncateText(item.title, 80), {
+      x: 0.7, y: 1.12 + i * spacing, w: 8.6, h: 0.28,
+      fontSize: 12, bold: true, color: colors.dangerDark, shrinkText: true
     });
     // Description
     if (item.description) {
-      slide.addText(item.description, {
-        x: 0.7, y: 1.4 + i * 0.8, w: 8, h: 0.25,
-        fontSize: 11, color: "7f1d1d"
+      slide.addText(truncateText(item.description, 100), {
+        x: 0.7, y: 1.38 + i * spacing, w: 8.6, h: 0.22,
+        fontSize: 10, color: "7f1d1d", shrinkText: true
       });
     }
   });
@@ -520,32 +528,37 @@ function createProblemsSlide(slide: pptxgen.Slide, data: SlideData) {
   slide.background = { color: colors.light };
   addHeaderBar(slide, data.title);
   
-  data.problems?.forEach((item, i) => {
+  const problems = data.problems?.slice(0, 5) || [];
+  const spacing = problems.length > 4 ? 0.7 : 0.78;
+  
+  problems.forEach((item, i) => {
     // Problem box
     slide.addShape('rect', {
-      x: 0.4, y: 1.05 + i * 0.78, w: 3.8, h: 0.7, fill: { color: colors.dangerBg }
+      x: 0.4, y: 1.05 + i * spacing, w: 3.8, h: spacing - 0.1, fill: { color: colors.dangerBg }
     });
     slide.addText('PROBLEM', {
-      x: 0.5, y: 1.08 + i * 0.78, w: 1, h: 0.2, fontSize: 8, bold: true, color: colors.danger
+      x: 0.5, y: 1.08 + i * spacing, w: 1, h: 0.18, fontSize: 7, bold: true, color: colors.danger
     });
-    slide.addText(item.problem, {
-      x: 0.5, y: 1.3 + i * 0.78, w: 3.6, h: 0.35, fontSize: 10, bold: true, color: colors.dangerDark
+    slide.addText(truncateText(item.problem, 50), {
+      x: 0.5, y: 1.26 + i * spacing, w: 3.6, h: 0.38, fontSize: 9, bold: true, color: colors.dangerDark,
+      shrinkText: true, valign: 'top'
     });
     
     // Arrow
     slide.addText('→', {
-      x: 4.3, y: 1.2 + i * 0.78, w: 0.4, h: 0.4, fontSize: 18, color: colors.muted, align: 'center'
+      x: 4.3, y: 1.15 + i * spacing, w: 0.4, h: 0.4, fontSize: 16, color: colors.muted, align: 'center'
     });
     
     // Solution box
     slide.addShape('rect', {
-      x: 4.8, y: 1.05 + i * 0.78, w: 4.8, h: 0.7, fill: { color: colors.successBg }
+      x: 4.8, y: 1.05 + i * spacing, w: 4.8, h: spacing - 0.1, fill: { color: colors.successBg }
     });
     slide.addText('SOLUTION', {
-      x: 4.9, y: 1.08 + i * 0.78, w: 1, h: 0.2, fontSize: 8, bold: true, color: colors.success
+      x: 4.9, y: 1.08 + i * spacing, w: 1, h: 0.18, fontSize: 7, bold: true, color: colors.success
     });
-    slide.addText(item.solution, {
-      x: 4.9, y: 1.3 + i * 0.78, w: 4.6, h: 0.35, fontSize: 10, color: colors.successDark
+    slide.addText(truncateText(item.solution, 70), {
+      x: 4.9, y: 1.26 + i * spacing, w: 4.6, h: 0.38, fontSize: 9, color: colors.successDark,
+      shrinkText: true, valign: 'top'
     });
   });
 }
@@ -557,31 +570,37 @@ function createOperationsSlide(slide: pptxgen.Slide, data: SlideData) {
   slide.background = { color: colors.light };
   addHeaderBar(slide, data.title);
   
-  data.operations?.forEach((op, i) => {
+  const operations = data.operations?.slice(0, 5) || [];
+  const spacing = operations.length > 4 ? 0.7 : 0.78;
+  
+  operations.forEach((op, i) => {
     // Card container
     slide.addShape('rect', {
-      x: 0.4, y: 1.05 + i * 0.78, w: 9.2, h: 0.7,
+      x: 0.4, y: 1.05 + i * spacing, w: 9.2, h: spacing - 0.1,
       fill: { color: colors.white }, line: { color: colors.border }
     });
     
     // Title
-    slide.addText(op.title, {
-      x: 0.55, y: 1.1 + i * 0.78, w: 2.5, h: 0.25, fontSize: 11, bold: true, color: colors.navy
+    slide.addText(truncateText(op.title, 30), {
+      x: 0.55, y: 1.1 + i * spacing, w: 2.5, h: 0.25, fontSize: 10, bold: true, color: colors.navy,
+      shrinkText: true
     });
     
     // Description
-    slide.addText(op.description, {
-      x: 0.55, y: 1.35 + i * 0.78, w: 3.5, h: 0.25, fontSize: 9, color: colors.muted
+    slide.addText(truncateText(op.description, 50), {
+      x: 0.55, y: 1.32 + i * spacing, w: 3.5, h: 0.28, fontSize: 8, color: colors.muted,
+      shrinkText: true
     });
     
     // Command box
     if (op.command) {
       slide.addShape('rect', {
-        x: 4.2, y: 1.12 + i * 0.78, w: 5.2, h: 0.5, fill: { color: "f1f5f9" }
+        x: 4.2, y: 1.1 + i * spacing, w: 5.2, h: spacing - 0.2, fill: { color: "f1f5f9" }
       });
-      slide.addText(op.command, {
-        x: 4.3, y: 1.12 + i * 0.78, w: 5, h: 0.5,
-        fontSize: 7, fontFace: 'Courier New', color: "475569", valign: 'middle'
+      slide.addText(truncateText(op.command, 70), {
+        x: 4.3, y: 1.1 + i * spacing, w: 5, h: spacing - 0.2,
+        fontSize: 7, fontFace: 'Courier New', color: "475569", valign: 'middle',
+        shrinkText: true
       });
     }
   });
@@ -594,8 +613,9 @@ function createTakeawaysSlide(slide: pptxgen.Slide, data: SlideData) {
   slide.background = { color: colors.navy };
   
   // Title
-  slide.addText(data.title, {
-    x: 0.4, y: 0.4, w: 9, h: 0.6, fontSize: 32, bold: true, color: colors.white
+  slide.addText(truncateText(data.title, 50), {
+    x: 0.4, y: 0.4, w: 9, h: 0.6, fontSize: 30, bold: true, color: colors.white,
+    shrinkText: true
   });
   
   // Accent line
@@ -604,18 +624,22 @@ function createTakeawaysSlide(slide: pptxgen.Slide, data: SlideData) {
   });
   
   const items = data.items || [];
-  items.forEach((item, i) => {
+  const spacing = items.length > 6 ? 0.55 : 0.65;
+  const fontSize = items.length > 6 ? 12 : 14;
+  
+  items.slice(0, 7).forEach((item, i) => {
     // Numbered circle
     slide.addShape('ellipse', {
-      x: 0.5, y: 1.35 + i * 0.65, w: 0.4, h: 0.4, fill: { color: colors.teal }
+      x: 0.5, y: 1.25 + i * spacing, w: 0.38, h: 0.38, fill: { color: colors.teal }
     });
     slide.addText(String(i + 1), {
-      x: 0.5, y: 1.35 + i * 0.65, w: 0.4, h: 0.4,
-      fontSize: 14, bold: true, color: colors.white, align: 'center', valign: 'middle'
+      x: 0.5, y: 1.25 + i * spacing, w: 0.38, h: 0.38,
+      fontSize: 13, bold: true, color: colors.white, align: 'center', valign: 'middle'
     });
     // Takeaway text
-    slide.addText(item.title, {
-      x: 1.1, y: 1.38 + i * 0.65, w: 8.4, h: 0.4, fontSize: 14, color: colors.white
+    slide.addText(truncateText(item.title, 90), {
+      x: 1.0, y: 1.28 + i * spacing, w: 8.5, h: 0.45, 
+      fontSize: fontSize, color: colors.white, shrinkText: true, valign: 'middle'
     });
   });
 }
@@ -675,14 +699,24 @@ function createQuestionsSlide(slide: pptxgen.Slide, data: SlideData, pres: Prese
 }
 
 // ============================================
+// HELPER: Truncate text to prevent overflow
+// ============================================
+function truncateText(text: string, maxLength: number): string {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
+}
+
+// ============================================
 // HELPER: Add navy header bar
 // ============================================
 function addHeaderBar(slide: pptxgen.Slide, title: string) {
   slide.addShape('rect', {
     x: 0, y: 0, w: 10, h: 0.85, fill: { color: colors.navy }
   });
-  slide.addText(title, {
-    x: 0.4, y: 0.2, w: 9, h: 0.5, fontSize: 28, bold: true, color: colors.white
+  slide.addText(truncateText(title, 60), {
+    x: 0.4, y: 0.2, w: 9, h: 0.5, fontSize: 26, bold: true, color: colors.white,
+    shrinkText: true
   });
 }
 

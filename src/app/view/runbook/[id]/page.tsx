@@ -9,6 +9,7 @@ import {
   BookOpen, Play, ChevronDown, ChevronRight, Check, Copy, ExternalLink,
   ThumbsUp, Sparkles, Clock, Target, Award, Share2
 } from "lucide-react";
+import CodeBlock from "@/components/CodeBlock";
 
 interface Block {
   id: string;
@@ -172,22 +173,12 @@ export default function ViewRunbookPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: blockIndex * 0.05 }}
-            className="relative group"
           >
-            <div className="flex items-center justify-between bg-slate-900 px-4 py-2 rounded-t-lg border-b border-slate-700">
-              <span className="text-xs text-slate-400 font-mono">{block.language || 'bash'}</span>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => copyCode(block.content, block.id)}
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                {copiedId === block.id ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-              </motion.button>
-            </div>
-            <pre className="bg-slate-900 p-4 rounded-b-lg overflow-x-auto">
-              <code className="text-sm text-slate-300">{block.content}</code>
-            </pre>
+            <CodeBlock 
+              code={block.content} 
+              language={block.language || 'bash'}
+              title={block.title}
+            />
           </motion.div>
         );
       

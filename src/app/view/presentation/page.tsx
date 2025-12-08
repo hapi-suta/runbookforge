@@ -17,6 +17,7 @@ import {
   Info,
   Lightbulb
 } from 'lucide-react';
+import CodeBlock from '@/components/CodeBlock';
 
 interface Slide {
   title: string;
@@ -257,11 +258,11 @@ const SlideContent = ({ slide, slideNumber, totalSlides }: { slide: Slide; slide
         </div>
         
         <div className="flex-1 p-8 overflow-auto">
-          <pre className="bg-slate-800 rounded-xl p-6 text-sm md:text-base overflow-x-auto border border-slate-700">
-            <code className="text-emerald-400 font-mono whitespace-pre-wrap">
-              {slide.content}
-            </code>
-          </pre>
+          <CodeBlock 
+            code={slide.content} 
+            language="bash"
+            showLineNumbers={true}
+          />
         </div>
       </div>
     );

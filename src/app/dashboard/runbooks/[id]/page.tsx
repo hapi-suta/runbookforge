@@ -32,6 +32,7 @@ import {
   UserPlus
 } from "lucide-react";
 import { getColorClasses } from "@/components/ColorPicker";
+import CodeBlock from "@/components/CodeBlock";
 
 interface Card {
   title: string;
@@ -830,38 +831,19 @@ function highlightGenericLine(line: string): React.ReactNode[] {
   return tokens;
 }
 
-function CodeBlock({ content, language, tags }: { content: string; language?: string; tags?: string[] }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const lang = language?.toLowerCase() || 'bash';
-
+function LocalCodeBlock({ content, language, tags }: { content: string; language?: string; tags?: string[] }) {
   return (
-    <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-900">
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
-        <span className="text-xs text-slate-400 font-mono">{language || 'bash'}</span>
+    <div className="space-y-2">
+      {tags && tags.length > 0 && (
         <div className="flex items-center gap-2">
-          {tags?.map(tag => (
+          {tags.map(tag => (
             <span key={tag} className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded border border-teal-500/30">
               {tag}
             </span>
           ))}
-          <button 
-            onClick={copyToClipboard}
-            className="p-1 text-slate-400 hover:text-white transition-colors"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
         </div>
-      </div>
-      <pre className="p-4 overflow-x-auto">
-        <code className="text-sm font-mono whitespace-pre">{highlightCode(content, lang)}</code>
-      </pre>
+      )}
+      <CodeBlock code={content} language={language || 'bash'} />
     </div>
   );
 }
@@ -891,7 +873,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
       return <StepBlock block={block} stepNumber={stepNumber || 1} />;
 
     case 'code':
-      return <CodeBlock content={block.content} language={block.language} tags={block.tags} />;
+      return <LocalCodeBlock content={block.content} language={block.language} tags={block.tags} />;
 
     case 'warning':
       return (
