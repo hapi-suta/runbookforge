@@ -15,7 +15,7 @@ interface Batch {
   description: string;
   status: 'draft' | 'active' | 'archived';
   access_code: string;
-  template: string;
+  settings?: { template?: string };
   module_count: number;
   student_count: number;
   created_at: string;
@@ -55,20 +55,50 @@ export default function TrainingCenterPage() {
   };
 
   const createBatch = async () => {
-    if (!newBatchTitle.trim()) return;
+    console.log('createBatch called');
+    console.log('Title:', newBatchTitle);
+    console.log('Description:', newBatchDesc);
+    console.log('Template:', selectedTemplate);
+    
+    if (!newBatchTitle.trim()) {
+      alert('Please enter a batch name');
+      return;
+    }
+    
     setIsCreating(true);
+    
     try {
+      console.log('Sending request to /api/training/batches');
+      
       const response = await fetch('/api/training/batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newBatchTitle, description: newBatchDesc, template: selectedTemplate })
+        body: JSON.stringify({ 
+          title: newBatchTitle.trim(), 
+          description: newBatchDesc.trim(), 
+          template: selectedTemplate 
+        })
       });
-      if (response.ok) {
-        setBatches([await response.json(), ...batches]);
-        setShowNewBatch(false);
-        setNewBatchTitle('');
-        setNewBatchDesc('');
+      
+      console.log('Response status:', response.status);
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (!response.ok) {
+        console.error('Create batch error:', data);
+        alert(`Failed to create batch: ${data.error || JSON.stringify(data)}`);
+        return;
       }
+      
+      setBatches([data, ...batches]);
+      setShowNewBatch(false);
+      setNewBatchTitle('');
+      setNewBatchDesc('');
+      setSelectedTemplate('technical_course');
+    } catch (error) {
+      console.error('Create batch exception:', error);
+      alert(`Failed to create batch: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsCreating(false);
     }
@@ -144,8 +174,16 @@ export default function TrainingCenterPage() {
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowNewBatch(false)} className="flex-1 px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700">Cancel</button>
-                <button onClick={createBatch} disabled={!newBatchTitle.trim() || isCreating} className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setShowNewBatch(false)} className="flex-1 px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700">Cancel</button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    console.log('Create Batch button clicked');
+                    createBatch();
+                  }} 
+                  disabled={!newBatchTitle.trim() || isCreating} 
+                  className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
                   {isCreating ? <><Loader2 size={18} className="animate-spin" /> Creating...</> : 'Create Batch'}
                 </button>
               </div>
@@ -167,7 +205,7 @@ export default function TrainingCenterPage() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((batch, i) => {
-            const t = getTemplate(batch.template);
+            const t = getTemplate(batch.settings?.template || 'technical_course');
             return (
               <motion.div key={batch.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 hover:border-purple-500/30 transition-all">
                 <div className="flex items-start justify-between gap-4">

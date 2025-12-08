@@ -97,37 +97,64 @@ export async function GET() {
 
 // POST - Create new batch with auto-generated sections
 export async function POST(request: Request) {
+  console.log('POST /api/training/batches called');
+  
   try {
     const { userId } = await auth();
+    console.log('User ID:', userId);
+    
     if (!userId) {
+      console.log('No userId - returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = getSupabaseAdmin();
-    const body = await request.json();
+    
+    let body;
+    try {
+      body = await request.json();
+      console.log('Request body:', body);
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    
     const { title, description, template = 'technical_course', settings } = body;
 
-    if (!title) {
+    if (!title || !title.trim()) {
+      console.log('No title provided');
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
     const accessCode = generateAccessCode(10);
+    console.log('Generated access code:', accessCode);
 
+    // Store template in settings since template column may not exist
+    const insertData = {
+      user_id: userId,
+      title: title.trim(),
+      description: description?.trim() || null,
+      access_code: accessCode,
+      settings: { ...(settings || {}), template },
+      status: 'draft'
+    };
+    console.log('Inserting batch:', insertData);
+    
     const { data: batch, error: batchError } = await supabase
       .from('training_batches')
-      .insert({
-        user_id: userId,
-        title,
-        description,
-        access_code: accessCode,
-        template,
-        settings: settings || {},
-        status: 'draft'
-      })
+      .insert(insertData)
       .select()
       .single();
 
-    if (batchError) throw batchError;
+    if (batchError) {
+      console.error('Batch creation error:', batchError);
+      return NextResponse.json({ 
+        error: `Database error: ${batchError.message}`,
+        details: batchError 
+      }, { status: 500 });
+    }
+    
+    console.log('Batch created:', batch);
 
     // Create default sections based on template (don't fail if table doesn't exist)
     const sectionTemplate = SECTION_TEMPLATES[template as keyof typeof SECTION_TEMPLATES] || SECTION_TEMPLATES.technical_course;
@@ -138,23 +165,32 @@ export async function POST(request: Request) {
         ...section,
         batch_id: batch.id
       }));
+      
+      console.log('Creating sections:', sections);
 
       const { error: sectionError } = await supabase.from('training_sections').insert(sections);
       if (!sectionError) {
         sectionCount = sectionTemplate.length;
+        console.log('Sections created:', sectionCount);
       } else {
         console.warn('Could not create sections (table may not exist):', sectionError.message);
       }
     }
 
-    return NextResponse.json({ 
+    const result = { 
       ...batch, 
       section_count: sectionCount,
       module_count: 0,
       student_count: 0 
-    }, { status: 201 });
+    };
+    console.log('Returning result:', result);
+    
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error('Error creating batch:', error);
-    return NextResponse.json({ error: 'Failed to create batch' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Failed to create batch',
+      stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }
