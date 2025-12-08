@@ -6,75 +6,69 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-const SYSTEM_PROMPT = `You are a technical documentation expert specializing in creating comprehensive, production-ready runbooks. Generate a detailed runbook for the given topic.
+const SYSTEM_PROMPT = `You are a senior DevOps/DBA engineer creating production-ready runbooks. Generate detailed, actionable documentation.
 
-Output ONLY valid JSON with this exact structure:
+Output ONLY valid JSON with this structure:
 {
-  "title": "string - professional title",
-  "description": "string - brief description",
+  "title": "Professional title",
+  "description": "Brief description",
   "sections": [
     {
-      "id": "string - unique id like 'sec_abc123'",
-      "title": "string - section title",
+      "id": "sec_xxx",
+      "title": "Section title",
       "blocks": [
         {
-          "id": "string - unique id like 'blk_xyz789'",
+          "id": "blk_xxx",
           "type": "step|code|warning|info|table|checklist",
-          "title": "string - for steps: clear action title",
-          "content": "string - main content",
-          "language": "string - for code: bash|sql|yaml|json|python",
-          "tags": ["string"] - e.g., 'All Nodes', 'Primary', 'Each Node',
-          "tableData": { "headers": ["Label"], "rows": [["Value"]] } - for specification tables
+          "title": "For steps: action title",
+          "content": "Main content",
+          "language": "For code: bash|sql|yaml|json|python",
+          "tags": ["All Nodes", "Primary", "Each Node"]
         }
       ]
     }
   ]
 }
 
-STRUCTURE REQUIREMENTS:
-1. Start with "Prerequisites" section containing:
-   - An "info" block with overview
-   - A numbered "step" for each prerequisite group
-   - A "table" for specifications (OS, CPU, RAM, Storage, Network)
+CONTENT GUIDELINES:
 
-2. Create 4-8 logical sections (e.g., Prerequisites, Installation, Configuration, Verification)
+1. SECTIONS (create 5-10 logical sections):
+   - Prerequisites / Requirements
+   - Installation / Setup
+   - Configuration
+   - Verification / Testing
+   - Operations / Maintenance
+   - Troubleshooting
+   - Backup & Recovery (if applicable)
 
-3. Each section should have:
-   - 2-6 numbered steps (type: "step") with clear titles
-   - Code blocks AFTER steps they relate to (not inside steps)
-   - Combine related commands in ONE code block with comments
+2. STEP BLOCKS (numbered procedures):
+   - Clear, actionable title: "Install PostgreSQL 15", "Configure pg_hba.conf"
+   - Brief explanation in content
+   - Add tags: "All Nodes", "Primary Only", "Replica", "Each Node"
 
-4. Step format:
-   - title: Short action phrase ("Set Hostnames", "Install Packages")
-   - content: Brief explanation of what this step does
-   - tags: Where to run it ["All Nodes", "Primary Only", etc.]
+3. CODE BLOCKS (realistic commands):
+   - Group related commands together with comments
+   - Use realistic values from user's context if provided
+   - Include verification commands after important operations
+   - Format:
+     # Comment explaining this section
+     command1
+     command2
 
-5. Code block format:
-   - Combine ALL related commands in ONE block
-   - Use comments to separate sections:
-     # On patroni-atl-01:
-     sudo hostnamectl set-hostname patroni-atl-01
-     
-     # On patroni-atl-02:
-     sudo hostnamectl set-hostname patroni-atl-02
-   - tags: Same as the step it follows
+4. WARNING BLOCKS: Only for genuinely dangerous operations
 
-6. Use tables for:
-   - Server specifications (vertical format)
-   - Server inventory (horizontal with IP, Role, etc.)
-   - Configuration reference
+5. INFO BLOCKS: Helpful tips, not obvious information
 
-7. Add "warning" blocks before dangerous operations only
-
-8. End with "Verification" section with test commands
+6. TABLE BLOCKS: For specifications, use format:
+   {"headers": ["Property", "Value"], "rows": [["OS", "Ubuntu 22.04"], ["RAM", "8GB"]]}
 
 QUALITY STANDARDS:
-- Realistic commands with proper syntax
-- Placeholder values clearly marked: <your-value>
-- Comments explaining complex commands
-- Proper error handling examples
+- Use realistic server names, IPs, paths from user context
+- Include error handling and verification steps
+- Add common troubleshooting scenarios
+- Make it copy-paste ready for production use
 
-Output ONLY the JSON, no markdown.`
+Output ONLY the JSON, no markdown wrapping.`
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,8 +98,15 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = details 
-      ? `Create a comprehensive runbook for: ${topic}\n\nAdditional details: ${details}`
-      : `Create a comprehensive runbook for: ${topic}`
+      ? `Create a comprehensive, production-ready runbook for: ${topic}
+
+User's environment and requirements:
+${details}
+
+Generate a detailed runbook tailored to these specific needs. Include realistic examples using the details provided (server names, IPs, paths, etc. if mentioned).`
+      : `Create a comprehensive, production-ready runbook for: ${topic}
+
+Generate a detailed runbook with realistic examples, best practices, and common troubleshooting steps.`
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',

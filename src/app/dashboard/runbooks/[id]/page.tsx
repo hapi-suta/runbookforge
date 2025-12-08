@@ -310,7 +310,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
             return (
               <div key={i} className={`p-4 ${colors.bg} border ${colors.border} rounded-lg`}>
                 <div className={`text-sm font-bold ${colors.text} mb-1`}>{card.title}</div>
-                <div className="text-xs text-slate-400 font-mono">{card.content}</div>
+                <div className={`text-xs ${colors.text} opacity-70 font-mono`}>{card.content}</div>
               </div>
             );
           })}

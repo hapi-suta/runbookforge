@@ -353,20 +353,27 @@ export default function AIPage() {
               
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Additional details (optional)
+                  Additional context <span className="text-slate-500 font-normal">(optional - helps AI understand your needs)</span>
                 </label>
                 <textarea
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
-                  placeholder="Add any specific requirements, tech stack, or context..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors resize-none"
+                  placeholder="Examples:
+• Ubuntu 22.04 with 3 nodes in Atlanta datacenter
+• Include pgBackRest for backups
+• Need HAProxy load balancer setup
+• Focus on disaster recovery procedures"
+                  rows={5}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors resize-none text-sm"
                   disabled={isProcessing}
                 />
+                <p className="mt-2 text-xs text-slate-500">
+                  💡 Just describe your environment, requirements, or specific things to include. The AI will figure out the rest.
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
-                <span className="text-xs text-slate-500">Try:</span>
+                <span className="text-xs text-slate-500">Quick start:</span>
                 {exampleTopics.slice(0, 4).map((t, i) => (
                   <button
                     key={i}
