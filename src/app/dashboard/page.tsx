@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -10,8 +11,18 @@ import {
   Clock, 
   TrendingUp,
   ArrowRight,
-  BookOpen
+  BookOpen,
+  Loader2
 } from "lucide-react";
+
+interface Runbook {
+  id: string;
+  title: string;
+  description: string | null;
+  sections: any[];
+  updated_at: string;
+  created_at: string;
+}
 
 const quickActions = [
   {
@@ -37,15 +48,57 @@ const quickActions = [
   },
 ];
 
-const stats = [
-  { label: 'Total Runbooks', value: '0', icon: FileText },
-  { label: 'This Month', value: '0', icon: TrendingUp },
-  { label: 'Last Updated', value: 'Never', icon: Clock },
-];
-
 export default function DashboardPage() {
   const { user } = useUser();
+  const [runbooks, setRunbooks] = useState<Runbook[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const firstName = user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'there';
+
+  useEffect(() => {
+    fetchRunbooks();
+  }, []);
+
+  const fetchRunbooks = async () => {
+    try {
+      const response = await fetch('/api/runbooks');
+      if (response.ok) {
+        const data = await response.json();
+        setRunbooks(data);
+      }
+    } catch (error) {
+      console.error('Error fetching runbooks:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const getThisMonthCount = () => {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return runbooks.filter(r => new Date(r.created_at) >= firstOfMonth).length;
+  };
+
+  const getLastUpdated = () => {
+    if (runbooks.length === 0) return 'Never';
+    const latest = runbooks.reduce((a, b) => 
+      new Date(a.updated_at) > new Date(b.updated_at) ? a : b
+    );
+    return formatDate(latest.updated_at);
+  };
+
+  const stats = [
+    { label: 'Total Runbooks', value: runbooks.length.toString(), icon: FileText },
+    { label: 'This Month', value: getThisMonthCount().toString(), icon: TrendingUp },
+    { label: 'Last Updated', value: getLastUpdated(), icon: Clock },
+  ];
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -109,44 +162,86 @@ export default function DashboardPage() {
                 <stat.icon size={18} className="text-slate-500" />
                 <span className="text-sm text-slate-400">{stat.label}</span>
               </div>
-              <p className="text-2xl font-bold text-white">{stat.value}</p>
+              <p className="text-2xl font-bold text-white">
+                {isLoading ? <Loader2 size={24} className="animate-spin" /> : stat.value}
+              </p>
             </div>
           ))}
         </div>
       </motion.div>
 
-      {/* Recent Runbooks (Empty State) */}
+      {/* Recent Runbooks */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <h2 className="text-lg font-semibold text-white mb-4">Recent Runbooks</h2>
-        <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
-            <FileText size={32} className="text-slate-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">No runbooks yet</h3>
-          <p className="text-slate-400 mb-6 max-w-md mx-auto">
-            Create your first runbook to start documenting your technical procedures.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/dashboard/create"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20"
-            >
-              <Plus size={18} />
-              Create Runbook
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Recent Runbooks</h2>
+          {runbooks.length > 0 && (
+            <Link href="/dashboard/runbooks" className="text-sm text-teal-400 hover:text-teal-300">
+              View all →
             </Link>
-            <Link
-              href="/dashboard/import"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-800 rounded-lg text-white font-semibold hover:bg-slate-700 transition-all"
-            >
-              <Sparkles size={18} />
-              AI Import
-            </Link>
-          </div>
+          )}
         </div>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={32} className="text-teal-500 animate-spin" />
+          </div>
+        )}
+
+        {!isLoading && runbooks.length === 0 && (
+          <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
+              <FileText size={32} className="text-slate-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No runbooks yet</h3>
+            <p className="text-slate-400 mb-6 max-w-md mx-auto">
+              Create your first runbook to start documenting your technical procedures.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/dashboard/create"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20"
+              >
+                <Plus size={18} />
+                Create Runbook
+              </Link>
+              <Link
+                href="/dashboard/import"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-800 rounded-lg text-white font-semibold hover:bg-slate-700 transition-all"
+              >
+                <Sparkles size={18} />
+                AI Import
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && runbooks.length > 0 && (
+          <div className="space-y-3">
+            {runbooks.slice(0, 5).map((runbook) => (
+              <Link
+                key={runbook.id}
+                href={`/dashboard/runbooks/${runbook.id}`}
+                className="block p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-medium group-hover:text-teal-400 transition-colors truncate">
+                      {runbook.title}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      {runbook.sections?.length || 0} sections • Updated {formatDate(runbook.updated_at)}
+                    </p>
+                  </div>
+                  <ArrowRight size={18} className="text-slate-600 group-hover:text-teal-400 transition-colors" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </motion.div>
     </div>
   );

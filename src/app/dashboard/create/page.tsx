@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { 
   Plus, 
@@ -10,14 +11,13 @@ import {
   AlertTriangle, 
   Info, 
   CheckCircle,
-  Server,
   ChevronDown,
   ChevronUp,
-  Eye,
   Save,
-  Download,
-  Settings
+  Loader2,
+  ArrowLeft
 } from "lucide-react";
+import Link from "next/link";
 
 type BlockType = 'step' | 'code' | 'warning' | 'info' | 'success' | 'note';
 
@@ -53,6 +53,7 @@ function generateId() {
 }
 
 export default function CreateRunbookPage() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sections, setSections] = useState<Section[]>([
@@ -63,7 +64,8 @@ export default function CreateRunbookPage() {
       isCollapsed: false,
     }
   ]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const addSection = () => {
     setSections([
@@ -142,6 +144,42 @@ export default function CreateRunbookPage() {
     ));
   };
 
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setError('Please enter a title for your runbook');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/runbooks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          sections,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save runbook');
+      }
+
+      const data = await response.json();
+      router.push('/dashboard/runbooks');
+    } catch (err) {
+      setError('Failed to save runbook. Please try again.');
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
@@ -150,24 +188,49 @@ export default function CreateRunbookPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Create Runbook</h1>
-          <p className="text-slate-400">Build your technical procedure step by step</p>
+        <div className="flex items-center gap-4">
+          <Link 
+            href="/dashboard/runbooks"
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">Create Runbook</h1>
+            <p className="text-slate-400">Build your technical procedure step by step</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:text-white hover:border-slate-600 transition-all"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20 disabled:opacity-50"
           >
-            <Eye size={18} />
-            Preview
-          </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg shadow-teal-500/20">
-            <Save size={18} />
-            Save
+            {isSaving ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                Save Runbook
+              </>
+            )}
           </button>
         </div>
       </motion.div>
+
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400"
+        >
+          {error}
+        </motion.div>
+      )}
 
       {/* Main Editor */}
       <motion.div
@@ -180,7 +243,7 @@ export default function CreateRunbookPage() {
         <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Runbook Title
+              Runbook Title <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -205,7 +268,7 @@ export default function CreateRunbookPage() {
         </div>
 
         {/* Sections */}
-        {sections.map((section, sectionIndex) => (
+        {sections.map((section) => (
           <motion.div
             key={section.id}
             initial={{ opacity: 0, y: 20 }}
@@ -256,7 +319,7 @@ export default function CreateRunbookPage() {
                     onReorder={(newBlocks) => reorderBlocks(section.id, newBlocks)}
                     className="space-y-3"
                   >
-                    {section.blocks.map((block, blockIndex) => {
+                    {section.blocks.map((block) => {
                       const blockType = blockTypes.find(b => b.type === block.type);
                       return (
                         <Reorder.Item
