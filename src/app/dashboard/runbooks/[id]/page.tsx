@@ -188,6 +188,35 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
       return (
         <div className="overflow-x-auto border border-slate-700 rounded-lg">
           <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-700 bg-slate-800/50">
+                {block.tableData.headers.map((header, i) => (
+                  <th key={i} className="px-4 py-3 text-left text-slate-400 font-medium">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.tableData.rows.map((row, ri) => (
+                <tr key={ri} className="border-b border-slate-800 last:border-0">
+                  {row.map((cell, ci) => (
+                    <td key={ci} className="px-4 py-3 text-white">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+
+    case 'keyvalue':
+      if (!block.tableData) return null;
+      return (
+        <div className="overflow-x-auto border border-slate-700 rounded-lg">
+          <table className="w-full text-sm">
             <tbody>
               {block.tableData.headers.map((header, i) => (
                 <tr key={i} className="border-b border-slate-800 last:border-0">

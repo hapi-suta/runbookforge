@@ -17,7 +17,7 @@ const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
   loading: () => <div className="h-24 bg-slate-800 rounded-lg animate-pulse" />
 });
 
-type BlockType = 'step' | 'code' | 'warning' | 'info' | 'note' | 'table' | 'cardgrid' | 'twocolumn' | 'header' | 'checklist' | 'servertable' | 'portref' | 'infocards' | 'flowcards';
+type BlockType = 'step' | 'code' | 'warning' | 'info' | 'note' | 'table' | 'keyvalue' | 'cardgrid' | 'twocolumn' | 'header' | 'checklist' | 'servertable' | 'portref' | 'infocards' | 'flowcards';
 
 interface Card {
   title: string;
@@ -80,7 +80,8 @@ const blockTypes: { type: BlockType; label: string; icon: any; color: string; de
   { type: 'warning', label: 'Warning', icon: AlertTriangle, color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', desc: 'Warning' },
   { type: 'info', label: 'Info', icon: Info, color: 'bg-sky-500/20 text-sky-400 border-sky-500/30', desc: 'Info box' },
   { type: 'header', label: 'Header', icon: FileText, color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30', desc: 'Section header' },
-  { type: 'table', label: 'Table', icon: Table, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', desc: 'Data table' },
+  { type: 'table', label: 'Table', icon: Table, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', desc: 'Data table (rows & columns)' },
+  { type: 'keyvalue', label: 'Specs', icon: ListChecks, color: 'bg-slate-500/20 text-slate-300 border-slate-500/30', desc: 'Key-value specs' },
   { type: 'servertable', label: 'Servers', icon: Server, color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', desc: 'Server inventory' },
   { type: 'cardgrid', label: 'Cards', icon: LayoutGrid, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', desc: 'Colored cards' },
   { type: 'infocards', label: 'Info Cards', icon: FolderOpen, color: 'bg-rose-500/20 text-rose-400 border-rose-500/30', desc: 'Directory/Info style' },
@@ -310,6 +311,7 @@ function BlockEditor({ section, block, updateBlock }: { section: Section; block:
     case 'cardgrid':
       return <CardGridEditor cards={block.cards || []} onChange={c => updateBlock(section.id, block.id, { cards: c })} />;
     case 'table':
+    case 'keyvalue':
       return <TableEditor data={block.tableData || { headers: ['Col'], rows: [['']] }} onChange={d => updateBlock(section.id, block.id, { tableData: d })} />;
     case 'checklist':
       return <ChecklistEditor items={block.checklist || []} onChange={i => updateBlock(section.id, block.id, { checklist: i })} />;
@@ -410,7 +412,8 @@ export default function EditRunbookPage() {
       title: ['step', 'header'].includes(type) ? '' : undefined,
       language: type === 'code' ? 'bash' : undefined,
       tags: ['step', 'code', 'warning'].includes(type) ? [] : undefined,
-      tableData: type === 'table' ? { headers: ['Column 1', 'Column 2'], rows: [['', '']] } : undefined,
+      tableData: type === 'table' ? { headers: ['Column 1', 'Column 2', 'Column 3'], rows: [['', '', ''], ['', '', '']] } : 
+                 type === 'keyvalue' ? { headers: ['Hostname', 'Role', 'Private IP', 'Region', 'Components'], rows: [['patroni-atl-01', 'primary', '10.0.1.10', 'NYC1 (ATL)', 'PostgreSQL 15, Patroni']] } : undefined,
       cards: type === 'cardgrid' ? [{ title: '', content: '', color: 'teal' }] : undefined,
       infocards: type === 'infocards' ? [{ title: 'DATA', content: '/opt/pgsql/data', color: 'red' }, { title: 'LOG', content: '/opt/pgsql/log', color: 'orange' }, { title: 'WAL', content: '/opt/pgsql/wal', color: 'green' }] : undefined,
       servers: type === 'servertable' ? [{ hostname: 'server-01', role: 'Primary', roleColor: 'green', ip: '10.0.1.10', region: 'us-east-1', components: 'PostgreSQL, Patroni' }] : undefined,
