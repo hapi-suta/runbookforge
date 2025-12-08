@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, 
@@ -20,7 +20,9 @@ import {
   X,
   Check,
   Calendar,
-  Layers
+  Layers,
+  Edit3,
+  Palette
 } from "lucide-react";
 import Link from "next/link";
 
@@ -48,14 +50,14 @@ interface Document {
 }
 
 const colorOptions = [
-  { name: 'violet', bg: 'bg-violet-500/20', text: 'text-violet-400', border: 'border-violet-500/30' },
-  { name: 'blue', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
-  { name: 'teal', bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30' },
-  { name: 'amber', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
-  { name: 'emerald', bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-  { name: 'pink', bg: 'bg-pink-500/20', text: 'text-pink-400', border: 'border-pink-500/30' },
-  { name: 'red', bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
-  { name: 'orange', bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30' },
+  { name: 'violet', bg: 'bg-violet-500/20', text: 'text-violet-400', border: 'border-violet-500/30', solid: 'bg-violet-500' },
+  { name: 'blue', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', solid: 'bg-blue-500' },
+  { name: 'teal', bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30', solid: 'bg-teal-500' },
+  { name: 'amber', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', solid: 'bg-amber-500' },
+  { name: 'emerald', bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', solid: 'bg-emerald-500' },
+  { name: 'pink', bg: 'bg-pink-500/20', text: 'text-pink-400', border: 'border-pink-500/30', solid: 'bg-pink-500' },
+  { name: 'red', bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', solid: 'bg-red-500' },
+  { name: 'orange', bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30', solid: 'bg-orange-500' },
 ];
 
 const getColorClasses = (colorName: string) => {
@@ -84,9 +86,28 @@ export default function DocumentsPage() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
+  
+  // Folder management state
+  const [editingFolder, setEditingFolder] = useState<Category | null>(null);
+  const [editFolderName, setEditFolderName] = useState('');
+  const [editFolderColor, setEditFolderColor] = useState('');
+  const [savingFolder, setSavingFolder] = useState(false);
+  const [folderMenuOpen, setFolderMenuOpen] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchData();
+  }, []);
+  
+  // Close folder menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setFolderMenuOpen(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchData = async () => {
@@ -153,9 +174,48 @@ export default function DocumentsPage() {
       if (response.ok) {
         setCategories(categories.filter(c => c.id !== id));
         if (selectedCategory === id) setSelectedCategory(null);
+        setFolderMenuOpen(null);
       }
     } catch (error) {
       console.error('Error deleting category:', error);
+    }
+  };
+
+  const openEditModal = (category: Category) => {
+    setEditingFolder(category);
+    setEditFolderName(category.name);
+    setEditFolderColor(category.color);
+    setFolderMenuOpen(null);
+  };
+
+  const updateCategory = async () => {
+    if (!editingFolder || !editFolderName.trim()) return;
+    
+    setSavingFolder(true);
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingFolder.id,
+          name: editFolderName.trim(),
+          color: editFolderColor
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCategories(categories.map(c => c.id === editingFolder.id ? data : c));
+        setEditingFolder(null);
+      } else {
+        alert(data.error || 'Failed to update folder');
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      alert('Failed to update folder. Please try again.');
+    } finally {
+      setSavingFolder(false);
     }
   };
 
@@ -370,26 +430,67 @@ export default function DocumentsPage() {
               const colors = getColorClasses(category.color);
               const count = getCategoryCount(category.id);
               return (
-                <motion.button
+                <motion.div
                   key={category.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.1 + index * 0.03 }}
+                  className={`group relative p-4 ${colors.bg} ${colors.border} border rounded-xl text-left hover:scale-[1.02] transition-all cursor-pointer`}
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`group relative p-4 ${colors.bg} ${colors.border} border rounded-xl text-left hover:scale-[1.02] transition-all`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <Folder size={24} className={colors.text} />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteCategory(category.id); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="relative" ref={folderMenuOpen === category.id ? menuRef : null}>
+                      <button
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setFolderMenuOpen(folderMenuOpen === category.id ? null : category.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-white rounded hover:bg-slate-700/50 transition-all"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      <AnimatePresence>
+                        {folderMenuOpen === category.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                            className="absolute right-0 top-8 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => openEditModal(category)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                            >
+                              <Edit3 size={14} />
+                              Rename
+                            </button>
+                            <button
+                              onClick={() => openEditModal(category)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                            >
+                              <Palette size={14} />
+                              Change Color
+                            </button>
+                            <div className="border-t border-slate-700" />
+                            <button
+                              onClick={() => deleteCategory(category.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                   <h3 className="font-medium text-white truncate">{category.name}</h3>
                   <p className="text-sm text-slate-400">{count} documents</p>
-                </motion.button>
+                </motion.div>
               );
             })}
             
@@ -612,6 +713,110 @@ export default function DocumentsPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Folder Modal */}
+      <AnimatePresence>
+        {editingFolder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setEditingFolder(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                <h2 className="text-lg font-semibold text-white">Edit Folder</h2>
+                <button
+                  onClick={() => setEditingFolder(null)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-4">
+                {/* Folder Name */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Folder Name</label>
+                  <input
+                    type="text"
+                    value={editFolderName}
+                    onChange={(e) => setEditFolderName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && updateCategory()}
+                    placeholder="Enter folder name..."
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Color Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Color</label>
+                  <div className="flex flex-wrap gap-2">
+                    {colorOptions.map((color) => (
+                      <button
+                        key={color.name}
+                        onClick={() => setEditFolderColor(color.name)}
+                        className={`w-8 h-8 rounded-full ${color.solid} transition-all ${
+                          editFolderColor === color.name 
+                            ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' 
+                            : 'hover:scale-110'
+                        }`}
+                        title={color.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Preview */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Preview</label>
+                  <div className={`p-4 ${getColorClasses(editFolderColor).bg} ${getColorClasses(editFolderColor).border} border rounded-xl`}>
+                    <Folder size={24} className={getColorClasses(editFolderColor).text + ' mb-2'} />
+                    <h3 className="font-medium text-white">{editFolderName || 'Folder Name'}</h3>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 p-4 border-t border-slate-800">
+                <button
+                  onClick={() => setEditingFolder(null)}
+                  className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={updateCategory}
+                  disabled={!editFolderName.trim() || savingFolder}
+                  className="flex items-center gap-2 px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {savingFolder ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Save Changes
+                    </>
+                  )}
+                </button>
               </div>
             </motion.div>
           </motion.div>

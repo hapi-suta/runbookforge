@@ -106,3 +106,49 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// PATCH - Update a category (rename, change color)
+export async function PATCH(request: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, name, color } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
+    }
+
+    const updates: Record<string, string> = {};
+    if (name !== undefined) updates.name = name;
+    if (color !== undefined) updates.color = color;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+    }
+
+    const { data: category, error } = await supabase
+      .from('categories')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'A folder with this name already exists' }, { status: 400 });
+      }
+      console.error('Error updating category:', error);
+      return NextResponse.json({ error: 'Failed to update category' }, { status: 500 });
+    }
+
+    return NextResponse.json(category);
+  } catch (error) {
+    console.error('Error in PATCH /api/categories:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
