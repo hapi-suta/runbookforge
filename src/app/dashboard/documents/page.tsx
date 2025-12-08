@@ -261,25 +261,49 @@ export default function DocumentsPage() {
     window.open(`/view/presentation?id=${doc.id}`, '_blank');
   };
 
-  // Download document as JSON (can be extended for PPTX)
-  const downloadDocument = (doc: Document) => {
-    const data = {
-      title: doc.title,
-      description: doc.description,
-      slides: doc.metadata?.slides || [],
-      style: doc.metadata?.style,
-      created_at: doc.created_at
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = window.document.createElement('a');
-    a.href = url;
-    a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.json`;
-    window.document.body.appendChild(a);
-    a.click();
-    window.document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // Download document - generates real PPTX for presentations
+  const downloadDocument = async (doc: Document) => {
+    if (doc.file_type === 'pptx') {
+      // Download real PPTX file via API
+      try {
+        const response = await fetch(`/api/documents/${doc.id}/download`);
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = window.document.createElement('a');
+        a.href = url;
+        a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.pptx`;
+        window.document.body.appendChild(a);
+        a.click();
+        window.document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Download error:', error);
+        alert('Failed to download presentation');
+      }
+    } else {
+      // For other file types, download as JSON
+      const data = {
+        title: doc.title,
+        description: doc.description,
+        slides: doc.metadata?.slides || [],
+        style: doc.metadata?.style,
+        created_at: doc.created_at
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   // Open share modal
@@ -437,7 +461,7 @@ export default function DocumentsPage() {
             </button>
           )}
           <Link
-            href="/dashboard/import"
+            href="/dashboard/import?tab=ppt"
             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
           >
             <Plus size={18} />
@@ -663,7 +687,7 @@ export default function DocumentsPage() {
               </p>
               {!searchQuery && (
                 <Link
-                  href="/dashboard/import"
+                  href="/dashboard/import?tab=ppt"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg text-white font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
                 >
                   <Presentation size={18} />

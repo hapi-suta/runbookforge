@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -125,7 +125,17 @@ const pptStyles = [
 
 export default function AIPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'generate' | 'import' | 'ppt'>('generate');
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') as 'generate' | 'import' | 'ppt' | null;
+  const [activeTab, setActiveTab] = useState<'generate' | 'import' | 'ppt'>(initialTab || 'generate');
+  
+  // Update tab when URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab') as 'generate' | 'import' | 'ppt' | null;
+    if (tab && ['generate', 'import', 'ppt'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
   
   // Generate state
   const [topic, setTopic] = useState('');

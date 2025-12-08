@@ -521,7 +521,8 @@ function PresentationContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col select-none">
-      <div className="h-12 bg-slate-900/90 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4 z-50">
+      {/* Top toolbar - hidden in fullscreen unless hovered */}
+      <div className={`${isFullscreen ? 'opacity-0 hover:opacity-100 absolute top-0 left-0 right-0 z-50 transition-opacity duration-300' : ''} h-12 bg-slate-900/90 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4`}>
         <div className="flex items-center gap-4">
           <button onClick={() => window.close()} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
             <X size={20} />
@@ -548,9 +549,9 @@ function PresentationContent() {
         </div>
       </div>
 
-      <div className="flex-1 flex relative overflow-hidden">
+      <div className={`flex-1 flex relative overflow-hidden ${isFullscreen ? 'h-screen' : ''}`}>
         <AnimatePresence>
-          {showThumbnails && (
+          {showThumbnails && !isFullscreen && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 220, opacity: 1 }}
@@ -582,11 +583,12 @@ function PresentationContent() {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex items-center justify-center p-4 md:p-8 relative">
+        <div className={`flex-1 flex items-center justify-center relative ${isFullscreen ? 'p-0' : 'p-4 md:p-8'}`}>
+          {/* Navigation buttons */}
           <button
             onClick={() => setCurrentSlide(prev => Math.max(prev - 1, 0))}
             disabled={currentSlide === 0}
-            className="absolute left-2 md:left-4 p-2 md:p-3 bg-slate-800/70 hover:bg-slate-800 text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all z-10"
+            className={`absolute left-2 md:left-4 p-2 md:p-3 bg-slate-800/70 hover:bg-slate-800 text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all z-10 ${isFullscreen ? 'opacity-0 hover:opacity-100' : ''}`}
           >
             <ChevronLeft size={24} />
           </button>
@@ -594,7 +596,7 @@ function PresentationContent() {
           <button
             onClick={() => setCurrentSlide(prev => Math.min(prev + 1, totalSlides - 1))}
             disabled={currentSlide === totalSlides - 1}
-            className="absolute right-2 md:right-4 p-2 md:p-3 bg-slate-800/70 hover:bg-slate-800 text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all z-10"
+            className={`absolute right-2 md:right-4 p-2 md:p-3 bg-slate-800/70 hover:bg-slate-800 text-white rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all z-10 ${isFullscreen ? 'opacity-0 hover:opacity-100' : ''}`}
           >
             <ChevronRight size={24} />
           </button>
@@ -606,7 +608,7 @@ function PresentationContent() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-6xl aspect-[16/9] rounded-xl shadow-2xl border border-slate-700 overflow-hidden"
+              className={`${isFullscreen ? 'w-full h-full' : 'w-full max-w-6xl aspect-[16/9] rounded-xl shadow-2xl border border-slate-700'} overflow-hidden`}
             >
               <SlideContent 
                 slide={currentSlideData} 
@@ -618,7 +620,7 @@ function PresentationContent() {
         </div>
 
         <AnimatePresence>
-          {showNotes && currentSlideData?.speakerNotes && (
+          {showNotes && currentSlideData?.speakerNotes && !isFullscreen && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -632,27 +634,37 @@ function PresentationContent() {
         </AnimatePresence>
       </div>
 
-      <div className="h-12 bg-slate-900/90 backdrop-blur border-t border-slate-800 flex items-center justify-between px-4">
-        <button
-          onClick={() => setShowNotes(!showNotes)}
-          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${showNotes ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-        >
-          Notes
-        </button>
+      {/* Bottom bar - hidden in fullscreen */}
+      {!isFullscreen && (
+        <div className="h-12 bg-slate-900/90 backdrop-blur border-t border-slate-800 flex items-center justify-between px-4">
+          <button
+            onClick={() => setShowNotes(!showNotes)}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${showNotes ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            Notes
+          </button>
 
-        <div className="flex-1 max-w-lg mx-4">
-          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
-              animate={{ width: `${((currentSlide + 1) / totalSlides) * 100}%` }}
-            />
+          <div className="flex-1 max-w-lg mx-4">
+            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
+                animate={{ width: `${((currentSlide + 1) / totalSlides) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="text-sm text-slate-500">
+            {currentSlide + 1} / {totalSlides}
           </div>
         </div>
-
-        <div className="text-sm text-slate-500">
+      )}
+      
+      {/* Fullscreen slide counter - subtle overlay */}
+      {isFullscreen && (
+        <div className="absolute bottom-4 right-4 px-3 py-1.5 bg-black/50 text-white/70 text-sm rounded-full opacity-0 hover:opacity-100 transition-opacity">
           {currentSlide + 1} / {totalSlides}
         </div>
-      </div>
+      )}
     </div>
   );
 }

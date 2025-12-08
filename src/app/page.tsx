@@ -69,7 +69,10 @@ function Navigation() {
               <circle cx="33" cy="33" r="7" fill="white"/>
               <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </svg>
-            <span className="text-xl font-bold text-white">RunbookForge</span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-white leading-tight">RunbookForge</span>
+              <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
+            </div>
           </motion.a>
 
           <div className="hidden md:flex items-center gap-8">
@@ -917,7 +920,10 @@ function Footer() {
                 <circle cx="33" cy="33" r="7" fill="white"/>
                 <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
-              <span className="font-bold text-xl text-white">RunbookForge</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-xl text-white leading-tight">RunbookForge</span>
+                <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
+              </div>
             </div>
             <p className="text-slate-400 text-sm max-w-sm">
               The complete platform for creating, sharing, and selling professional technical runbooks.

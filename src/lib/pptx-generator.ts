@@ -143,12 +143,16 @@ function createTitleSlide(slide: pptxgen.Slide, data: SlideData, pres: Presentat
     });
   }
   
-  // Footer - organization
-  slide.addText(pres.organization || pres.author || 'RunbookForge', {
-    x: 0.4, y: 5.1, w: 3, h: 0.25, fontSize: 11, color: colors.muted
+  // Footer - organization (RunbookForge)
+  slide.addText('RunbookForge', {
+    x: 0.4, y: 5.0, w: 3, h: 0.2, fontSize: 11, bold: true, color: colors.lightMuted
+  });
+  // Footer - tagline (a SUTA company)
+  slide.addText('a SUTA company', {
+    x: 0.4, y: 5.2, w: 3, h: 0.15, fontSize: 8, color: colors.muted
   });
   
-  // Footer - subtitle
+  // Footer - subtitle on right
   if (pres.subtitle) {
     slide.addText(pres.subtitle, {
       x: 6.6, y: 5.1, w: 3, h: 0.25, fontSize: 11, color: colors.muted, align: 'right'
@@ -655,9 +659,12 @@ function createQuestionsSlide(slide: pptxgen.Slide, data: SlideData, pres: Prese
     });
   }
   
-  // Footer
-  slide.addText(pres.organization || pres.author || 'RunbookForge', {
-    x: 0.4, y: 5.1, w: 3, h: 0.25, fontSize: 11, color: colors.muted
+  // Footer - RunbookForge branding
+  slide.addText('RunbookForge', {
+    x: 0.4, y: 5.0, w: 3, h: 0.2, fontSize: 11, bold: true, color: colors.lightMuted
+  });
+  slide.addText('a SUTA company', {
+    x: 0.4, y: 5.2, w: 3, h: 0.15, fontSize: 8, color: colors.muted
   });
   
   if (pres.subtitle) {

@@ -28,11 +28,16 @@ export function Logo({ size = 40 }: { size?: number }) {
   );
 }
 
-export function LogoWithText({ size = 40 }: { size?: number }) {
+export function LogoWithText({ size = 40, showTagline = true }: { size?: number; showTagline?: boolean }) {
   return (
     <div className="flex items-center gap-3">
       <Logo size={size} />
-      <span className="text-xl font-bold text-white">RunbookForge</span>
+      <div className="flex flex-col">
+        <span className="text-xl font-bold text-white leading-tight">RunbookForge</span>
+        {showTagline && (
+          <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
+        )}
+      </div>
     </div>
   );
 }

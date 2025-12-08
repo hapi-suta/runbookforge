@@ -88,7 +88,10 @@ export default function DashboardLayout({
                 <circle cx="33" cy="33" r="7" fill="white"/>
                 <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
-              <span className="text-lg font-bold text-white">RunbookForge</span>
+              <div className="flex flex-col">
+                <span className="text-lg font-bold text-white leading-tight">RunbookForge</span>
+                <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
+              </div>
             </Link>
             <button 
               className="lg:hidden text-slate-400 hover:text-white"
