@@ -1,38 +1,22 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  Code, 
-  AlertTriangle, 
-  Info, 
-  CheckCircle,
-  ChevronDown,
-  ChevronUp,
-  Save,
-  Loader2,
-  ArrowLeft,
-  Table,
-  LayoutGrid,
-  Columns,
-  FileText,
-  X,
-  Tag,
-  ListChecks
+  Plus, Trash2, GripVertical, Code, AlertTriangle, Info, CheckCircle,
+  ChevronDown, ChevronUp, Save, Loader2, ArrowLeft, Table, LayoutGrid,
+  Columns, FileText, X, Tag, ListChecks
 } from "lucide-react";
 import Link from "next/link";
 
-type BlockType = 'step' | 'code' | 'warning' | 'info' | 'note' | 'table' | 'cardgrid' | 'twocolumn' | 'header' | 'checklist';
+const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { 
+  ssr: false,
+  loading: () => <div className="h-24 bg-slate-800 rounded-lg animate-pulse" />
+});
 
-interface ChecklistItem {
-  id: string;
-  text: string;
-  checked: boolean;
-}
+type BlockType = 'step' | 'code' | 'warning' | 'info' | 'note' | 'table' | 'cardgrid' | 'twocolumn' | 'header' | 'checklist';
 
 interface Block {
   id: string;
@@ -47,7 +31,7 @@ interface Block {
   rightContent?: string;
   leftTitle?: string;
   rightTitle?: string;
-  checklist?: ChecklistItem[];
+  checklist?: { id: string; text: string; checked: boolean }[];
 }
 
 interface Section {
@@ -66,60 +50,33 @@ const blockTypes: { type: BlockType; label: string; icon: any; color: string }[]
   { type: 'header', label: 'Header', icon: FileText, color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
   { type: 'table', label: 'Table', icon: Table, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   { type: 'cardgrid', label: 'Cards', icon: LayoutGrid, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  { type: 'twocolumn', label: '2-Column', icon: Columns, color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
+  { type: 'twocolumn', label: '2-Col', icon: Columns, color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   { type: 'checklist', label: 'Checklist', icon: ListChecks, color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
 ];
 
 const suggestedTags = ['Primary', 'Replica', 'Standby', 'Leader', 'etcd', 'Production', 'Staging', 'DevOps', 'DBA', 'Manual', 'Critical', 'All'];
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
-function generateId() {
-  return Math.random().toString(36).substr(2, 9);
-}
-
-function TagsInput({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
-  const [inputValue, setInputValue] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const filteredSuggestions = suggestedTags.filter(tag => 
-    tag.toLowerCase().includes(inputValue.toLowerCase()) && !tags.includes(tag)
-  ).slice(0, 6);
-
-  const addTag = (tag: string) => {
-    const trimmed = tag.trim();
-    if (trimmed && !tags.includes(trimmed)) onChange([...tags, trimmed]);
-    setInputValue('');
-    setShowSuggestions(false);
-  };
-
-  const removeTag = (tagToRemove: string) => onChange(tags.filter(t => t !== tagToRemove));
-
+function TagsInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [input, setInput] = useState('');
+  const [show, setShow] = useState(false);
+  const filtered = suggestedTags.filter(t => t.toLowerCase().includes(input.toLowerCase()) && !tags.includes(t)).slice(0, 6);
+  const add = (t: string) => { if (t.trim() && !tags.includes(t.trim())) onChange([...tags, t.trim()]); setInput(''); setShow(false); };
   return (
     <div className="relative">
-      <div className="flex flex-wrap items-center gap-2 p-2 bg-slate-800 border border-slate-700 rounded-lg min-h-[38px]">
-        {tags.map(tag => (
-          <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded border border-teal-500/30">
-            <Tag size={10} />{tag}
-            <button onClick={() => removeTag(tag)} className="hover:text-teal-200"><X size={10} /></button>
+      <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-800 border border-slate-700 rounded-lg min-h-[38px]">
+        {tags.map(t => (
+          <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded border border-teal-500/30">
+            <Tag size={10} />{t}<button onClick={() => onChange(tags.filter(x => x !== t))}><X size={10} /></button>
           </span>
         ))}
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && inputValue.trim()) { e.preventDefault(); addTag(inputValue); } }}
-          placeholder={tags.length === 0 ? "Add tags..." : ""}
-          className="flex-1 min-w-[100px] bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
-        />
+        <input type="text" value={input} onChange={e => setInput(e.target.value)} onFocus={() => setShow(true)} onBlur={() => setTimeout(() => setShow(false), 150)}
+          onKeyDown={e => e.key === 'Enter' && input.trim() && (e.preventDefault(), add(input))}
+          className="flex-1 min-w-[80px] bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none" placeholder={tags.length ? '' : 'Tags...'} />
       </div>
-      {showSuggestions && filteredSuggestions.length > 0 && (
+      {show && filtered.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10">
-          {filteredSuggestions.map(tag => (
-            <button key={tag} onClick={() => addTag(tag)} className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2">
-              <Tag size={12} className="text-slate-500" />{tag}
-            </button>
-          ))}
+          {filtered.map(t => <button key={t} onClick={() => add(t)} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"><Tag size={12} />{t}</button>)}
         </div>
       )}
     </div>
@@ -128,36 +85,14 @@ function TagsInput({ tags, onChange }: { tags: string[]; onChange: (tags: string
 
 function TableEditor({ data, onChange }: { data: { headers: string[]; rows: string[][] }; onChange: (d: any) => void }) {
   return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              {data.headers.map((header, i) => (
-                <th key={i} className="p-0">
-                  <input type="text" value={header} onChange={(e) => { const h = [...data.headers]; h[i] = e.target.value; onChange({ ...data, headers: h }); }}
-                    className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 text-white font-medium focus:outline-none" />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((row, ri) => (
-              <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci} className="p-0">
-                    <input type="text" value={cell} onChange={(e) => { const r = [...data.rows]; r[ri] = [...r[ri]]; r[ri][ci] = e.target.value; onChange({ ...data, rows: r }); }}
-                      className="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 focus:outline-none" />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-2 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead><tr>{data.headers.map((h, i) => <th key={i} className="p-0"><input type="text" value={h} onChange={e => { const hs = [...data.headers]; hs[i] = e.target.value; onChange({ ...data, headers: hs }); }} className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 text-white font-medium focus:outline-none" /></th>)}</tr></thead>
+        <tbody>{data.rows.map((r, ri) => <tr key={ri}>{r.map((c, ci) => <td key={ci} className="p-0"><input type="text" value={c} onChange={e => { const rs = [...data.rows]; rs[ri] = [...rs[ri]]; rs[ri][ci] = e.target.value; onChange({ ...data, rows: rs }); }} className="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 focus:outline-none" /></td>)}</tr>)}</tbody>
+      </table>
       <div className="flex gap-2">
-        <button onClick={() => onChange({ headers: [...data.headers, 'Column'], rows: data.rows.map(r => [...r, '']) })} className="px-3 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600">+ Column</button>
-        <button onClick={() => onChange({ ...data, rows: [...data.rows, data.headers.map(() => '')] })} className="px-3 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600">+ Row</button>
+        <button onClick={() => onChange({ headers: [...data.headers, 'Col'], rows: data.rows.map(r => [...r, '']) })} className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded">+ Col</button>
+        <button onClick={() => onChange({ ...data, rows: [...data.rows, data.headers.map(() => '')] })} className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded">+ Row</button>
       </div>
     </div>
   );
@@ -165,35 +100,93 @@ function TableEditor({ data, onChange }: { data: { headers: string[]; rows: stri
 
 function CardGridEditor({ cards, onChange }: { cards: { title: string; content: string }[]; onChange: (c: any) => void }) {
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {cards.map((card, i) => (
-          <div key={i} className="p-3 bg-slate-800 border border-slate-700 rounded-lg">
-            <input type="text" value={card.title} onChange={(e) => { const c = [...cards]; c[i] = { ...c[i], title: e.target.value }; onChange(c); }}
-              className="w-full bg-transparent text-sm font-medium text-teal-400 focus:outline-none mb-1" placeholder="Title" />
-            <input type="text" value={card.content} onChange={(e) => { const c = [...cards]; c[i] = { ...c[i], content: e.target.value }; onChange(c); }}
-              className="w-full bg-transparent text-xs text-slate-400 focus:outline-none" placeholder="Content" />
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        {cards.map((c, i) => (
+          <div key={i} className="p-2 bg-slate-800 border border-slate-700 rounded">
+            <input type="text" value={c.title} onChange={e => { const cs = [...cards]; cs[i] = { ...cs[i], title: e.target.value }; onChange(cs); }} className="w-full bg-transparent text-xs font-medium text-teal-400 focus:outline-none" placeholder="Title" />
+            <input type="text" value={c.content} onChange={e => { const cs = [...cards]; cs[i] = { ...cs[i], content: e.target.value }; onChange(cs); }} className="w-full bg-transparent text-xs text-slate-400 focus:outline-none" placeholder="Content" />
           </div>
         ))}
       </div>
-      <button onClick={() => onChange([...cards, { title: 'Title', content: '' }])} className="px-3 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600">+ Add Card</button>
+      <button onClick={() => onChange([...cards, { title: '', content: '' }])} className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded">+ Card</button>
     </div>
   );
 }
 
-function ChecklistEditor({ items, onChange }: { items: ChecklistItem[]; onChange: (items: ChecklistItem[]) => void }) {
+function ChecklistEditor({ items, onChange }: { items: { id: string; text: string; checked: boolean }[]; onChange: (i: any) => void }) {
   return (
-    <div className="space-y-2">
-      {items.map((item, i) => (
-        <div key={item.id} className="flex items-center gap-2">
-          <input type="checkbox" checked={item.checked} onChange={(e) => { const it = [...items]; it[i] = { ...it[i], checked: e.target.checked }; onChange(it); }} className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-teal-500" />
-          <input type="text" value={item.text} onChange={(e) => { const it = [...items]; it[i] = { ...it[i], text: e.target.value }; onChange(it); }} placeholder={`Item ${i + 1}`}
-            className="flex-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 focus:outline-none" />
+    <div className="space-y-1.5">
+      {items.map((it, i) => (
+        <div key={it.id} className="flex items-center gap-2">
+          <input type="checkbox" checked={it.checked} onChange={e => { const is = [...items]; is[i] = { ...is[i], checked: e.target.checked }; onChange(is); }} className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-teal-500" />
+          <input type="text" value={it.text} onChange={e => { const is = [...items]; is[i] = { ...is[i], text: e.target.value }; onChange(is); }} className="flex-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 focus:outline-none" placeholder={`Item ${i + 1}`} />
         </div>
       ))}
-      <button onClick={() => onChange([...items, { id: generateId(), text: '', checked: false }])} className="px-3 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600">+ Add Item</button>
+      <button onClick={() => onChange([...items, { id: generateId(), text: '', checked: false }])} className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded">+ Item</button>
     </div>
   );
+}
+
+function BlockEditor({ section, block, updateBlock }: { section: Section; block: Block; updateBlock: (sid: string, bid: string, u: Partial<Block>) => void }) {
+  const handleContentChange = useCallback((content: string) => {
+    updateBlock(section.id, block.id, { content });
+  }, [section.id, block.id, updateBlock]);
+
+  const handleLeftContentChange = useCallback((content: string) => {
+    updateBlock(section.id, block.id, { leftContent: content });
+  }, [section.id, block.id, updateBlock]);
+
+  const handleRightContentChange = useCallback((content: string) => {
+    updateBlock(section.id, block.id, { rightContent: content });
+  }, [section.id, block.id, updateBlock]);
+
+  switch (block.type) {
+    case 'table': return <TableEditor data={block.tableData || { headers: ['Col'], rows: [['']] }} onChange={d => updateBlock(section.id, block.id, { tableData: d })} />;
+    case 'cardgrid': return <CardGridEditor cards={block.cards || []} onChange={c => updateBlock(section.id, block.id, { cards: c })} />;
+    case 'checklist': return <ChecklistEditor items={block.checklist || []} onChange={i => updateBlock(section.id, block.id, { checklist: i })} />;
+    case 'twocolumn': return (
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <input type="text" value={block.leftTitle || ''} onChange={e => updateBlock(section.id, block.id, { leftTitle: e.target.value })} className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-emerald-400 font-medium focus:outline-none mb-2" placeholder="Left title" />
+          <RichTextEditor content={block.leftContent || ''} onChange={handleLeftContentChange} placeholder="Left content..." minHeight="80px" />
+        </div>
+        <div>
+          <input type="text" value={block.rightTitle || ''} onChange={e => updateBlock(section.id, block.id, { rightTitle: e.target.value })} className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-amber-400 font-medium focus:outline-none mb-2" placeholder="Right title" />
+          <RichTextEditor content={block.rightContent || ''} onChange={handleRightContentChange} placeholder="Right content..." minHeight="80px" />
+        </div>
+      </div>
+    );
+    case 'header': return (
+      <div className="space-y-2">
+        <input type="text" value={block.title || ''} onChange={e => updateBlock(section.id, block.id, { title: e.target.value })} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-lg text-teal-400 font-semibold focus:outline-none" placeholder="Header title" />
+        <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Subtitle..." minHeight="60px" />
+      </div>
+    );
+    case 'step': return (
+      <div className="space-y-2">
+        <input type="text" value={block.title || ''} onChange={e => updateBlock(section.id, block.id, { title: e.target.value })} className="w-full bg-transparent text-white font-medium focus:outline-none" placeholder="Step title..." />
+        <TagsInput tags={block.tags || []} onChange={t => updateBlock(section.id, block.id, { tags: t })} />
+        <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Step instructions..." minHeight="80px" />
+      </div>
+    );
+    case 'code': return (
+      <div className="space-y-2">
+        <select value={block.language || 'bash'} onChange={e => updateBlock(section.id, block.id, { language: e.target.value })} className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-slate-300 focus:outline-none">
+          <option value="bash">bash</option><option value="sql">sql</option><option value="yaml">yaml</option><option value="json">json</option><option value="python">python</option>
+        </select>
+        <TagsInput tags={block.tags || []} onChange={t => updateBlock(section.id, block.id, { tags: t })} />
+        <textarea value={block.content} onChange={e => updateBlock(section.id, block.id, { content: e.target.value })} rows={4} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white font-mono text-sm focus:outline-none resize-none" placeholder="Code..." />
+      </div>
+    );
+    case 'warning': return (
+      <div className="space-y-2">
+        <TagsInput tags={block.tags || []} onChange={t => updateBlock(section.id, block.id, { tags: t })} />
+        <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Warning message..." minHeight="60px" />
+      </div>
+    );
+    default: return <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Enter content..." minHeight="60px" />;
+  }
 }
 
 export default function EditRunbookPage() {
@@ -226,31 +219,29 @@ export default function EditRunbookPage() {
   };
 
   const addSection = () => setSections([...sections, { id: generateId(), title: `Section ${sections.length + 1}`, blocks: [], isCollapsed: false }]);
-  const updateSection = (id: string, updates: Partial<Section>) => setSections(sections.map(s => s.id === id ? { ...s, ...updates } : s));
-  const deleteSection = (id: string) => { if (sections.length > 1) setSections(sections.filter(s => s.id !== id)); };
+  const updateSection = (id: string, u: Partial<Section>) => setSections(sections.map(s => s.id === id ? { ...s, ...u } : s));
+  const deleteSection = (id: string) => sections.length > 1 && setSections(sections.filter(s => s.id !== id));
 
-  const addBlock = (sectionId: string, type: BlockType) => {
-    const newBlock: Block = {
+  const addBlock = (sid: string, type: BlockType) => {
+    const b: Block = {
       id: generateId(), type, content: '',
       title: ['step', 'header'].includes(type) ? '' : undefined,
       language: type === 'code' ? 'bash' : undefined,
       tags: ['step', 'code', 'warning'].includes(type) ? [] : undefined,
-      tableData: type === 'table' ? { headers: ['Col 1', 'Col 2'], rows: [['', '']] } : undefined,
-      cards: type === 'cardgrid' ? [{ title: 'Title', content: '' }] : undefined,
-      leftTitle: type === 'twocolumn' ? '' : undefined,
-      rightTitle: type === 'twocolumn' ? '' : undefined,
+      tableData: type === 'table' ? { headers: ['Column 1', 'Column 2'], rows: [['', '']] } : undefined,
+      cards: type === 'cardgrid' ? [{ title: '', content: '' }] : undefined,
+      leftTitle: type === 'twocolumn' ? '' : undefined, rightTitle: type === 'twocolumn' ? '' : undefined,
+      leftContent: type === 'twocolumn' ? '' : undefined, rightContent: type === 'twocolumn' ? '' : undefined,
       checklist: type === 'checklist' ? [{ id: generateId(), text: '', checked: false }] : undefined,
     };
-    setSections(sections.map(s => s.id === sectionId ? { ...s, blocks: [...s.blocks, newBlock] } : s));
+    setSections(sections.map(s => s.id === sid ? { ...s, blocks: [...s.blocks, b] } : s));
   };
 
-  const updateBlock = (sectionId: string, blockId: string, updates: Partial<Block>) => {
-    setSections(sections.map(s => s.id === sectionId ? { ...s, blocks: s.blocks.map(b => b.id === blockId ? { ...b, ...updates } : b) } : s));
-  };
+  const updateBlock = useCallback((sid: string, bid: string, u: Partial<Block>) => {
+    setSections(prev => prev.map(s => s.id === sid ? { ...s, blocks: s.blocks.map(b => b.id === bid ? { ...b, ...u } : b) } : s));
+  }, []);
 
-  const deleteBlock = (sectionId: string, blockId: string) => {
-    setSections(sections.map(s => s.id === sectionId ? { ...s, blocks: s.blocks.filter(b => b.id !== blockId) } : s));
-  };
+  const deleteBlock = (sid: string, bid: string) => setSections(sections.map(s => s.id === sid ? { ...s, blocks: s.blocks.filter(b => b.id !== bid) } : s));
 
   const handleSave = async () => {
     if (!title.trim()) { setError('Please enter a title'); return; }
@@ -270,126 +261,60 @@ export default function EditRunbookPage() {
     }
   };
 
-  const renderBlockEditor = (section: Section, block: Block) => {
-    switch (block.type) {
-      case 'table': return <TableEditor data={block.tableData || { headers: ['Col'], rows: [['']] }} onChange={(d) => updateBlock(section.id, block.id, { tableData: d })} />;
-      case 'cardgrid': return <CardGridEditor cards={block.cards || []} onChange={(c) => updateBlock(section.id, block.id, { cards: c })} />;
-      case 'checklist': return <ChecklistEditor items={block.checklist || []} onChange={(items) => updateBlock(section.id, block.id, { checklist: items })} />;
-      case 'twocolumn':
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <input type="text" value={block.leftTitle || ''} onChange={(e) => updateBlock(section.id, block.id, { leftTitle: e.target.value })} className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-emerald-400 font-medium focus:outline-none" placeholder="Left title" />
-              <textarea value={block.leftContent || ''} onChange={(e) => updateBlock(section.id, block.id, { leftContent: e.target.value })} rows={3} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 focus:outline-none resize-none" placeholder="Content..." />
-            </div>
-            <div className="space-y-2">
-              <input type="text" value={block.rightTitle || ''} onChange={(e) => updateBlock(section.id, block.id, { rightTitle: e.target.value })} className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-amber-400 font-medium focus:outline-none" placeholder="Right title" />
-              <textarea value={block.rightContent || ''} onChange={(e) => updateBlock(section.id, block.id, { rightContent: e.target.value })} rows={3} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 focus:outline-none resize-none" placeholder="Content..." />
-            </div>
-          </div>
-        );
-      case 'header':
-        return (
-          <div className="space-y-2">
-            <input type="text" value={block.title || ''} onChange={(e) => updateBlock(section.id, block.id, { title: e.target.value })} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-lg text-teal-400 font-semibold focus:outline-none" placeholder="Header title" />
-            <textarea value={block.content} onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 focus:outline-none resize-none" placeholder="Subtitle..." />
-          </div>
-        );
-      case 'step':
-        return (
-          <div className="space-y-3">
-            <input type="text" value={block.title || ''} onChange={(e) => updateBlock(section.id, block.id, { title: e.target.value })} className="w-full bg-transparent text-white font-medium focus:outline-none" placeholder="Step title..." />
-            <TagsInput tags={block.tags || []} onChange={(tags) => updateBlock(section.id, block.id, { tags })} />
-            <textarea value={block.content} onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none resize-none" placeholder="Instructions..." />
-          </div>
-        );
-      case 'code':
-        return (
-          <div className="space-y-2">
-            <select value={block.language || 'bash'} onChange={(e) => updateBlock(section.id, block.id, { language: e.target.value })} className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-slate-300 focus:outline-none">
-              <option value="bash">bash</option><option value="sql">sql</option><option value="yaml">yaml</option><option value="json">json</option><option value="python">python</option>
-            </select>
-            <TagsInput tags={block.tags || []} onChange={(tags) => updateBlock(section.id, block.id, { tags })} />
-            <textarea value={block.content} onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })} rows={4} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none resize-none" placeholder="Code..." />
-          </div>
-        );
-      case 'warning':
-        return (
-          <div className="space-y-2">
-            <TagsInput tags={block.tags || []} onChange={(tags) => updateBlock(section.id, block.id, { tags })} />
-            <textarea value={block.content} onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-200 focus:outline-none resize-none" placeholder="Warning..." />
-          </div>
-        );
-      default:
-        return <textarea value={block.content} onChange={(e) => updateBlock(section.id, block.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none resize-none" placeholder="Content..." />;
-    }
-  };
-
   if (isLoading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 size={32} className="text-teal-500 animate-spin" /></div>;
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
+    <div className="max-w-4xl mx-auto">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
           <Link href={`/dashboard/runbooks/${params.id}`} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"><ArrowLeft size={20} /></Link>
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Edit Runbook</h1>
-            <p className="text-slate-400">Make changes to your runbook</p>
-          </div>
+          <h1 className="text-xl font-bold text-white">Edit Runbook</h1>
         </div>
-        <button onClick={handleSave} disabled={isSaving} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50">
-          {isSaving ? <><Loader2 size={18} className="animate-spin" /> Saving...</> : <><Save size={18} /> Save Changes</>}
+        <button onClick={handleSave} disabled={isSaving} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50 text-sm">
+          {isSaving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save</>}
         </button>
       </motion.div>
 
-      {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 flex justify-between"><span>{error}</span><button onClick={() => setError(null)}><X size={18} /></button></div>}
+      {error && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex justify-between"><span>{error}</span><button onClick={() => setError(null)}><X size={16} /></button></div>}
 
-      <div className="space-y-6">
-        <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Title <span className="text-red-400">*</span></label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white text-lg focus:outline-none focus:border-teal-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 resize-none" />
-          </div>
+      <div className="space-y-4">
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+          <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Runbook title *" className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-lg font-medium focus:outline-none focus:border-teal-500" />
+          <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" rows={2} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm focus:outline-none focus:border-teal-500 resize-none" />
         </div>
 
-        {sections.map((section) => (
+        {sections.map(section => (
           <div key={section.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="flex items-center gap-3 p-4 bg-slate-800/50 border-b border-slate-800">
-              <button onClick={() => updateSection(section.id, { isCollapsed: !section.isCollapsed })} className="text-slate-400 hover:text-white">
-                {section.isCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-              </button>
-              <input type="text" value={section.title} onChange={(e) => updateSection(section.id, { title: e.target.value })} className="flex-1 bg-transparent text-white font-semibold focus:outline-none" />
-              <span className="text-sm text-slate-500">{section.blocks.length} blocks</span>
-              {sections.length > 1 && <button onClick={() => deleteSection(section.id)} className="text-slate-500 hover:text-red-400"><Trash2 size={18} /></button>}
+            <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/50 border-b border-slate-800">
+              <button onClick={() => updateSection(section.id, { isCollapsed: !section.isCollapsed })} className="text-slate-400 hover:text-white">{section.isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}</button>
+              <input type="text" value={section.title} onChange={e => updateSection(section.id, { title: e.target.value })} className="flex-1 bg-transparent text-white font-medium focus:outline-none text-sm" />
+              <span className="text-xs text-slate-500">{section.blocks.length}</span>
+              {sections.length > 1 && <button onClick={() => deleteSection(section.id)} className="text-slate-500 hover:text-red-400"><Trash2 size={16} /></button>}
             </div>
             <AnimatePresence>
               {!section.isCollapsed && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="p-4 space-y-4">
-                  <Reorder.Group axis="y" values={section.blocks} onReorder={(blocks) => updateSection(section.id, { blocks })} className="space-y-3">
-                    {section.blocks.map((block) => {
-                      const bt = blockTypes.find(b => b.type === block.type);
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="p-4 space-y-3">
+                  <Reorder.Group axis="y" values={section.blocks} onReorder={blocks => updateSection(section.id, { blocks })} className="space-y-3">
+                    {section.blocks.map(block => {
+                      const bt = blockTypes.find(x => x.type === block.type);
                       return (
                         <Reorder.Item key={block.id} value={block} className="bg-slate-800/50 border border-slate-700 rounded-lg">
-                          <div className="flex items-start gap-3 p-4">
-                            <div className="cursor-grab text-slate-600 hover:text-slate-400 mt-1"><GripVertical size={18} /></div>
-                            <div className="flex-1 space-y-3">
-                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border ${bt?.color}`}>{bt && <bt.icon size={12} />}{bt?.label}</span>
-                              {renderBlockEditor(section, block)}
+                          <div className="flex items-start gap-2 p-3">
+                            <div className="cursor-grab text-slate-600 hover:text-slate-400 mt-1"><GripVertical size={16} /></div>
+                            <div className="flex-1 space-y-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${bt?.color}`}>{bt && <bt.icon size={10} />}{bt?.label}</span>
+                              <BlockEditor section={section} block={block} updateBlock={updateBlock} />
                             </div>
-                            <button onClick={() => deleteBlock(section.id, block.id)} className="text-slate-600 hover:text-red-400 mt-1"><Trash2 size={16} /></button>
+                            <button onClick={() => deleteBlock(section.id, block.id)} className="text-slate-600 hover:text-red-400"><Trash2 size={14} /></button>
                           </div>
                         </Reorder.Item>
                       );
                     })}
                   </Reorder.Group>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {blockTypes.map((bt) => (
-                      <button key={bt.type} onClick={() => addBlock(section.id, bt.type)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-400 hover:text-white hover:border-slate-600">
-                        <Plus size={14} /><bt.icon size={14} />{bt.label}
+                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-800">
+                    {blockTypes.map(bt => (
+                      <button key={bt.type} onClick={() => addBlock(section.id, bt.type)} className="inline-flex items-center gap-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 hover:text-white hover:border-slate-600">
+                        <bt.icon size={12} />{bt.label}
                       </button>
                     ))}
                   </div>
@@ -399,8 +324,8 @@ export default function EditRunbookPage() {
           </div>
         ))}
 
-        <button onClick={addSection} className="w-full p-4 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-600 flex items-center justify-center gap-2">
-          <Plus size={20} /> Add Section
+        <button onClick={addSection} className="w-full p-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-600 text-sm flex items-center justify-center gap-2">
+          <Plus size={16} /> Add Section
         </button>
       </div>
     </div>

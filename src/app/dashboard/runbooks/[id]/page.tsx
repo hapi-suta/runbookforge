@@ -104,7 +104,12 @@ function BlockRenderer({ block }: { block: Block }) {
                   ))}
                 </div>
               )}
-              {block.content && <p className="text-slate-300 whitespace-pre-wrap">{block.content}</p>}
+              {block.content && (
+                <div 
+                  className="prose prose-invert prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: block.content }}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -131,7 +136,7 @@ function BlockRenderer({ block }: { block: Block }) {
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <div className="flex items-start gap-3">
             <AlertTriangle size={18} className="text-amber-400 mt-0.5" />
-            <div>
+            <div className="flex-1">
               {block.tags && block.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {block.tags.map(tag => (
@@ -141,7 +146,10 @@ function BlockRenderer({ block }: { block: Block }) {
                   ))}
                 </div>
               )}
-              <p className="text-amber-200 whitespace-pre-wrap">{block.content}</p>
+              <div 
+                className="prose prose-invert prose-sm max-w-none prose-p:text-amber-200"
+                dangerouslySetInnerHTML={{ __html: block.content }}
+              />
             </div>
           </div>
         </div>
@@ -152,7 +160,10 @@ function BlockRenderer({ block }: { block: Block }) {
         <div className="p-4 bg-sky-500/10 border border-sky-500/30 rounded-lg">
           <div className="flex items-start gap-3">
             <Info size={18} className="text-sky-400 mt-0.5" />
-            <p className="text-sky-200 whitespace-pre-wrap">{block.content}</p>
+            <div 
+              className="prose prose-invert prose-sm max-w-none prose-p:text-sky-200"
+              dangerouslySetInnerHTML={{ __html: block.content }}
+            />
           </div>
         </div>
       );
@@ -162,7 +173,10 @@ function BlockRenderer({ block }: { block: Block }) {
         <div className="p-4 bg-violet-500/10 border border-violet-500/30 rounded-lg">
           <div className="flex items-start gap-3">
             <FileText size={18} className="text-violet-400 mt-0.5" />
-            <p className="text-violet-200 whitespace-pre-wrap">{block.content}</p>
+            <div 
+              className="prose prose-invert prose-sm max-w-none prose-p:text-violet-200"
+              dangerouslySetInnerHTML={{ __html: block.content }}
+            />
           </div>
         </div>
       );
@@ -171,7 +185,12 @@ function BlockRenderer({ block }: { block: Block }) {
       return (
         <div className="p-4 bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/30 rounded-lg">
           {block.title && <h3 className="text-xl font-semibold text-teal-400 mb-1">{block.title}</h3>}
-          {block.content && <p className="text-slate-300">{block.content}</p>}
+          {block.content && (
+            <div 
+              className="prose prose-invert prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: block.content }}
+            />
+          )}
         </div>
       );
 
@@ -227,7 +246,10 @@ function BlockRenderer({ block }: { block: Block }) {
                 <h4 className="text-emerald-400 font-medium">{block.leftTitle}</h4>
               </div>
             )}
-            <div className="text-slate-300 text-sm whitespace-pre-wrap">{block.leftContent}</div>
+            <div 
+              className="prose prose-invert prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: block.leftContent || '' }}
+            />
           </div>
           <div className="p-4 bg-slate-800/50 border border-amber-500/30 rounded-lg">
             {block.rightTitle && (
@@ -236,7 +258,10 @@ function BlockRenderer({ block }: { block: Block }) {
                 <h4 className="text-amber-400 font-medium">{block.rightTitle}</h4>
               </div>
             )}
-            <div className="text-slate-300 text-sm whitespace-pre-wrap">{block.rightContent}</div>
+            <div 
+              className="prose prose-invert prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: block.rightContent || '' }}
+            />
           </div>
         </div>
       );
@@ -261,7 +286,10 @@ function BlockRenderer({ block }: { block: Block }) {
     default:
       return (
         <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
-          <p className="text-slate-300 whitespace-pre-wrap">{block.content}</p>
+          <div 
+            className="prose prose-invert prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
         </div>
       );
   }

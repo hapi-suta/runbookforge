@@ -53,7 +53,23 @@ module.exports = {
           '100%': { opacity: '1' },
         },
       },
+      typography: {
+        invert: {
+          css: {
+            '--tw-prose-body': '#e2e8f0',
+            '--tw-prose-headings': '#14b8a6',
+            '--tw-prose-links': '#14b8a6',
+            '--tw-prose-bold': '#f8fafc',
+            '--tw-prose-bullets': '#14b8a6',
+            '--tw-prose-quotes': '#94a3b8',
+            '--tw-prose-code': '#f472b6',
+            '--tw-prose-hr': '#334155',
+          },
+        },
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 }

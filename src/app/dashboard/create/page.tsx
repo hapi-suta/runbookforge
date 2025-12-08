@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { 
   Plus, Trash2, GripVertical, Code, AlertTriangle, Info, CheckCircle,
@@ -9,6 +10,12 @@ import {
   Columns, FileText, X, Tag, ListChecks
 } from "lucide-react";
 import Link from "next/link";
+
+// Dynamic import for RichTextEditor to avoid SSR issues
+const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { 
+  ssr: false,
+  loading: () => <div className="h-24 bg-slate-800 rounded-lg animate-pulse" />
+});
 
 type BlockType = 'step' | 'code' | 'warning' | 'info' | 'note' | 'table' | 'cardgrid' | 'twocolumn' | 'header' | 'checklist';
 
@@ -124,6 +131,82 @@ function ChecklistEditor({ items, onChange }: { items: { id: string; text: strin
   );
 }
 
+// Block Editor with Rich Text
+function BlockEditor({ section, block, updateBlock }: { section: Section; block: Block; updateBlock: (sid: string, bid: string, u: Partial<Block>) => void }) {
+  const handleContentChange = useCallback((content: string) => {
+    updateBlock(section.id, block.id, { content });
+  }, [section.id, block.id, updateBlock]);
+
+  const handleLeftContentChange = useCallback((content: string) => {
+    updateBlock(section.id, block.id, { leftContent: content });
+  }, [section.id, block.id, updateBlock]);
+
+  const handleRightContentChange = useCallback((content: string) => {
+    updateBlock(section.id, block.id, { rightContent: content });
+  }, [section.id, block.id, updateBlock]);
+
+  switch (block.type) {
+    case 'table': 
+      return <TableEditor data={block.tableData || { headers: ['Col'], rows: [['']] }} onChange={d => updateBlock(section.id, block.id, { tableData: d })} />;
+    case 'cardgrid': 
+      return <CardGridEditor cards={block.cards || []} onChange={c => updateBlock(section.id, block.id, { cards: c })} />;
+    case 'checklist': 
+      return <ChecklistEditor items={block.checklist || []} onChange={i => updateBlock(section.id, block.id, { checklist: i })} />;
+    case 'twocolumn': 
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <input type="text" value={block.leftTitle || ''} onChange={e => updateBlock(section.id, block.id, { leftTitle: e.target.value })} className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-emerald-400 font-medium focus:outline-none mb-2" placeholder="Left title" />
+            <RichTextEditor content={block.leftContent || ''} onChange={handleLeftContentChange} placeholder="Left content..." minHeight="80px" />
+          </div>
+          <div>
+            <input type="text" value={block.rightTitle || ''} onChange={e => updateBlock(section.id, block.id, { rightTitle: e.target.value })} className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-amber-400 font-medium focus:outline-none mb-2" placeholder="Right title" />
+            <RichTextEditor content={block.rightContent || ''} onChange={handleRightContentChange} placeholder="Right content..." minHeight="80px" />
+          </div>
+        </div>
+      );
+    case 'header':
+      return (
+        <div className="space-y-2">
+          <input type="text" value={block.title || ''} onChange={e => updateBlock(section.id, block.id, { title: e.target.value })} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-lg text-teal-400 font-semibold focus:outline-none" placeholder="Header title" />
+          <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Subtitle or description..." minHeight="60px" />
+        </div>
+      );
+    case 'step':
+      return (
+        <div className="space-y-2">
+          <input type="text" value={block.title || ''} onChange={e => updateBlock(section.id, block.id, { title: e.target.value })} className="w-full bg-transparent text-white font-medium focus:outline-none" placeholder="Step title..." />
+          <TagsInput tags={block.tags || []} onChange={t => updateBlock(section.id, block.id, { tags: t })} />
+          <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Step instructions... Use the toolbar for formatting!" minHeight="80px" />
+        </div>
+      );
+    case 'code':
+      return (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <select value={block.language || 'bash'} onChange={e => updateBlock(section.id, block.id, { language: e.target.value })} className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-slate-300 focus:outline-none">
+              <option value="bash">bash</option><option value="sql">sql</option><option value="yaml">yaml</option><option value="json">json</option><option value="python">python</option>
+            </select>
+          </div>
+          <TagsInput tags={block.tags || []} onChange={t => updateBlock(section.id, block.id, { tags: t })} />
+          <textarea value={block.content} onChange={e => updateBlock(section.id, block.id, { content: e.target.value })} rows={4} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white font-mono text-sm focus:outline-none resize-none" placeholder="Code..." />
+        </div>
+      );
+    case 'warning':
+      return (
+        <div className="space-y-2">
+          <TagsInput tags={block.tags || []} onChange={t => updateBlock(section.id, block.id, { tags: t })} />
+          <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Warning message..." minHeight="60px" />
+        </div>
+      );
+    case 'info':
+    case 'note':
+      return <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Enter content..." minHeight="60px" />;
+    default:
+      return <RichTextEditor content={block.content} onChange={handleContentChange} placeholder="Enter content..." minHeight="60px" />;
+  }
+}
+
 export default function CreateRunbookPage() {
   const router = useRouter();
   const [title, setTitle] = useState('');
@@ -145,12 +228,16 @@ export default function CreateRunbookPage() {
       tableData: type === 'table' ? { headers: ['Column 1', 'Column 2'], rows: [['', '']] } : undefined,
       cards: type === 'cardgrid' ? [{ title: '', content: '' }] : undefined,
       leftTitle: type === 'twocolumn' ? '' : undefined, rightTitle: type === 'twocolumn' ? '' : undefined,
+      leftContent: type === 'twocolumn' ? '' : undefined, rightContent: type === 'twocolumn' ? '' : undefined,
       checklist: type === 'checklist' ? [{ id: generateId(), text: '', checked: false }] : undefined,
     };
     setSections(sections.map(s => s.id === sid ? { ...s, blocks: [...s.blocks, b] } : s));
   };
 
-  const updateBlock = (sid: string, bid: string, u: Partial<Block>) => setSections(sections.map(s => s.id === sid ? { ...s, blocks: s.blocks.map(b => b.id === bid ? { ...b, ...u } : b) } : s));
+  const updateBlock = useCallback((sid: string, bid: string, u: Partial<Block>) => {
+    setSections(prev => prev.map(s => s.id === sid ? { ...s, blocks: s.blocks.map(b => b.id === bid ? { ...b, ...u } : b) } : s));
+  }, []);
+
   const deleteBlock = (sid: string, bid: string) => setSections(sections.map(s => s.id === sid ? { ...s, blocks: s.blocks.filter(b => b.id !== bid) } : s));
 
   const handleSave = async () => {
@@ -162,53 +249,6 @@ export default function CreateRunbookPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to save');
       router.push('/dashboard/runbooks');
     } catch (e: any) { setError(e.message); } finally { setIsSaving(false); }
-  };
-
-  const renderEditor = (s: Section, b: Block) => {
-    switch (b.type) {
-      case 'table': return <TableEditor data={b.tableData || { headers: ['Col'], rows: [['']] }} onChange={d => updateBlock(s.id, b.id, { tableData: d })} />;
-      case 'cardgrid': return <CardGridEditor cards={b.cards || []} onChange={c => updateBlock(s.id, b.id, { cards: c })} />;
-      case 'checklist': return <ChecklistEditor items={b.checklist || []} onChange={i => updateBlock(s.id, b.id, { checklist: i })} />;
-      case 'twocolumn': return (
-        <div className="grid grid-cols-2 gap-3">
-          <div><input type="text" value={b.leftTitle || ''} onChange={e => updateBlock(s.id, b.id, { leftTitle: e.target.value })} className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-emerald-400 font-medium focus:outline-none mb-1" placeholder="Left title" />
-            <textarea value={b.leftContent || ''} onChange={e => updateBlock(s.id, b.id, { leftContent: e.target.value })} rows={3} className="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 focus:outline-none resize-none" placeholder="Content..." /></div>
-          <div><input type="text" value={b.rightTitle || ''} onChange={e => updateBlock(s.id, b.id, { rightTitle: e.target.value })} className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-amber-400 font-medium focus:outline-none mb-1" placeholder="Right title" />
-            <textarea value={b.rightContent || ''} onChange={e => updateBlock(s.id, b.id, { rightContent: e.target.value })} rows={3} className="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 focus:outline-none resize-none" placeholder="Content..." /></div>
-        </div>
-      );
-      case 'header': return (
-        <div className="space-y-1.5">
-          <input type="text" value={b.title || ''} onChange={e => updateBlock(s.id, b.id, { title: e.target.value })} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-lg text-teal-400 font-semibold focus:outline-none" placeholder="Header title" />
-          <textarea value={b.content} onChange={e => updateBlock(s.id, b.id, { content: e.target.value })} rows={1} className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-slate-300 focus:outline-none resize-none" placeholder="Subtitle..." />
-        </div>
-      );
-      case 'step': return (
-        <div className="space-y-2">
-          <input type="text" value={b.title || ''} onChange={e => updateBlock(s.id, b.id, { title: e.target.value })} className="w-full bg-transparent text-white font-medium focus:outline-none" placeholder="Step title..." />
-          <TagsInput tags={b.tags || []} onChange={t => updateBlock(s.id, b.id, { tags: t })} />
-          <textarea value={b.content} onChange={e => updateBlock(s.id, b.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:outline-none resize-none" placeholder="Instructions..." />
-        </div>
-      );
-      case 'code': return (
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <select value={b.language || 'bash'} onChange={e => updateBlock(s.id, b.id, { language: e.target.value })} className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-slate-300 focus:outline-none">
-              <option value="bash">bash</option><option value="sql">sql</option><option value="yaml">yaml</option><option value="json">json</option><option value="python">python</option>
-            </select>
-          </div>
-          <TagsInput tags={b.tags || []} onChange={t => updateBlock(s.id, b.id, { tags: t })} />
-          <textarea value={b.content} onChange={e => updateBlock(s.id, b.id, { content: e.target.value })} rows={4} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white font-mono text-sm focus:outline-none resize-none" placeholder="Code..." />
-        </div>
-      );
-      case 'warning': return (
-        <div className="space-y-2">
-          <TagsInput tags={b.tags || []} onChange={t => updateBlock(s.id, b.id, { tags: t })} />
-          <textarea value={b.content} onChange={e => updateBlock(s.id, b.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-200 focus:outline-none resize-none" placeholder="Warning..." />
-        </div>
-      );
-      default: return <textarea value={b.content} onChange={e => updateBlock(s.id, b.id, { content: e.target.value })} rows={2} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white focus:outline-none resize-none" placeholder="Content..." />;
-    }
   };
 
   return (
@@ -254,7 +294,7 @@ export default function CreateRunbookPage() {
                             <div className="cursor-grab text-slate-600 hover:text-slate-400 mt-1"><GripVertical size={16} /></div>
                             <div className="flex-1 space-y-2">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${bt?.color}`}>{bt && <bt.icon size={10} />}{bt?.label}</span>
-                              {renderEditor(section, block)}
+                              <BlockEditor section={section} block={block} updateBlock={updateBlock} />
                             </div>
                             <button onClick={() => deleteBlock(section.id, block.id)} className="text-slate-600 hover:text-red-400"><Trash2 size={14} /></button>
                           </div>
@@ -262,6 +302,7 @@ export default function CreateRunbookPage() {
                       );
                     })}
                   </Reorder.Group>
+
                   <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-800">
                     {blockTypes.map(bt => (
                       <button key={bt.type} onClick={() => addBlock(section.id, bt.type)} title={bt.desc} className="inline-flex items-center gap-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 hover:text-white hover:border-slate-600">
