@@ -18,9 +18,10 @@ import {
   X,
   Shield,
   Presentation,
-  GraduationCap
+  GraduationCap,
+  Library
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navigation = [
@@ -29,10 +30,14 @@ const navigation = [
   { name: 'My Documents', href: '/dashboard/documents', icon: Presentation },
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
   { name: 'Training Center', href: '/dashboard/training', icon: GraduationCap },
+  { name: 'Knowledge Base', href: '/dashboard/knowledge', icon: Library },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
   { name: 'Purchases', href: '/dashboard/purchases', icon: Package },
   { name: 'Shared with Me', href: '/dashboard/shared', icon: Share2 },
+];
+
+const adminNav = [
   { name: 'Admin', href: '/dashboard/admin', icon: Shield },
 ];
 
@@ -48,6 +53,29 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin status on mount
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const response = await fetch('/api/admin/check');
+        if (response.ok) {
+          const data = await response.json();
+          setIsAdmin(data.isAdmin);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+    
+    if (user) {
+      checkAdmin();
+    }
+  }, [user]);
+
+  // Combine navigation with admin if applicable
+  const fullNavigation = isAdmin ? [...navigation, ...adminNav] : navigation;
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
@@ -105,7 +133,7 @@ export default function DashboardLayout({
 
           {/* Main Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
+            {fullNavigation.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link

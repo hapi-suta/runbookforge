@@ -31,7 +31,7 @@ export async function POST(
 
     const { id: batchId } = await params;
     const body = await request.json();
-    const { title, description } = body;
+    const { title, description, recording_url, recording_title, recording_duration } = body;
 
     if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -59,7 +59,10 @@ export async function POST(
         batch_id: batchId,
         title,
         description,
-        sort_order: sortOrder
+        sort_order: sortOrder,
+        recording_url: recording_url || null,
+        recording_title: recording_title || null,
+        recording_duration: recording_duration || null
       })
       .select()
       .single();
@@ -102,6 +105,8 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description;
     if (sort_order !== undefined) updateData.sort_order = sort_order;
     if (is_published !== undefined) updateData.is_published = is_published;
+    if (body.recording_url !== undefined) updateData.recording_url = body.recording_url;
+    if (body.recording_platform !== undefined) updateData.recording_platform = body.recording_platform;
 
     const { data: module, error } = await supabase
       .from('training_modules')

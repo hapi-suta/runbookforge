@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - Get batch details with modules and content
+// GET - Get batch details with sections, modules, and content
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,10 +20,14 @@ export async function GET(
 
     const { id } = await params;
 
+    // Fetch batch with sections
     const { data: batch, error } = await supabase
       .from('training_batches')
       .select(`
         *,
+        training_sections (
+          *
+        ),
         training_modules (
           *,
           training_content (
@@ -45,12 +49,24 @@ export async function GET(
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
     }
 
-    // Sort modules and content by sort_order
+    // Sort sections
+    if (batch.training_sections) {
+      batch.training_sections.sort((a: { sort_order: number }, b: { sort_order: number }) => 
+        a.sort_order - b.sort_order
+      );
+    }
+
+    // Sort modules and nest under sections
     if (batch.training_modules) {
-      batch.training_modules.sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
+      batch.training_modules.sort((a: { sort_order: number }, b: { sort_order: number }) => 
+        a.sort_order - b.sort_order
+      );
+      
       batch.training_modules.forEach((module: { training_content: { sort_order: number }[] }) => {
         if (module.training_content) {
-          module.training_content.sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
+          module.training_content.sort((a: { sort_order: number }, b: { sort_order: number }) => 
+            a.sort_order - b.sort_order
+          );
         }
       });
     }
@@ -77,7 +93,6 @@ export async function PATCH(
     const body = await request.json();
     const { title, description, status, settings } = body;
 
-    // Verify ownership
     const { data: existing } = await supabase
       .from('training_batches')
       .select('id')
@@ -124,7 +139,6 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Verify ownership
     const { data: existing } = await supabase
       .from('training_batches')
       .select('id')

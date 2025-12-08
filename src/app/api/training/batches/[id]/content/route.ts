@@ -38,9 +38,13 @@ export async function POST(
       document_id, 
       runbook_id, 
       external_url, 
-      text_content,
+      generated_content,
       estimated_duration,
-      is_required 
+      is_required,
+      time_limit,
+      passing_score,
+      max_points,
+      due_date
     } = body;
 
     if (!moduleId || !title || !content_type) {
@@ -84,9 +88,13 @@ export async function POST(
         document_id: document_id || null,
         runbook_id: runbook_id || null,
         external_url: external_url || null,
-        text_content: text_content || null,
+        generated_content: generated_content || null,
         estimated_duration: estimated_duration || null,
         is_required: is_required || false,
+        time_limit: time_limit || null,
+        passing_score: passing_score || null,
+        max_points: max_points || 100,
+        due_date: due_date || null,
         sort_order: sortOrder
       })
       .select()
@@ -114,7 +122,7 @@ export async function PATCH(
 
     const { id: batchId } = await params;
     const body = await request.json();
-    const { contentId, title, sort_order, is_required, estimated_duration } = body;
+    const { contentId, title, sort_order, is_required, estimated_duration, generated_content, time_limit, passing_score } = body;
 
     if (!contentId) {
       return NextResponse.json({ error: 'Content ID is required' }, { status: 400 });
@@ -130,6 +138,9 @@ export async function PATCH(
     if (sort_order !== undefined) updateData.sort_order = sort_order;
     if (is_required !== undefined) updateData.is_required = is_required;
     if (estimated_duration !== undefined) updateData.estimated_duration = estimated_duration;
+    if (generated_content !== undefined) updateData.generated_content = generated_content;
+    if (time_limit !== undefined) updateData.time_limit = time_limit;
+    if (passing_score !== undefined) updateData.passing_score = passing_score;
 
     const { data: content, error } = await supabase
       .from('training_content')
