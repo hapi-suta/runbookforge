@@ -26,7 +26,10 @@ import {
   ShoppingBag,
   DollarSign,
   X,
-  Menu
+  Menu,
+  Share2,
+  Mail,
+  UserPlus
 } from "lucide-react";
 import { getColorClasses } from "@/components/ColorPicker";
 
@@ -1150,6 +1153,14 @@ export default function ViewRunbookPage() {
   const [sellCategory, setSellCategory] = useState('Database');
   const [sellDescription, setSellDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Share state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharePermission, setSharePermission] = useState('view');
+  const [shares, setShares] = useState<{ id: string; shared_with_email: string; permission: string; created_at: string }[]>([]);
+  const [sharingInProgress, setSharingInProgress] = useState(false);
+  const [shareError, setShareError] = useState('');
 
   const handleSubmitToMarketplace = async () => {
     if (!runbook || !sellPrice) return;
@@ -1585,6 +1596,79 @@ export default function ViewRunbookPage() {
     }
   };
 
+  // Open share modal and fetch existing shares
+  const openShareModal = async () => {
+    if (!runbook) return;
+    setShowShareModal(true);
+    setShareEmail('');
+    setSharePermission('view');
+    setShareError('');
+    
+    try {
+      const response = await fetch(`/api/shares?resource_type=runbook&resource_id=${runbook.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setShares(data);
+      }
+    } catch (error) {
+      console.error('Error fetching shares:', error);
+    }
+  };
+
+  // Create a share
+  const createShare = async () => {
+    if (!runbook || !shareEmail.trim()) return;
+    
+    setSharingInProgress(true);
+    setShareError('');
+    
+    try {
+      const response = await fetch('/api/shares', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: shareEmail.trim().toLowerCase(),
+          resource_type: 'runbook',
+          resource_id: runbook.id,
+          permission: sharePermission
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setShares([data, ...shares]);
+        setShareEmail('');
+      } else {
+        setShareError(data.error || 'Failed to share');
+      }
+    } catch (error) {
+      setShareError('Failed to share. Please try again.');
+    } finally {
+      setSharingInProgress(false);
+    }
+  };
+
+  // Remove a share
+  const removeShare = async (shareId: string) => {
+    try {
+      const response = await fetch(`/api/shares?id=${shareId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setShares(shares.filter(s => s.id !== shareId));
+      }
+    } catch (error) {
+      console.error('Error removing share:', error);
+    }
+  };
+
+  // Copy share link
+  const copyShareLink = () => {
+    if (!runbook) return;
+    const link = `${window.location.origin}/dashboard/runbooks/${runbook.id}`;
+    navigator.clipboard.writeText(link);
+    alert('Link copied to clipboard!');
+  };
+
   // Extract all unique tags from blocks
   const getAllTags = () => {
     if (!runbook) return [];
@@ -1864,6 +1948,15 @@ export default function ViewRunbookPage() {
             )}
           </div>
 
+          {/* Share Button */}
+          <button
+            onClick={openShareModal}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white font-medium hover:bg-slate-700 transition-all"
+          >
+            <Share2 size={16} />
+            Share Runbook
+          </button>
+
           {/* Edit Mode Button */}
           <Link
             href={`/dashboard/runbooks/${runbook.id}/edit`}
@@ -2105,6 +2198,137 @@ export default function ViewRunbookPage() {
                     )}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && runbook && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowShareModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Share Runbook</h2>
+                  <p className="text-sm text-slate-400 truncate">{runbook.title}</p>
+                </div>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-4">
+                {/* Copy Link */}
+                <div className="p-3 bg-slate-800 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <ExternalLink size={16} />
+                      <span className="text-sm">Anyone with the link can view</span>
+                    </div>
+                    <button
+                      onClick={copyShareLink}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors"
+                    >
+                      <Copy size={14} />
+                      Copy Link
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Share by Email */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <div className="flex items-center gap-2">
+                      <UserPlus size={16} />
+                      Share with specific people
+                    </div>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 flex gap-2">
+                      <input
+                        type="email"
+                        value={shareEmail}
+                        onChange={(e) => setShareEmail(e.target.value)}
+                        placeholder="Enter email address..."
+                        className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
+                      />
+                      <select
+                        value={sharePermission}
+                        onChange={(e) => setSharePermission(e.target.value)}
+                        className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                      >
+                        <option value="view">Can view</option>
+                        <option value="download">Can download</option>
+                        <option value="edit">Can edit</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={createShare}
+                      disabled={!shareEmail.trim() || sharingInProgress}
+                      className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {sharingInProgress ? <Loader2 size={18} className="animate-spin" /> : 'Share'}
+                    </button>
+                  </div>
+                  {shareError && (
+                    <p className="mt-2 text-sm text-red-400">{shareError}</p>
+                  )}
+                </div>
+                
+                {/* Existing Shares */}
+                {shares.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-400 mb-2">Shared with</h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {shares.map((share) => (
+                        <div key={share.id} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Mail size={16} className="text-slate-500" />
+                            <span className="text-sm text-white">{share.shared_with_email}</span>
+                            <span className="px-2 py-0.5 bg-slate-700 text-xs text-slate-400 rounded">
+                              {share.permission}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeShare(share.id)}
+                            className="p-1 text-slate-500 hover:text-red-400 rounded transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div className="flex items-center justify-end p-4 border-t border-slate-800">
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  Done
+                </button>
               </div>
             </motion.div>
           </motion.div>
