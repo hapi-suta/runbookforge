@@ -358,11 +358,7 @@ export default function AIPage() {
                 <textarea
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
-                  placeholder="Examples:
-• Ubuntu 22.04 with 3 nodes in Atlanta datacenter
-• Include pgBackRest for backups
-• Need HAProxy load balancer setup
-• Focus on disaster recovery procedures"
+                  placeholder={"• Ubuntu 22.04 with 3 nodes in Atlanta datacenter\n• Include pgBackRest for backups\n• Need HAProxy load balancer setup\n• Focus on disaster recovery procedures"}
                   rows={5}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors resize-none text-sm"
                   disabled={isProcessing}
