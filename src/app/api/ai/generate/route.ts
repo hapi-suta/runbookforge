@@ -23,7 +23,8 @@ Output ONLY valid JSON with this structure:
           "title": "For steps: action title",
           "content": "Main content",
           "language": "For code: bash|sql|yaml|json|python",
-          "tags": ["All Nodes", "Primary", "Each Node"]
+          "tags": ["All Nodes", "Primary", "Each Node"],
+          "tableData": {"headers": ["Col1", "Col2"], "rows": [["val1", "val2"], ["val3", "val4"]]}
         }
       ]
     }
@@ -59,8 +60,32 @@ CONTENT GUIDELINES:
 
 5. INFO BLOCKS: Helpful tips, not obvious information
 
-6. TABLE BLOCKS: For specifications, use format:
-   {"headers": ["Property", "Value"], "rows": [["OS", "Ubuntu 22.04"], ["RAM", "8GB"]]}
+6. TABLE BLOCKS - IMPORTANT FORMAT:
+   For specification/requirements tables, use this EXACT format:
+   {
+     "type": "table",
+     "tableData": {
+       "headers": ["Requirement", "Value"],
+       "rows": [
+         ["Operating System", "Ubuntu 22.04 LTS"],
+         ["RAM", "Minimum 2GB"],
+         ["Disk Space", "10GB free"],
+         ["Network Port", "5432"]
+       ]
+     }
+   }
+   
+   For multi-column data tables:
+   {
+     "type": "table", 
+     "tableData": {
+       "headers": ["Server", "Role", "IP", "Region"],
+       "rows": [
+         ["db-01", "Primary", "10.0.1.10", "us-east"],
+         ["db-02", "Replica", "10.0.1.11", "us-east"]
+       ]
+     }
+   }
 
 QUALITY STANDARDS:
 - Use realistic server names, IPs, paths from user context

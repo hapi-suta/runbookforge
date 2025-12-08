@@ -187,11 +187,11 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
       if (!block.tableData) return null;
       return (
         <div className="overflow-x-auto border border-slate-700 rounded-lg">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/50">
+              <tr className="bg-slate-800/50">
                 {block.tableData.headers.map((header, i) => (
-                  <th key={i} className="px-4 py-3 text-left text-slate-400 font-medium">
+                  <th key={i} className="px-4 py-3 text-left text-slate-400 font-medium border-b border-r border-slate-700 last:border-r-0">
                     {header}
                   </th>
                 ))}
@@ -199,9 +199,9 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
             </thead>
             <tbody>
               {block.tableData.rows.map((row, ri) => (
-                <tr key={ri} className="border-b border-slate-800 last:border-0">
+                <tr key={ri} className="border-b border-slate-800 last:border-b-0 hover:bg-slate-800/30">
                   {row.map((cell, ci) => (
-                    <td key={ci} className="px-4 py-3 text-white">
+                    <td key={ci} className="px-4 py-3 text-white border-r border-slate-800 last:border-r-0">
                       {cell}
                     </td>
                   ))}
@@ -216,14 +216,14 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
       if (!block.tableData) return null;
       return (
         <div className="overflow-x-auto border border-slate-700 rounded-lg">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-collapse">
             <tbody>
               {block.tableData.headers.map((header, i) => (
-                <tr key={i} className="border-b border-slate-800 last:border-0">
-                  <td className="px-4 py-3 text-slate-400 font-medium bg-slate-800/50 w-1/4">
-                    {header}:
+                <tr key={i} className="border-b border-slate-800 last:border-b-0">
+                  <td className="px-4 py-3 text-slate-400 font-medium bg-slate-800/50 w-1/3 border-r border-slate-700">
+                    {header}
                   </td>
-                  <td className="px-4 py-3 text-white font-medium">
+                  <td className="px-4 py-3 text-white">
                     {block.tableData!.rows[0]?.[i] || ''}
                   </td>
                 </tr>
