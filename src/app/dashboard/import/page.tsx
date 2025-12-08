@@ -690,14 +690,14 @@ export default function AIPage() {
             <input
               type="range"
               min="8"
-              max="30"
+              max="100"
               value={pptSlideCount}
               onChange={(e) => setPptSlideCount(parseInt(e.target.value))}
               className="w-full accent-amber-500"
             />
             <div className="flex justify-between text-xs text-slate-500 mt-1">
               <span>8 slides</span>
-              <span>30 slides</span>
+              <span>100 slides</span>
             </div>
 
             <label className="block text-sm font-medium text-slate-300 mt-6 mb-2">

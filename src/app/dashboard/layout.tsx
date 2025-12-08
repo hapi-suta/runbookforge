@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   Shield,
-  Presentation
+  Presentation,
+  GraduationCap
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'My Runbooks', href: '/dashboard/runbooks', icon: FileText },
   { name: 'My Documents', href: '/dashboard/documents', icon: Presentation },
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
+  { name: 'Training Center', href: '/dashboard/training', icon: GraduationCap },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
   { name: 'Purchases', href: '/dashboard/purchases', icon: Package },
