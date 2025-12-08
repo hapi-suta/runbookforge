@@ -12,9 +12,11 @@ import {
   BookOpen,
   Share2,
   ShoppingBag,
+  Package,
   ChevronRight,
   Menu,
-  X
+  X,
+  Shield
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,7 +27,9 @@ const navigation = [
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
+  { name: 'Purchases', href: '/dashboard/purchases', icon: Package },
   { name: 'Shared with Me', href: '/dashboard/shared', icon: Share2 },
+  { name: 'Admin', href: '/dashboard/admin', icon: Shield },
 ];
 
 const bottomNav = [

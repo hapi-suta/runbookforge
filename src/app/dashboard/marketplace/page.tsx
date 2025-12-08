@@ -15,160 +15,207 @@ import {
   ExternalLink,
   BarChart3,
   Wallet,
-  FileText,
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Plus,
   X,
   Loader2,
   Filter,
-  ChevronDown
+  ChevronDown,
+  AlertCircle
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-// Sample marketplace listings
-const sampleListings = [
-  {
-    id: '1',
-    title: 'PostgreSQL HA with Patroni',
-    description: 'Enterprise-grade high availability PostgreSQL cluster setup',
-    creator: 'James Smith',
-    creatorAvatar: 'JS',
-    price: 2500,
-    rating: 4.9,
-    reviewCount: 47,
-    salesCount: 152,
-    category: 'Database',
-    tags: ['PostgreSQL', 'Patroni', 'HA'],
-    featured: true
-  },
-  {
-    id: '2',
-    title: 'Kubernetes Production Setup',
-    description: 'Complete K8s cluster deployment with monitoring and logging',
-    creator: 'DevOps Pro',
-    creatorAvatar: 'DP',
-    price: 3500,
-    rating: 4.7,
-    reviewCount: 23,
-    salesCount: 89,
-    category: 'DevOps',
-    tags: ['Kubernetes', 'Docker', 'Helm'],
-    featured: true
-  },
-  {
-    id: '3',
-    title: 'AWS Landing Zone',
-    description: 'Multi-account AWS setup with security best practices',
-    creator: 'Cloud Expert',
-    creatorAvatar: 'CE',
-    price: 4500,
-    rating: 4.8,
-    reviewCount: 89,
-    salesCount: 234,
-    category: 'Cloud',
-    tags: ['AWS', 'Terraform', 'Security'],
-    featured: false
-  },
-  {
-    id: '4',
-    title: 'CI/CD Pipeline with GitHub Actions',
-    description: 'Production-ready CI/CD pipeline with testing and deployment',
-    creator: 'Pipeline Master',
-    creatorAvatar: 'PM',
-    price: 1500,
-    rating: 4.6,
-    reviewCount: 56,
-    salesCount: 178,
-    category: 'DevOps',
-    tags: ['GitHub Actions', 'CI/CD', 'Docker'],
-    featured: false
-  },
-  {
-    id: '5',
-    title: 'Incident Response Playbook',
-    description: 'Structured approach to handling production incidents',
-    creator: 'SRE Team',
-    creatorAvatar: 'ST',
-    price: 2000,
-    rating: 4.9,
-    reviewCount: 34,
-    salesCount: 112,
-    category: 'Operations',
-    tags: ['Incident', 'On-Call', 'SRE'],
-    featured: false
-  }
-];
+interface Listing {
+  id: string;
+  runbook_id: string;
+  creator_id: string;
+  title: string;
+  description: string;
+  price_personal: number;
+  price_team: number;
+  price_enterprise: number;
+  category: string;
+  tags: string[];
+  status: string;
+  sales_count: number;
+  rating: string | null;
+  rating_count: number;
+  featured: boolean;
+  created_at: string;
+  runbooks?: {
+    sections: any[];
+  };
+}
 
-// Sample creator data
-const creatorStats = {
-  totalEarnings: 12450,
-  pendingPayout: 2340,
-  totalSales: 156,
-  activeListings: 4,
-  avgRating: 4.8
-};
+interface CreatorStats {
+  totalEarnings: number;
+  pendingBalance: number;
+  totalSales: number;
+  activeListings: number;
+  avgRating: string | null;
+  thisMonthEarnings: number;
+  thisMonthSales: number;
+}
 
-const creatorListings = [
-  {
-    id: '1',
-    title: 'PostgreSQL HA with Patroni',
-    status: 'approved',
-    price: 2500,
-    sales: 152,
-    earnings: 10640,
-    rating: 4.9,
-    createdAt: '2024-10-15'
-  },
-  {
-    id: '2',
-    title: 'pgBackRest Backup Guide',
-    status: 'pending',
-    price: 1500,
-    sales: 0,
-    earnings: 0,
-    rating: null,
-    createdAt: '2024-12-01'
-  },
-  {
-    id: '3',
-    title: 'Database Migration Runbook',
-    status: 'approved',
-    price: 2000,
-    sales: 4,
-    earnings: 560,
-    rating: 5.0,
-    createdAt: '2024-11-20'
-  }
-];
+interface CreatorData {
+  account: any;
+  stats: CreatorStats;
+  listings: Listing[];
+  recentSales: any[];
+  payouts: any[];
+}
 
-const recentSales = [
-  { id: '1', runbook: 'PostgreSQL HA with Patroni', buyer: 'john@company.com', amount: 2500, date: '2024-12-06', license: 'Personal' },
-  { id: '2', runbook: 'PostgreSQL HA with Patroni', buyer: 'team@startup.io', amount: 7500, date: '2024-12-05', license: 'Team' },
-  { id: '3', runbook: 'Database Migration Runbook', buyer: 'dev@corp.com', amount: 2000, date: '2024-12-04', license: 'Personal' },
-];
-
-const categories = ['All', 'Database', 'DevOps', 'Cloud', 'Security', 'Operations'];
+const categories = ['All', 'Database', 'DevOps', 'Cloud', 'Security', 'Operations', 'Networking', 'Other'];
 
 export default function MarketplacePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'browse' | 'creator'>('browse');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('popular');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<typeof sampleListings[0] | null>(null);
-  const [isCreatorSetup, setIsCreatorSetup] = useState(true); // Assume setup for demo
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [selectedLicense, setSelectedLicense] = useState('personal');
+  
+  // Data states
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [featuredListings, setFeaturedListings] = useState<Listing[]>([]);
+  const [isLoadingListings, setIsLoadingListings] = useState(true);
+  const [creatorData, setCreatorData] = useState<CreatorData | null>(null);
+  const [isLoadingCreator, setIsLoadingCreator] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isSettingUpStripe, setIsSettingUpStripe] = useState(false);
 
-  const filteredListings = sampleListings.filter(listing => {
-    const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          listing.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || listing.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Fetch marketplace listings
+  useEffect(() => {
+    fetchListings();
+    fetchFeaturedListings();
+  }, [selectedCategory, sortBy, searchQuery]);
+
+  // Fetch creator data when switching to creator tab
+  useEffect(() => {
+    if (activeTab === 'creator') {
+      fetchCreatorData();
+    }
+  }, [activeTab]);
+
+  const fetchListings = async () => {
+    setIsLoadingListings(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedCategory !== 'All') params.set('category', selectedCategory);
+      if (searchQuery) params.set('search', searchQuery);
+      params.set('sort', sortBy);
+
+      const response = await fetch(`/api/marketplace/listings?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setListings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching listings:', error);
+    } finally {
+      setIsLoadingListings(false);
+    }
+  };
+
+  const fetchFeaturedListings = async () => {
+    try {
+      const response = await fetch('/api/marketplace/listings?featured=true');
+      if (response.ok) {
+        const data = await response.json();
+        setFeaturedListings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching featured:', error);
+    }
+  };
+
+  const fetchCreatorData = async () => {
+    setIsLoadingCreator(true);
+    try {
+      const response = await fetch('/api/creator');
+      if (response.ok) {
+        const data = await response.json();
+        setCreatorData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching creator data:', error);
+    } finally {
+      setIsLoadingCreator(false);
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!selectedListing) return;
+    
+    setIsPurchasing(true);
+    try {
+      const response = await fetch('/api/marketplace/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_id: selectedListing.id,
+          license_type: selectedLicense
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(data.message);
+        setSelectedListing(null);
+        if (data.runbook_id) {
+          router.push(`/dashboard/runbooks/${data.runbook_id}`);
+        }
+      } else {
+        alert(data.error || 'Purchase failed');
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      alert('Failed to process purchase');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleSetupStripe = async () => {
+    setIsSettingUpStripe(true);
+    try {
+      const response = await fetch('/api/creator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setup_stripe' })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(data.message);
+        fetchCreatorData();
+      } else {
+        alert(data.error || 'Failed to setup Stripe');
+      }
+    } catch (error) {
+      console.error('Stripe setup error:', error);
+      alert('Failed to setup Stripe');
+    } finally {
+      setIsSettingUpStripe(false);
+    }
+  };
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+  const getSelectedPrice = () => {
+    if (!selectedListing) return 0;
+    switch (selectedLicense) {
+      case 'team': return selectedListing.price_team;
+      case 'enterprise': return selectedListing.price_enterprise;
+      default: return selectedListing.price_personal;
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -301,113 +348,148 @@ export default function MarketplacePage() {
             </div>
           </div>
 
-          {/* Featured Section */}
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Star size={18} className="text-amber-400" />
-              Featured Runbooks
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {filteredListings.filter(l => l.featured).map((listing) => (
-                <motion.div
-                  key={listing.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="group p-4 sm:p-6 bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/30 rounded-xl hover:border-violet-500/50 transition-all"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-medium rounded">
-                      ⭐ Featured
-                    </span>
-                    <span className="text-lg sm:text-xl font-bold text-white">
-                      {formatPrice(listing.price)}
-                    </span>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-semibold text-white mb-2">{listing.title}</h3>
-                  <p className="text-sm text-slate-400 mb-4 line-clamp-2">{listing.description}</p>
-                  <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
-                    <span className="flex items-center gap-1">
-                      <Star size={14} className="text-amber-400 fill-amber-400" />
-                      {listing.rating} ({listing.reviewCount})
-                    </span>
-                    <span>{listing.salesCount} sales</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSelectedListing(listing)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
-                    >
-                      <Eye size={16} />
-                      <span className="hidden sm:inline">Preview</span>
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-sm text-white font-medium hover:from-violet-600 hover:to-purple-600 transition-all">
-                      <ShoppingCart size={16} />
-                      Buy
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+          {/* Loading State */}
+          {isLoadingListings && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="text-violet-500 animate-spin" />
             </div>
-          </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoadingListings && listings.length === 0 && (
+            <div className="p-12 bg-slate-900 border border-slate-800 rounded-xl text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
+                <ShoppingBag size={32} className="text-slate-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">No listings yet</h3>
+              <p className="text-slate-400 mb-6">Be the first to sell a runbook on the marketplace!</p>
+              <Link
+                href="/dashboard/runbooks"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500 rounded-lg text-white font-medium hover:bg-violet-600 transition-colors"
+              >
+                <Plus size={18} />
+                Create a Runbook to Sell
+              </Link>
+            </div>
+          )}
+
+          {/* Featured Section */}
+          {!isLoadingListings && featuredListings.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Star size={18} className="text-amber-400" />
+                Featured Runbooks
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {featuredListings.map((listing) => (
+                  <motion.div
+                    key={listing.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="group p-4 sm:p-6 bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/30 rounded-xl hover:border-violet-500/50 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-medium rounded">
+                        ⭐ Featured
+                      </span>
+                      <span className="text-lg sm:text-xl font-bold text-white">
+                        {formatPrice(listing.price_personal)}
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-semibold text-white mb-2">{listing.title}</h3>
+                    <p className="text-sm text-slate-400 mb-4 line-clamp-2">{listing.description}</p>
+                    <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
+                      {listing.rating && (
+                        <span className="flex items-center gap-1">
+                          <Star size={14} className="text-amber-400 fill-amber-400" />
+                          {listing.rating} ({listing.rating_count})
+                        </span>
+                      )}
+                      <span>{listing.sales_count} sales</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedListing(listing)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+                      >
+                        <Eye size={16} />
+                        <span className="hidden sm:inline">Preview</span>
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedListing(listing); setSelectedLicense('personal'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-sm text-white font-medium hover:from-violet-600 hover:to-purple-600 transition-all"
+                      >
+                        <ShoppingCart size={16} />
+                        Buy
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* All Listings */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">
-              All Runbooks ({filteredListings.length})
-            </h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredListings.map((listing, i) => (
-                <motion.div
-                  key={listing.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="group p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
-                      {listing.creatorAvatar}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white font-medium truncate">{listing.creator}</p>
-                      <p className="text-xs text-slate-500">{listing.category}</p>
-                    </div>
-                    <span className="text-lg font-bold text-white">
-                      {formatPrice(listing.price)}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-semibold text-white mb-2 line-clamp-1">{listing.title}</h3>
-                  <p className="text-sm text-slate-400 mb-3 line-clamp-2">{listing.description}</p>
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {listing.tags.slice(0, 3).map(tag => (
-                      <span key={tag} className="px-2 py-0.5 bg-slate-800 text-slate-400 text-xs rounded">
-                        {tag}
+          {!isLoadingListings && listings.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-white mb-4">
+                All Runbooks ({listings.length})
+              </h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {listings.map((listing, i) => (
+                  <motion.div
+                    key={listing.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">{listing.category}</span>
+                      <span className="text-lg font-bold text-white">
+                        {formatPrice(listing.price_personal)}
                       </span>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-slate-500 mb-4">
-                    <span className="flex items-center gap-1">
-                      <Star size={14} className="text-amber-400 fill-amber-400" />
-                      {listing.rating}
-                    </span>
-                    <span>{listing.salesCount} sales</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSelectedListing(listing)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-sm text-white font-medium hover:from-violet-600 hover:to-purple-600 transition-all">
-                      <ShoppingCart size={16} />
-                      Buy
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+                    </div>
+                    <h3 className="text-base font-semibold text-white mb-2 line-clamp-1">{listing.title}</h3>
+                    <p className="text-sm text-slate-400 mb-3 line-clamp-2">{listing.description}</p>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {listing.tags?.slice(0, 3).map(tag => (
+                        <span key={tag} className="px-2 py-0.5 bg-slate-800 text-slate-400 text-xs rounded">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-slate-500 mb-4">
+                      {listing.rating ? (
+                        <span className="flex items-center gap-1">
+                          <Star size={14} className="text-amber-400 fill-amber-400" />
+                          {listing.rating}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">No ratings</span>
+                      )}
+                      <span>{listing.sales_count} sales</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedListing(listing)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedListing(listing); setSelectedLicense('personal'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg text-sm text-white font-medium hover:from-violet-600 hover:to-purple-600 transition-all"
+                      >
+                        <ShoppingCart size={16} />
+                        Buy
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
       )}
 
@@ -418,7 +500,11 @@ export default function MarketplacePage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          {!isCreatorSetup ? (
+          {isLoadingCreator ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="text-violet-500 animate-spin" />
+            </div>
+          ) : !creatorData?.account?.payouts_enabled ? (
             /* Creator Onboarding */
             <div className="max-w-2xl mx-auto text-center py-12">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-violet-500/20 to-purple-500/20 border border-violet-500/30 flex items-center justify-center">
@@ -452,10 +538,18 @@ export default function MarketplacePage() {
                 </div>
               </div>
               <button
-                onClick={() => setIsCreatorSetup(true)}
-                className="px-8 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-xl text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all"
+                onClick={handleSetupStripe}
+                disabled={isSettingUpStripe}
+                className="px-8 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-xl text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50"
               >
-                Connect Stripe & Start Selling
+                {isSettingUpStripe ? (
+                  <>
+                    <Loader2 size={18} className="inline mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  'Connect Stripe & Start Selling'
+                )}
               </button>
             </div>
           ) : (
@@ -468,15 +562,21 @@ export default function MarketplacePage() {
                     <DollarSign size={16} />
                     <span className="text-xs sm:text-sm">Total Earnings</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-bold text-white">${(creatorStats.totalEarnings / 100).toFixed(2)}</p>
-                  <p className="text-xs text-emerald-400 mt-1">+$234 this month</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">
+                    {formatPrice(creatorData.stats.totalEarnings)}
+                  </p>
+                  <p className="text-xs text-emerald-400 mt-1">
+                    +{formatPrice(creatorData.stats.thisMonthEarnings)} this month
+                  </p>
                 </div>
                 <div className="p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl">
                   <div className="flex items-center gap-2 text-slate-400 mb-2">
                     <Wallet size={16} />
                     <span className="text-xs sm:text-sm">Pending Payout</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-bold text-white">${(creatorStats.pendingPayout / 100).toFixed(2)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">
+                    {formatPrice(creatorData.stats.pendingBalance)}
+                  </p>
                   <p className="text-xs text-slate-500 mt-1">Next payout: Jan 15</p>
                 </div>
                 <div className="p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl">
@@ -484,16 +584,22 @@ export default function MarketplacePage() {
                     <BarChart3 size={16} />
                     <span className="text-xs sm:text-sm">Total Sales</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-bold text-white">{creatorStats.totalSales}</p>
-                  <p className="text-xs text-emerald-400 mt-1">+12 this month</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">{creatorData.stats.totalSales}</p>
+                  <p className="text-xs text-emerald-400 mt-1">
+                    +{creatorData.stats.thisMonthSales} this month
+                  </p>
                 </div>
                 <div className="p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl">
                   <div className="flex items-center gap-2 text-slate-400 mb-2">
                     <Star size={16} />
                     <span className="text-xs sm:text-sm">Avg Rating</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-bold text-white">{creatorStats.avgRating}</p>
-                  <p className="text-xs text-amber-400 mt-1">⭐ Excellent</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">
+                    {creatorData.stats.avgRating || 'N/A'}
+                  </p>
+                  {creatorData.stats.avgRating && (
+                    <p className="text-xs text-amber-400 mt-1">⭐ Excellent</p>
+                  )}
                 </div>
               </div>
 
@@ -506,10 +612,6 @@ export default function MarketplacePage() {
                   <Plus size={18} />
                   Create New Runbook to Sell
                 </Link>
-                <button className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white font-medium hover:bg-slate-700 transition-colors">
-                  <CreditCard size={18} />
-                  Manage Payouts
-                </button>
               </div>
 
               {/* My Listings */}
@@ -517,117 +619,108 @@ export default function MarketplacePage() {
                 <div className="p-4 sm:p-5 border-b border-slate-800">
                   <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                     <Package size={20} />
-                    My Listings
+                    My Listings ({creatorData.listings.length})
                   </h2>
                 </div>
-                <div className="divide-y divide-slate-800">
-                  {creatorListings.map((listing) => (
-                    <div key={listing.id} className="p-4 sm:p-5 hover:bg-slate-800/50 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-white truncate">{listing.title}</h3>
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
-                              listing.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
-                              listing.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                              'bg-red-500/20 text-red-400'
-                            }`}>
-                              {listing.status === 'approved' && <CheckCircle size={12} className="inline mr-1" />}
-                              {listing.status === 'pending' && <Clock size={12} className="inline mr-1" />}
-                              {listing.status === 'rejected' && <XCircle size={12} className="inline mr-1" />}
-                              {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400">
-                            <span>{formatPrice(listing.price)}</span>
-                            <span>{listing.sales} sales</span>
-                            <span>${(listing.earnings / 100).toFixed(2)} earned</span>
-                            {listing.rating && (
-                              <span className="flex items-center gap-1">
-                                <Star size={12} className="text-amber-400 fill-amber-400" />
-                                {listing.rating}
+                {creatorData.listings.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-slate-400 mb-4">You haven't listed any runbooks yet.</p>
+                    <Link
+                      href="/dashboard/runbooks"
+                      className="text-violet-400 hover:text-violet-300"
+                    >
+                      Go to My Runbooks to list one →
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-800">
+                    {creatorData.listings.map((listing) => (
+                      <div key={listing.id} className="p-4 sm:p-5 hover:bg-slate-800/50 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium text-white truncate">{listing.title}</h3>
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+                                listing.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                listing.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                                'bg-red-500/20 text-red-400'
+                              }`}>
+                                {listing.status === 'approved' && <CheckCircle size={12} className="inline mr-1" />}
+                                {listing.status === 'pending' && <Clock size={12} className="inline mr-1" />}
+                                {listing.status === 'rejected' && <XCircle size={12} className="inline mr-1" />}
+                                {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
                               </span>
-                            )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400">
+                              <span>{formatPrice(listing.price_personal)}</span>
+                              <span>{listing.sales_count} sales</span>
+                              {listing.rating && (
+                                <span className="flex items-center gap-1">
+                                  <Star size={12} className="text-amber-400 fill-amber-400" />
+                                  {listing.rating}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors">
-                            Edit
-                          </button>
-                          <button className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors">
-                            <ExternalLink size={16} />
-                          </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Recent Sales */}
-              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                <div className="p-4 sm:p-5 border-b border-slate-800">
-                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <TrendingUp size={20} />
-                    Recent Sales
-                  </h2>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[500px]">
-                    <thead>
-                      <tr className="text-left text-sm text-slate-400 border-b border-slate-800">
-                        <th className="px-4 sm:px-5 py-3 font-medium">Runbook</th>
-                        <th className="px-4 sm:px-5 py-3 font-medium">Buyer</th>
-                        <th className="px-4 sm:px-5 py-3 font-medium">License</th>
-                        <th className="px-4 sm:px-5 py-3 font-medium text-right">Amount</th>
-                        <th className="px-4 sm:px-5 py-3 font-medium text-right">Your Earnings</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                      {recentSales.map((sale) => (
-                        <tr key={sale.id} className="hover:bg-slate-800/50 transition-colors">
-                          <td className="px-4 sm:px-5 py-4">
-                            <p className="text-white text-sm truncate max-w-[200px]">{sale.runbook}</p>
-                            <p className="text-xs text-slate-500">{sale.date}</p>
-                          </td>
-                          <td className="px-4 sm:px-5 py-4 text-sm text-slate-400 truncate max-w-[150px]">
-                            {sale.buyer}
-                          </td>
-                          <td className="px-4 sm:px-5 py-4">
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${
-                              sale.license === 'Personal' ? 'bg-slate-700 text-slate-300' :
-                              sale.license === 'Team' ? 'bg-blue-500/20 text-blue-400' :
-                              'bg-violet-500/20 text-violet-400'
-                            }`}>
-                              {sale.license}
-                            </span>
-                          </td>
-                          <td className="px-4 sm:px-5 py-4 text-right text-sm text-white">
-                            {formatPrice(sale.amount)}
-                          </td>
-                          <td className="px-4 sm:px-5 py-4 text-right text-sm text-emerald-400 font-medium">
-                            +{formatPrice(sale.amount * 0.7)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Payout Info */}
-              <div className="p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-white mb-1">Payout Settings</h3>
-                    <p className="text-sm text-slate-400">Connected to Stripe • Bank account ending in 4242</p>
+              {creatorData.recentSales.length > 0 && (
+                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                  <div className="p-4 sm:p-5 border-b border-slate-800">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <TrendingUp size={20} />
+                      Recent Sales
+                    </h2>
                   </div>
-                  <button className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white hover:bg-slate-700 transition-colors">
-                    <ExternalLink size={16} />
-                    Stripe Dashboard
-                  </button>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[500px]">
+                      <thead>
+                        <tr className="text-left text-sm text-slate-400 border-b border-slate-800">
+                          <th className="px-4 sm:px-5 py-3 font-medium">Runbook</th>
+                          <th className="px-4 sm:px-5 py-3 font-medium">License</th>
+                          <th className="px-4 sm:px-5 py-3 font-medium text-right">Amount</th>
+                          <th className="px-4 sm:px-5 py-3 font-medium text-right">Your Earnings</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {creatorData.recentSales.map((sale) => (
+                          <tr key={sale.id} className="hover:bg-slate-800/50 transition-colors">
+                            <td className="px-4 sm:px-5 py-4">
+                              <p className="text-white text-sm truncate max-w-[200px]">
+                                {sale.marketplace_listings?.title || 'Unknown'}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {new Date(sale.created_at).toLocaleDateString()}
+                              </p>
+                            </td>
+                            <td className="px-4 sm:px-5 py-4">
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                sale.license_type === 'personal' ? 'bg-slate-700 text-slate-300' :
+                                sale.license_type === 'team' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-violet-500/20 text-violet-400'
+                              }`}>
+                                {sale.license_type.charAt(0).toUpperCase() + sale.license_type.slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-4 sm:px-5 py-4 text-right text-sm text-white">
+                              {formatPrice(sale.amount_paid)}
+                            </td>
+                            <td className="px-4 sm:px-5 py-4 text-right text-sm text-emerald-400 font-medium">
+                              +{formatPrice(sale.creator_payout)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </motion.div>
@@ -654,7 +747,7 @@ export default function MarketplacePage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-white mb-1">{selectedListing.title}</h2>
-                    <p className="text-sm text-slate-400">by {selectedListing.creator}</p>
+                    <p className="text-sm text-slate-400">{selectedListing.category}</p>
                   </div>
                   <button
                     onClick={() => setSelectedListing(null)}
@@ -669,44 +762,70 @@ export default function MarketplacePage() {
                 <p className="text-slate-300 mb-4">{selectedListing.description}</p>
                 
                 <div className="flex items-center gap-4 mb-6 text-sm">
-                  <span className="flex items-center gap-1 text-amber-400">
-                    <Star size={16} className="fill-amber-400" />
-                    {selectedListing.rating} ({selectedListing.reviewCount} reviews)
-                  </span>
-                  <span className="text-slate-400">{selectedListing.salesCount} sales</span>
+                  {selectedListing.rating && (
+                    <span className="flex items-center gap-1 text-amber-400">
+                      <Star size={16} className="fill-amber-400" />
+                      {selectedListing.rating} ({selectedListing.rating_count} reviews)
+                    </span>
+                  )}
+                  <span className="text-slate-400">{selectedListing.sales_count} sales</span>
                 </div>
 
                 <div className="space-y-3 mb-6">
                   <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Select License</h3>
-                  <label className="flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500/50 transition-colors">
+                  <label className={`flex items-center justify-between p-4 bg-slate-800/50 border rounded-xl cursor-pointer transition-colors ${
+                    selectedLicense === 'personal' ? 'border-violet-500' : 'border-slate-700 hover:border-slate-600'
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <input type="radio" name="license" defaultChecked className="w-4 h-4 text-violet-500" />
+                      <input 
+                        type="radio" 
+                        name="license" 
+                        checked={selectedLicense === 'personal'}
+                        onChange={() => setSelectedLicense('personal')}
+                        className="w-4 h-4 text-violet-500" 
+                      />
                       <div>
                         <p className="font-medium text-white">Personal License</p>
                         <p className="text-sm text-slate-400">Single user, personal use</p>
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-white">{formatPrice(selectedListing.price)}</span>
+                    <span className="text-lg font-bold text-white">{formatPrice(selectedListing.price_personal)}</span>
                   </label>
-                  <label className="flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500/50 transition-colors">
+                  <label className={`flex items-center justify-between p-4 bg-slate-800/50 border rounded-xl cursor-pointer transition-colors ${
+                    selectedLicense === 'team' ? 'border-violet-500' : 'border-slate-700 hover:border-slate-600'
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <input type="radio" name="license" className="w-4 h-4 text-violet-500" />
+                      <input 
+                        type="radio" 
+                        name="license"
+                        checked={selectedLicense === 'team'}
+                        onChange={() => setSelectedLicense('team')}
+                        className="w-4 h-4 text-violet-500" 
+                      />
                       <div>
                         <p className="font-medium text-white">Team License</p>
                         <p className="text-sm text-slate-400">Up to 20 users, editing allowed</p>
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-white">{formatPrice(selectedListing.price * 3)}</span>
+                    <span className="text-lg font-bold text-white">{formatPrice(selectedListing.price_team)}</span>
                   </label>
-                  <label className="flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500/50 transition-colors">
+                  <label className={`flex items-center justify-between p-4 bg-slate-800/50 border rounded-xl cursor-pointer transition-colors ${
+                    selectedLicense === 'enterprise' ? 'border-violet-500' : 'border-slate-700 hover:border-slate-600'
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <input type="radio" name="license" className="w-4 h-4 text-violet-500" />
+                      <input 
+                        type="radio" 
+                        name="license"
+                        checked={selectedLicense === 'enterprise'}
+                        onChange={() => setSelectedLicense('enterprise')}
+                        className="w-4 h-4 text-violet-500" 
+                      />
                       <div>
                         <p className="font-medium text-white">Enterprise License</p>
                         <p className="text-sm text-slate-400">Unlimited users, lifetime updates</p>
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-white">{formatPrice(selectedListing.price * 10)}</span>
+                    <span className="text-lg font-bold text-white">{formatPrice(selectedListing.price_enterprise)}</span>
                   </label>
                 </div>
 
@@ -722,9 +841,22 @@ export default function MarketplacePage() {
               </div>
 
               <div className="p-5 sm:p-6 border-t border-slate-800 bg-slate-800/50">
-                <button className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-xl text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all">
-                  <ShoppingCart size={18} />
-                  Complete Purchase - {formatPrice(selectedListing.price)}
+                <button 
+                  onClick={handlePurchase}
+                  disabled={isPurchasing}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-xl text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50"
+                >
+                  {isPurchasing ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={18} />
+                      Complete Purchase - {formatPrice(getSelectedPrice())}
+                    </>
+                  )}
                 </button>
                 <p className="text-center text-xs text-slate-500 mt-3">
                   🔒 Secured by Stripe • 7-day money-back guarantee

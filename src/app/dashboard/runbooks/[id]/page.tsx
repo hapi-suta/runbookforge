@@ -413,7 +413,41 @@ export default function ViewRunbookPage() {
   const [showSellModal, setShowSellModal] = useState(false);
   const [sellPrice, setSellPrice] = useState('25.00');
   const [sellCategory, setSellCategory] = useState('Database');
+  const [sellDescription, setSellDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitToMarketplace = async () => {
+    if (!runbook || !sellPrice) return;
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/marketplace/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runbook_id: runbook.id,
+          price_personal: parseFloat(sellPrice),
+          category: sellCategory,
+          description: sellDescription || runbook.description,
+          tags: []
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setShowSellModal(false);
+        alert('Your runbook has been submitted for review! You\'ll be notified when it\'s approved.');
+      } else {
+        alert(data.error || 'Failed to submit listing');
+      }
+    } catch (error) {
+      console.error('Error submitting to marketplace:', error);
+      alert('Failed to submit listing. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1319,15 +1353,7 @@ export default function ViewRunbookPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setIsSubmitting(true);
-                      // Simulate submission
-                      setTimeout(() => {
-                        setIsSubmitting(false);
-                        setShowSellModal(false);
-                        alert('Your runbook has been submitted for review! You\'ll be notified when it\'s approved.');
-                      }, 1500);
-                    }}
+                    onClick={handleSubmitToMarketplace}
                     disabled={isSubmitting || !sellPrice}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-500 rounded-xl text-white font-semibold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50"
                   >

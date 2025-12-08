@@ -1,15 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { 
-  Wrench, Play, GraduationCap, Shield, FileText, Video, 
-  MessageSquare, RefreshCw, ChevronRight, Menu, X,
-  Zap, Users, Clock, AlertTriangle, Repeat, Skull,
-  Check, ArrowRight, Sparkles
+  Wrench, Play, GraduationCap, Shield, FileText, 
+  Menu, X, Zap, Users, Clock, Check, ArrowRight, 
+  Sparkles, Download, BookOpen, ShoppingBag, Code,
+  Palette, Table, CheckSquare, Share2, Lock, Globe,
+  Star, TrendingUp, DollarSign, Cpu, Bot, FileJson,
+  Layers, Database, Cloud, AlertCircle, Terminal,
+  Briefcase, Award, Target, Rocket, BarChart, Heart,
+  ChevronRight, Monitor, Smartphone, Copy, Eye,
+  PenTool, Settings, Boxes, FileCheck, Workflow,
+  Search, Filter, Tags
 } from 'lucide-react'
+import Link from 'next/link'
 
-// Animation variants
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
@@ -23,12 +29,6 @@ const staggerContainer = {
   }
 }
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.4 } }
-}
-
-// Navigation Component
 function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -50,7 +50,7 @@ function Navigation() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-20">
           <motion.a 
-            href="#" 
+            href="/" 
             className="flex items-center gap-3"
             whileHover={{ scale: 1.02 }}
           >
@@ -74,17 +74,18 @@ function Navigation() {
 
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Features</a>
-            <a href="#demo" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Demo</a>
+            <a href="#ai" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">AI Builder</a>
+            <a href="#marketplace" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Marketplace</a>
             <a href="#pricing" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Pricing</a>
-            <a href="/sign-in" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sign In</a>
-            <motion.a
-              href="/sign-up"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-sm shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-shadow"
-            >
-              Get Started
-            </motion.a>
+            <Link href="/sign-in" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sign In</Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                href="/sign-up"
+                className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-sm shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-shadow"
+              >
+                Get Started Free
+              </Link>
+            </motion.div>
           </div>
 
           <button 
@@ -96,7 +97,6 @@ function Navigation() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <motion.div 
           initial={{ opacity: 0, height: 0 }}
@@ -105,11 +105,16 @@ function Navigation() {
         >
           <div className="px-6 py-4 space-y-4">
             <a href="#features" className="block text-slate-400 hover:text-white">Features</a>
-            <a href="#demo" className="block text-slate-400 hover:text-white">Demo</a>
+            <a href="#ai" className="block text-slate-400 hover:text-white">AI Builder</a>
+            <a href="#marketplace" className="block text-slate-400 hover:text-white">Marketplace</a>
             <a href="#pricing" className="block text-slate-400 hover:text-white">Pricing</a>
-            <button className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold">
-              Join Waitlist
-            </button>
+            <Link href="/sign-in" className="block text-slate-400 hover:text-white">Sign In</Link>
+            <Link 
+              href="/sign-up"
+              className="block w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-center"
+            >
+              Get Started Free
+            </Link>
           </div>
         </motion.div>
       )}
@@ -117,296 +122,144 @@ function Navigation() {
   )
 }
 
-// Hero Section
 function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
-      {/* Animated background */}
       <div className="absolute inset-0 bg-grid-pattern opacity-20" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-gradient-radial from-teal-500/20 to-transparent rounded-full blur-3xl" />
       
       <div className="relative max-w-7xl mx-auto px-6 text-center">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-        >
+        <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
           <motion.div 
             variants={fadeInUp}
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/30 rounded-full text-teal-400 text-sm mb-8"
           >
             <Sparkles size={16} />
-            Launching 2026
+            Now Live: Marketplace, Templates, AI Generation & More
           </motion.div>
 
           <motion.h1 
             variants={fadeInUp}
             className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tight"
           >
-            Transform Technical Procedures
+            Create. Document. Execute.
             <br />
-            <span className="gradient-text">into Beautiful Runbooks</span>
+            <span className="gradient-text">Professional Runbooks Made Simple.</span>
           </motion.h1>
 
           <motion.p 
             variants={fadeInUp}
-            className="text-xl text-slate-400 max-w-2xl mx-auto mb-10"
+            className="text-xl text-slate-400 max-w-3xl mx-auto mb-10"
           >
-            Create stunning, interactive runbooks in minutes. Paste your text or use our form builder—AI handles the rest. No coding required.
+            The complete platform for building beautiful technical documentation. 
+            15+ block types, AI-powered generation, interactive run mode, and a 
+            marketplace to buy or sell your expertise.
           </motion.p>
 
-          <motion.form 
-            variants={fadeInUp}
-            className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto mb-6"
-            action="https://formspree.io/f/mpwvjqak"
-            method="POST"
-          >
-            <input
-              type="email"
-              name="email"
-              placeholder="Enter your email"
-              required
-              className="flex-1 px-5 py-4 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors"
-            />
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              className="px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all flex items-center justify-center gap-2"
-            >
-              Get Early Access
-              <ArrowRight size={18} />
-            </motion.button>
-          </motion.form>
-
-          <motion.p 
-            variants={fadeInUp}
-            className="text-sm text-slate-500"
-          >
-            Join 500+ engineers on the waitlist. No spam, ever.
-          </motion.p>
-        </motion.div>
-      </div>
-
-      {/* Scroll indicator */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2"
-      >
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="w-6 h-10 border-2 border-slate-600 rounded-full flex items-start justify-center p-2"
-        >
-          <div className="w-1.5 h-3 bg-teal-500 rounded-full" />
-        </motion.div>
-      </motion.div>
-    </section>
-  )
-}
-
-// Demo Preview Section
-function DemoSection() {
-  const [activeTab, setActiveTab] = useState(0)
-  const tabs = ['Overview', 'Server Setup', 'Install PostgreSQL', 'Configure Patroni', 'Verification', 'Reference']
-
-  return (
-    <section id="demo" className="py-24 relative">
-      <div className="max-w-6xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl"
-        >
-          {/* Window Header */}
-          <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/50 border-b border-slate-700">
-            <div className="w-3 h-3 rounded-full bg-red-500" />
-            <div className="w-3 h-3 rounded-full bg-amber-500" />
-            <div className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="ml-4 text-xs text-slate-500 font-mono">patroni-ha-setup.html</span>
-          </div>
-
-          <div className="flex min-h-[500px]">
-            {/* Sidebar */}
-            <div className="hidden md:block w-64 bg-slate-900/50 border-r border-slate-800 p-4">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-lg flex items-center justify-center text-sm">
-                  🐘
-                </div>
-                <span className="font-semibold text-sm">Patroni HA Workshop</span>
-              </div>
-              
-              <nav className="space-y-1">
-                {tabs.map((tab, i) => (
-                  <motion.button
-                    key={tab}
-                    whileHover={{ x: 4 }}
-                    onClick={() => setActiveTab(i)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
-                      activeTab === i 
-                        ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30' 
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                    }`}
-                  >
-                    {['📋', '🖥️', '⚙️', '🔧', '✅', '📚'][i]} {tab}
-                  </motion.button>
-                ))}
-              </nav>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 p-6 md:p-8">
-              <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <span>⚙️</span> Install PostgreSQL
-              </h2>
-
-              <div className="space-y-6">
-                {/* Step */}
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    1
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold mb-2">Add PostgreSQL Repository</h4>
-                    <p className="text-sm text-slate-400 mb-3">Configure the official PostgreSQL APT repository on all servers.</p>
-                    
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs font-mono mb-3">
-                      🖥️ Run on: All Servers
-                    </span>
-
-                    <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-slate-700">
-                        <span className="text-xs text-slate-500 font-mono">bash</span>
-                        <motion.button 
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className="text-xs px-2 py-1 bg-teal-500/20 text-teal-400 rounded"
-                        >
-                          Copy
-                        </motion.button>
-                      </div>
-                      <pre className="p-4 text-sm text-emerald-400 font-mono overflow-x-auto">
-{`sudo apt update
-sudo apt install -y postgresql-common
-sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh`}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Alert */}
-                <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  className="flex gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-sm"
-                >
-                  <span className="text-lg">⚠️</span>
-                  <span>Make sure ports 5432 and 8008 are open in your firewall before proceeding.</span>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-// Problems Section
-function ProblemsSection() {
-  const problems = [
-    { icon: <Zap size={24} />, title: 'Knowledge walks out the door', desc: 'Senior engineer leaves. Years of tribal knowledge disappear overnight.' },
-    { icon: <Clock size={24} />, title: '3am incident panic', desc: 'Junior on-call scrambles through outdated wiki pages while production burns.' },
-    { icon: <Users size={24} />, title: 'Onboarding takes forever', desc: 'New hires spend months figuring out where things are documented.' },
-    { icon: <AlertTriangle size={24} />, title: 'Audit scramble', desc: '"Show us your procedures" triggers a company-wide panic to find docs.' },
-    { icon: <Repeat size={24} />, title: 'Same mistakes repeated', desc: '"I thought we documented this last time" said after every incident.' },
-    { icon: <Skull size={24} />, title: 'Wiki graveyards', desc: 'Confluence pages rot. READMEs go stale. Nobody trusts the docs.' },
-  ]
-
-  return (
-    <section className="py-24 border-t border-slate-800">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={staggerContainer}
-        >
-          <motion.p variants={fadeInUp} className="text-teal-400 font-semibold text-sm uppercase tracking-wider mb-4">
-            The Problem
-          </motion.p>
-          <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold mb-6">
-            Documentation is where<br />knowledge goes to die
-          </motion.h2>
-          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-2xl mb-16">
-            Every company struggles with the same issues. Sound familiar?
-          </motion.p>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {problems.map((problem, i) => (
-              <motion.div
-                key={i}
-                variants={scaleIn}
-                whileHover={{ y: -8, borderColor: 'rgb(239 68 68 / 0.5)' }}
-                className="p-6 bg-slate-900 border border-slate-800 rounded-2xl transition-all cursor-default"
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                href="/sign-up"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all"
               >
-                <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center text-red-400 mb-4">
-                  {problem.icon}
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{problem.title}</h3>
-                <p className="text-slate-400 text-sm">{problem.desc}</p>
-              </motion.div>
-            ))}
-          </div>
+                Start Building Free
+                <ArrowRight size={18} />
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                href="/dashboard/templates"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold hover:bg-slate-700 transition-all"
+              >
+                <BookOpen size={18} />
+                Explore Templates
+              </Link>
+            </motion.div>
+          </motion.div>
+
+          <motion.div variants={fadeInUp} className="flex flex-wrap items-center justify-center gap-8 text-sm text-slate-400">
+            <span className="flex items-center gap-2">
+              <Check size={16} className="text-teal-500" />
+              No credit card required
+            </span>
+            <span className="flex items-center gap-2">
+              <Check size={16} className="text-teal-500" />
+              Free forever tier
+            </span>
+            <span className="flex items-center gap-2">
+              <Check size={16} className="text-teal-500" />
+              Export to PDF, Markdown, HTML
+            </span>
+            <span className="flex items-center gap-2">
+              <Check size={16} className="text-teal-500" />
+              Sell on Marketplace
+            </span>
+          </motion.div>
+        </motion.div>
+
+        {/* Stats Bar */}
+        <motion.div 
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-4xl mx-auto"
+        >
+          {[
+            { value: '15+', label: 'Block Types' },
+            { value: '8', label: 'Ready Templates' },
+            { value: '3', label: 'Export Formats' },
+            { value: '70%', label: 'Creator Revenue' },
+          ].map((stat, i) => (
+            <div key={i} className="p-4 md:p-6 bg-slate-900/50 border border-slate-800 rounded-xl text-center">
+              <div className="text-3xl md:text-4xl font-bold text-white mb-1">{stat.value}</div>
+              <div className="text-sm text-slate-500">{stat.label}</div>
+            </div>
+          ))}
         </motion.div>
       </div>
     </section>
   )
 }
 
-// Pillars Section
-function PillarsSection() {
-  const pillars = [
+function FeaturesSection() {
+  const features = [
     {
-      icon: '🛠️',
-      title: 'Create',
-      desc: 'Build beautiful runbooks with AI assistance',
-      features: ['Form builder', 'AI text-to-runbook', 'Video-to-docs', 'Terminal capture', 'Import from anywhere'],
+      icon: PenTool,
+      title: 'Visual Block Editor',
+      description: '15+ specialized block types including code snippets, server tables, checklists, flow diagrams, and more. Rich text editing with syntax highlighting.',
       color: 'teal'
     },
     {
-      icon: '▶️',
-      title: 'Execute',
-      desc: 'Run procedures with tracking & metrics',
-      features: ['Step-by-step run mode', 'Completion tracking', 'Time analytics', 'Failure detection', 'Incident integration'],
-      color: 'sky'
-    },
-    {
-      icon: '🎓',
-      title: 'Learn',
-      desc: 'Train your team with structured paths',
-      features: ['Training paths', 'Certifications', 'Progress tracking', 'Competency matrix', 'Quizzes & labs'],
+      icon: Bot,
+      title: 'AI-Powered Generation',
+      description: 'Paste any documentation or describe your topic. Our AI transforms it into structured, professional runbooks with proper formatting and sections.',
       color: 'violet'
     },
     {
-      icon: '🔒',
-      title: 'Comply',
-      desc: 'Audit-ready documentation always',
-      features: ['Full audit trail', 'SOC2 mapping', 'HIPAA compliance', 'One-click exports', 'Version history'],
+      icon: Play,
+      title: 'Interactive Run Mode',
+      description: 'Execute procedures step-by-step with checklists, timers, and progress tracking. Copy code snippets with one click.',
+      color: 'emerald'
+    },
+    {
+      icon: Download,
+      title: 'Export Anywhere',
+      description: 'Beautiful PDF exports with full styling, Markdown for Git repos, JSON for backups, and shareable public links.',
       color: 'amber'
     },
+    {
+      icon: ShoppingBag,
+      title: 'Sell Your Expertise',
+      description: 'List runbooks on the marketplace and earn 70% of every sale. Build passive income from your technical knowledge.',
+      color: 'pink'
+    },
+    {
+      icon: BookOpen,
+      title: 'Professional Templates',
+      description: 'Start from expertly crafted templates for PostgreSQL, Kubernetes, AWS, incident response, and more.',
+      color: 'blue'
+    },
   ]
-
-  const colorClasses = {
-    teal: 'bg-teal-500/15 text-teal-400 border-teal-500/30',
-    sky: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
-    violet: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
-    amber: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  }
 
   return (
     <section id="features" className="py-24 border-t border-slate-800">
@@ -419,44 +272,46 @@ function PillarsSection() {
           className="text-center mb-16"
         >
           <motion.p variants={fadeInUp} className="text-teal-400 font-semibold text-sm uppercase tracking-wider mb-4">
-            The Solution
+            Everything You Need
           </motion.p>
           <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold mb-6">
-            Four pillars of operational excellence
+            The Complete Runbook Platform
           </motion.h2>
-          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-2xl mx-auto">
-            RunbookForge isn't just documentation. It's a living system for technical knowledge.
+          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-3xl mx-auto">
+            From creation to execution to monetization—everything in one place.
           </motion.p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {pillars.map((pillar, i) => (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((feature, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              whileHover={{ y: -12 }}
-              className="p-8 bg-slate-900 border border-slate-800 rounded-2xl text-center group hover:border-teal-500/50 transition-all"
+              whileHover={{ y: -4 }}
+              className="group p-6 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700 transition-all"
             >
-              <motion.div 
-                whileHover={{ rotate: [0, -10, 10, 0] }}
-                transition={{ duration: 0.5 }}
-                className={`w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center text-3xl ${colorClasses[pillar.color as keyof typeof colorClasses]}`}
-              >
-                {pillar.icon}
-              </motion.div>
-              <h3 className="text-xl font-bold mb-3">{pillar.title}</h3>
-              <p className="text-slate-400 text-sm mb-6">{pillar.desc}</p>
-              <ul className="text-left space-y-2">
-                {pillar.features.map((feature, j) => (
-                  <li key={j} className="text-sm text-slate-400 flex items-center gap-2 border-t border-slate-800 pt-2">
-                    <Check size={14} className="text-teal-500" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform ${
+                feature.color === 'teal' ? 'bg-teal-500/10' :
+                feature.color === 'violet' ? 'bg-violet-500/10' :
+                feature.color === 'emerald' ? 'bg-emerald-500/10' :
+                feature.color === 'amber' ? 'bg-amber-500/10' :
+                feature.color === 'pink' ? 'bg-pink-500/10' :
+                'bg-blue-500/10'
+              }`}>
+                <feature.icon size={24} className={
+                  feature.color === 'teal' ? 'text-teal-400' :
+                  feature.color === 'violet' ? 'text-violet-400' :
+                  feature.color === 'emerald' ? 'text-emerald-400' :
+                  feature.color === 'amber' ? 'text-amber-400' :
+                  feature.color === 'pink' ? 'text-pink-400' :
+                  'text-blue-400'
+                } />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </div>
@@ -465,100 +320,157 @@ function PillarsSection() {
   )
 }
 
-// AI Section
-function AISection() {
-  const features = [
-    { icon: <FileText size={20} />, title: 'Text to Runbook', desc: 'Paste any text, notes, or docs. AI structures it instantly.' },
-    { icon: <Video size={20} />, title: 'Video to Runbook', desc: 'Upload a screen recording. Get documented steps with screenshots.' },
-    { icon: <MessageSquare size={20} />, title: 'Slack Import', desc: 'Turn troubleshooting threads into reusable procedures.' },
-    { icon: <RefreshCw size={20} />, title: 'Auto-Update', desc: 'AI flags outdated commands and suggests updates.' },
+function BlockTypesSection() {
+  const blocks = [
+    { name: 'Step', icon: FileCheck, desc: 'Numbered procedure steps' },
+    { name: 'Code', icon: Terminal, desc: 'Syntax-highlighted code' },
+    { name: 'Table', icon: Table, desc: 'Data tables with headers' },
+    { name: 'Server Table', icon: Database, desc: 'Infrastructure info' },
+    { name: 'Checklist', icon: CheckSquare, desc: 'Interactive checklists' },
+    { name: 'Warning', icon: AlertCircle, desc: 'Caution notices' },
+    { name: 'Info', icon: FileText, desc: 'Information callouts' },
+    { name: 'Two Column', icon: Layers, desc: 'Side-by-side content' },
+    { name: 'Cards', icon: Boxes, desc: 'Grouped info cards' },
+    { name: 'Flow Cards', icon: Workflow, desc: 'Process flows' },
+    { name: 'Port Reference', icon: Settings, desc: 'Port/config maps' },
+    { name: 'Info Cards', icon: Tags, desc: 'Metric displays' },
+    { name: 'Text', icon: FileText, desc: 'Rich text content' },
+    { name: 'Divider', icon: ChevronRight, desc: 'Section dividers' },
+    { name: 'Quote', icon: Copy, desc: 'Block quotes' },
   ]
 
   return (
-    <section className="py-24 border-t border-slate-800 bg-gradient-to-b from-slate-900/0 to-teal-500/5">
+    <section className="py-24 border-t border-slate-800 bg-slate-950/50">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerContainer}
+          className="text-center mb-16"
+        >
+          <motion.p variants={fadeInUp} className="text-violet-400 font-semibold text-sm uppercase tracking-wider mb-4">
+            15+ Block Types
+          </motion.p>
+          <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold mb-6">
+            Build Any Type of Documentation
+          </motion.h2>
+          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-3xl mx-auto">
+            From simple steps to complex server tables, we have a block for every need.
+          </motion.p>
+        </motion.div>
+
+        <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
+          {blocks.map((block, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.03 }}
+              whileHover={{ scale: 1.05 }}
+              className="p-3 md:p-4 bg-slate-900 border border-slate-800 rounded-xl text-center hover:border-violet-500/50 transition-all cursor-default"
+            >
+              <block.icon size={24} className="text-violet-400 mx-auto mb-2" />
+              <p className="text-white text-sm font-medium">{block.name}</p>
+              <p className="text-slate-500 text-xs hidden md:block">{block.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AISection() {
+  return (
+    <section id="ai" className="py-24 border-t border-slate-800">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
           <motion.div
-            initial={{ opacity: 0, x: -40 }}
+            initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <p className="text-violet-400 font-semibold text-sm uppercase tracking-wider mb-4">
+            <p className="text-amber-400 font-semibold text-sm uppercase tracking-wider mb-4">
               AI-Powered
             </p>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Paste text.<br />Get a runbook.
+              Import or Generate with AI
             </h2>
-            <p className="text-xl text-slate-400 mb-10">
-              Our AI understands technical procedures. It detects code blocks, warnings, server roles, and structures everything automatically.
+            <p className="text-xl text-slate-400 mb-8">
+              Two powerful ways to create runbooks instantly:
             </p>
 
-            <div className="space-y-4">
-              {features.map((feature, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ x: 8 }}
-                  className="flex gap-4 p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-violet-500/50 transition-all cursor-default"
-                >
-                  <div className="w-11 h-11 bg-violet-500/15 rounded-xl flex items-center justify-center text-violet-400 flex-shrink-0">
-                    {feature.icon}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">{feature.title}</h4>
-                    <p className="text-sm text-slate-400">{feature.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                  <Copy size={24} className="text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">AI Import</h3>
+                  <p className="text-slate-400">Paste any existing documentation—Confluence pages, Google Docs, plain text—and our AI transforms it into a structured, beautiful runbook with proper sections and formatting.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                  <Sparkles size={24} className="text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">AI Generate</h3>
+                  <p className="text-slate-400">Describe what you need—"PostgreSQL backup procedures" or "Kubernetes deployment checklist"—and get a complete, professional runbook in seconds.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <Link
+                href="/sign-up"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl text-white font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all"
+              >
+                Try AI Builder
+                <Zap size={18} />
+              </Link>
             </div>
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
+            initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"
+            className="relative"
           >
-            <div className="px-5 py-4 bg-violet-500/10 border-b border-slate-800 flex items-center gap-2">
-              <span className="text-lg">🤖</span>
-              <span className="font-semibold text-sm">AI Import</span>
-            </div>
-            
-            <div className="p-5 border-b border-slate-800">
-              <p className="text-sm text-slate-400 font-mono whitespace-pre-wrap">
-{`First install postgresql on all servers using apt.
-Run sudo apt update then install postgresql-16.
-
-Configure patroni at /etc/patroni/patroni.yml
-
-Warning: ports 5432 and 8008 must be open`}
-              </p>
-            </div>
-
-            <div className="p-5 bg-emerald-500/5">
-              <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4">
-                <Sparkles size={16} />
-                AI detected: 2 steps, 1 code block, 1 warning
+            <div className="p-6 bg-slate-900 border border-slate-700 rounded-2xl">
+              <div className="flex items-center gap-2 mb-4 text-slate-400 text-sm">
+                <Bot size={18} className="text-amber-400" />
+                AI Generator
               </div>
-              
-              <div className="bg-slate-950 rounded-xl p-4">
-                <h5 className="text-teal-400 font-semibold mb-3">PostgreSQL Installation</h5>
-                <div className="space-y-2 text-sm">
-                  <div className="flex gap-3">
-                    <span className="text-teal-400 font-semibold">Step 1:</span>
-                    <span className="text-slate-300">Install PostgreSQL [code block detected]</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="text-teal-400 font-semibold">Step 2:</span>
-                    <span className="text-slate-300">Configure Patroni [config file detected]</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="text-amber-400 font-semibold">⚠️</span>
-                    <span className="text-slate-300">Warning: Firewall ports [alert detected]</span>
-                  </div>
+              <div className="p-4 bg-slate-800 rounded-lg mb-4">
+                <p className="text-slate-300 text-sm">
+                  "Create a runbook for setting up PostgreSQL high availability with Patroni, including prerequisites, installation steps, and failover testing"
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-6 h-6 rounded bg-teal-500/20 flex items-center justify-center text-xs text-teal-400">1</div>
+                  <span className="text-slate-300">Prerequisites & Requirements</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-6 h-6 rounded bg-teal-500/20 flex items-center justify-center text-xs text-teal-400">2</div>
+                  <span className="text-slate-300">Server Preparation</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-6 h-6 rounded bg-teal-500/20 flex items-center justify-center text-xs text-teal-400">3</div>
+                  <span className="text-slate-300">PostgreSQL Installation</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-6 h-6 rounded bg-teal-500/20 flex items-center justify-center text-xs text-teal-400">4</div>
+                  <span className="text-slate-300">Patroni Configuration</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-6 h-6 rounded bg-teal-500/20 flex items-center justify-center text-xs text-teal-400">5</div>
+                  <span className="text-slate-300">Failover Testing</span>
                 </div>
               </div>
             </div>
@@ -569,29 +481,302 @@ Warning: ports 5432 and 8008 must be open`}
   )
 }
 
-// Pricing Section
+function MarketplaceSection() {
+  return (
+    <section id="marketplace" className="py-24 border-t border-slate-800 bg-gradient-to-b from-slate-950 to-violet-950/20">
+      <div className="max-w-7xl mx-auto px-6">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerContainer}
+          className="text-center mb-16"
+        >
+          <motion.p variants={fadeInUp} className="text-pink-400 font-semibold text-sm uppercase tracking-wider mb-4">
+            Marketplace
+          </motion.p>
+          <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold mb-6">
+            Buy or Sell Professional Runbooks
+          </motion.h2>
+          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-3xl mx-auto">
+            Access expert-crafted procedures or monetize your technical expertise.
+          </motion.p>
+        </motion.div>
+
+        <div className="grid lg:grid-cols-2 gap-12">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="p-8 bg-slate-900 border border-slate-800 rounded-2xl"
+          >
+            <div className="w-14 h-14 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-6">
+              <ShoppingBag size={28} className="text-emerald-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Buy Runbooks</h3>
+            <ul className="space-y-3 text-slate-400">
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-emerald-500" />
+                Expertly crafted by industry professionals
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-emerald-500" />
+                Personal, Team, and Enterprise licenses
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-emerald-500" />
+                Permanent access with 1 year of updates
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-emerald-500" />
+                Export to PDF, HTML, Markdown
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-emerald-500" />
+                7-day money-back guarantee
+              </li>
+            </ul>
+            <Link
+              href="/dashboard/marketplace"
+              className="inline-flex items-center gap-2 mt-6 text-emerald-400 font-medium hover:text-emerald-300 transition-colors"
+            >
+              Browse Marketplace <ArrowRight size={18} />
+            </Link>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="p-8 bg-slate-900 border border-violet-500/30 rounded-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-4 right-4 px-3 py-1 bg-violet-500/20 text-violet-400 text-xs font-medium rounded-full">
+              70% Revenue Share
+            </div>
+            <div className="w-14 h-14 rounded-xl bg-violet-500/10 flex items-center justify-center mb-6">
+              <DollarSign size={28} className="text-violet-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Sell Your Runbooks</h3>
+            <ul className="space-y-3 text-slate-400">
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-violet-500" />
+                Keep 70% of every sale you make
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-violet-500" />
+                Set your own prices (Personal, Team, Enterprise)
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-violet-500" />
+                Monthly payouts via Stripe
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-violet-500" />
+                Creator dashboard with analytics
+              </li>
+              <li className="flex items-center gap-3">
+                <Check size={18} className="text-violet-500" />
+                Build passive income from your expertise
+              </li>
+            </ul>
+            <Link
+              href="/sign-up"
+              className="inline-flex items-center gap-2 mt-6 text-violet-400 font-medium hover:text-violet-300 transition-colors"
+            >
+              Start Selling <ArrowRight size={18} />
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function TemplatesSection() {
+  const templates = [
+    { title: 'PostgreSQL High Availability', category: 'Database', icon: Database, color: 'teal' },
+    { title: 'Kubernetes Production Setup', category: 'DevOps', icon: Cloud, color: 'blue' },
+    { title: 'AWS Infrastructure Baseline', category: 'Cloud', icon: Cloud, color: 'amber' },
+    { title: 'Incident Response Playbook', category: 'Operations', icon: AlertCircle, color: 'red' },
+  ]
+
+  return (
+    <section className="py-24 border-t border-slate-800">
+      <div className="max-w-7xl mx-auto px-6">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerContainer}
+          className="text-center mb-16"
+        >
+          <motion.p variants={fadeInUp} className="text-blue-400 font-semibold text-sm uppercase tracking-wider mb-4">
+            Templates
+          </motion.p>
+          <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold mb-6">
+            Start from Expert Templates
+          </motion.h2>
+          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-3xl mx-auto">
+            Production-ready runbooks you can customize for your needs.
+          </motion.p>
+        </motion.div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {templates.map((template, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              whileHover={{ y: -4 }}
+              className="group p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+            >
+              <template.icon size={24} className={
+                template.color === 'teal' ? 'text-teal-400 mb-3' :
+                template.color === 'blue' ? 'text-blue-400 mb-3' :
+                template.color === 'amber' ? 'text-amber-400 mb-3' :
+                'text-red-400 mb-3'
+              } />
+              <h3 className="font-semibold text-white mb-1">{template.title}</h3>
+              <p className="text-sm text-slate-500">{template.category}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <Link
+            href="/dashboard/templates"
+            className="inline-flex items-center gap-2 text-blue-400 font-medium hover:text-blue-300 transition-colors"
+          >
+            View All Templates <ArrowRight size={18} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function UseCasesSection() {
+  const useCases = [
+    {
+      icon: Database,
+      title: 'Database Operations',
+      description: 'Backup procedures, failover playbooks, migration runbooks, maintenance windows.',
+      users: 'DBAs, SREs'
+    },
+    {
+      icon: Cloud,
+      title: 'Cloud & Infrastructure',
+      description: 'Deployment checklists, scaling procedures, disaster recovery, security hardening.',
+      users: 'DevOps, Platform Engineers'
+    },
+    {
+      icon: Shield,
+      title: 'Security & Compliance',
+      description: 'Incident response, audit procedures, access reviews, vulnerability remediation.',
+      users: 'Security Teams'
+    },
+    {
+      icon: GraduationCap,
+      title: 'Training & Onboarding',
+      description: 'Team onboarding guides, certification prep, hands-on labs, knowledge transfer.',
+      users: 'Trainers, Team Leads'
+    },
+  ]
+
+  return (
+    <section className="py-24 border-t border-slate-800 bg-slate-950/50">
+      <div className="max-w-7xl mx-auto px-6">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerContainer}
+          className="text-center mb-16"
+        >
+          <motion.p variants={fadeInUp} className="text-emerald-400 font-semibold text-sm uppercase tracking-wider mb-4">
+            Use Cases
+          </motion.p>
+          <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold mb-6">
+            Built for Technical Teams
+          </motion.h2>
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {useCases.map((useCase, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="flex gap-5 p-6 bg-slate-900 border border-slate-800 rounded-xl"
+            >
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <useCase.icon size={24} className="text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">{useCase.title}</h3>
+                <p className="text-slate-400 text-sm mb-3">{useCase.description}</p>
+                <p className="text-xs text-slate-500">For: {useCase.users}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function PricingSection() {
   const plans = [
     {
       name: 'Free',
       price: '$0',
-      period: 'Forever free',
-      features: ['5 runbooks', 'Basic form builder', '1 theme', 'HTML download', 'Public sharing'],
-      featured: false
+      period: '/forever',
+      features: [
+        '5 runbooks', 
+        'All 15+ block types', 
+        'AI Import & Generate (5/mo)', 
+        'PDF & Markdown export',
+        'Public sharing',
+        'View templates'
+      ],
+      featured: false,
+      cta: 'Get Started'
     },
     {
       name: 'Pro',
-      price: '$15',
+      price: '$12',
       period: '/month',
-      features: ['Unlimited runbooks', 'AI text-to-runbook', 'All themes', 'PDF export', 'Version history', 'Custom branding'],
-      featured: true
+      features: [
+        'Unlimited runbooks', 
+        'Unlimited AI generations', 
+        'All export formats',
+        'Private runbooks',
+        'Run mode analytics',
+        'Priority support',
+        'Sell on Marketplace'
+      ],
+      featured: true,
+      cta: 'Start Free Trial'
     },
     {
       name: 'Team',
       price: '$49',
       period: '/month',
-      features: ['Everything in Pro', 'Up to 10 users', 'Run mode tracking', 'Analytics dashboard', 'Slack integration', 'Priority support'],
-      featured: false
+      features: [
+        'Everything in Pro', 
+        'Up to 10 team members', 
+        'Shared workspaces', 
+        'Team templates',
+        'Admin dashboard',
+        'SSO integration'
+      ],
+      featured: false,
+      cta: 'Contact Sales'
     },
   ]
 
@@ -627,7 +812,7 @@ function PricingSection() {
               whileHover={{ y: -8 }}
               className={`relative p-8 rounded-2xl transition-all ${
                 plan.featured 
-                  ? 'bg-slate-900 border-2 border-teal-500 glow-teal-strong' 
+                  ? 'bg-slate-900 border-2 border-teal-500' 
                   : 'bg-slate-900 border border-slate-800'
               }`}
             >
@@ -645,24 +830,25 @@ function PricingSection() {
               
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature, j) => (
-                  <li key={j} className="flex items-center gap-3 text-sm text-slate-300 border-t border-slate-800 pt-3">
-                    <Check size={16} className="text-teal-500" />
+                  <li key={j} className="flex items-center gap-3 text-sm text-slate-300">
+                    <Check size={16} className="text-teal-500 flex-shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
               
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`w-full py-4 rounded-xl font-semibold transition-all ${
-                  plan.featured
-                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/25'
-                    : 'bg-slate-800 text-white hover:bg-slate-700'
-                }`}
-              >
-                {plan.featured ? 'Join Waitlist' : 'Get Started'}
-              </motion.button>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Link
+                  href="/sign-up"
+                  className={`block w-full py-4 rounded-xl font-semibold transition-all text-center ${
+                    plan.featured
+                      ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/25'
+                      : 'bg-slate-800 text-white hover:bg-slate-700'
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+              </motion.div>
             </motion.div>
           ))}
         </div>
@@ -671,7 +857,6 @@ function PricingSection() {
   )
 }
 
-// CTA Section
 function CTASection() {
   return (
     <section className="py-24 border-t border-slate-800 relative overflow-hidden">
@@ -684,79 +869,86 @@ function CTASection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <p className="text-teal-400 font-semibold text-sm uppercase tracking-wider mb-4">
-            Ready to get started?
-          </p>
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Join the waitlist today
+            Ready to transform your documentation?
           </h2>
           <p className="text-xl text-slate-400 mb-10">
-            Be among the first to transform how your team documents procedures.
+            Join engineers who are building better runbooks in minutes, not hours.
           </p>
 
-          <form 
-            className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto"
-            action="https://formspree.io/f/mpwvjqak"
-            method="POST"
-          >
-            <input
-              type="email"
-              name="email"
-              placeholder="Enter your email"
-              required
-              className="flex-1 px-5 py-4 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors"
-            />
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              className="px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all"
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              href="/sign-up"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all text-lg"
             >
-              Get Early Access
-            </motion.button>
-          </form>
+              Get Started Free
+              <ArrowRight size={20} />
+            </Link>
+          </motion.div>
+
+          <p className="text-sm text-slate-500 mt-6">
+            No credit card required • Free forever tier • Setup in 2 minutes
+          </p>
         </motion.div>
       </div>
     </section>
   )
 }
 
-// Footer
 function Footer() {
   return (
     <footer className="py-12 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#14b8a6"/>
-                  <stop offset="100%" stopColor="#10b981"/>
-                </linearGradient>
-              </defs>
-              <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad2)"/>
-              <path d="M14 12h20c1.1 0 2 .9 2 2v20c0 1.1-.9 2-2 2H14c-1.1 0-2-.9-2-2V14c0-1.1.9-2 2-2z" fill="white" fillOpacity="0.2"/>
-              <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
-              <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
-              <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
-              <circle cx="33" cy="33" r="7" fill="white"/>
-              <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
-            <span className="font-semibold text-white">RunbookForge</span>
+        <div className="grid md:grid-cols-4 gap-8 mb-12">
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-3 mb-4">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#14b8a6"/>
+                    <stop offset="100%" stopColor="#10b981"/>
+                  </linearGradient>
+                </defs>
+                <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad2)"/>
+                <path d="M14 12h20c1.1 0 2 .9 2 2v20c0 1.1-.9 2-2 2H14c-1.1 0-2-.9-2-2V14c0-1.1.9-2 2-2z" fill="white" fillOpacity="0.2"/>
+                <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
+                <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
+                <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
+                <circle cx="33" cy="33" r="7" fill="white"/>
+                <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              </svg>
+              <span className="font-bold text-xl text-white">RunbookForge</span>
+            </div>
+            <p className="text-slate-400 text-sm max-w-sm">
+              The complete platform for creating, sharing, and selling professional technical runbooks.
+            </p>
           </div>
           
-          <div className="flex items-center gap-8">
-            <a href="#features" className="text-slate-500 hover:text-white text-sm transition-colors">Features</a>
-            <a href="#pricing" className="text-slate-500 hover:text-white text-sm transition-colors">Pricing</a>
-            <a href="#" className="text-slate-500 hover:text-white text-sm transition-colors">Contact</a>
-            <a href="#" className="text-slate-500 hover:text-white text-sm transition-colors">Twitter</a>
+          <div>
+            <h4 className="font-semibold text-white mb-4">Product</h4>
+            <ul className="space-y-2 text-sm">
+              <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
+              <li><Link href="/dashboard/templates" className="text-slate-400 hover:text-white transition-colors">Templates</Link></li>
+              <li><Link href="/dashboard/marketplace" className="text-slate-400 hover:text-white transition-colors">Marketplace</Link></li>
+              <li><a href="#pricing" className="text-slate-400 hover:text-white transition-colors">Pricing</a></li>
+            </ul>
           </div>
           
+          <div>
+            <h4 className="font-semibold text-white mb-4">Get Started</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/sign-up" className="text-slate-400 hover:text-white transition-colors">Create Account</Link></li>
+              <li><Link href="/sign-in" className="text-slate-400 hover:text-white transition-colors">Sign In</Link></li>
+              <li><Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</Link></li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-slate-600">
             © 2025 RunbookForge. All rights reserved.
           </p>
-          <p className="text-slate-600 text-sm mt-2">
+          <p className="text-slate-600 text-sm">
             A <span className="text-teal-500 font-semibold">SUTA</span> Company
           </p>
         </div>
@@ -765,16 +957,17 @@ function Footer() {
   )
 }
 
-// Main Page
 export default function Home() {
   return (
     <main className="min-h-screen">
       <Navigation />
       <HeroSection />
-      <DemoSection />
-      <ProblemsSection />
-      <PillarsSection />
+      <FeaturesSection />
+      <BlockTypesSection />
       <AISection />
+      <MarketplaceSection />
+      <TemplatesSection />
+      <UseCasesSection />
       <PricingSection />
       <CTASection />
       <Footer />
