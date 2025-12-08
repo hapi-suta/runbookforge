@@ -42,6 +42,7 @@ AVAILABLE BLOCK TYPES:
   "language": "bash",
   "tags": ["Primary"]
 }
+IMPORTANT: Set "language" to the actual language of the code: "bash", "python", "sql", "yaml", "json", "javascript", "typescript", "go", "rust", "java", "ruby", "perl", "php", "powershell", "dockerfile", "terraform", "ansible", etc. Use the correct language for syntax highlighting.
 
 3. INFO - Tips and context (blue box)
 {
