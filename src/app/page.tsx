@@ -6,7 +6,7 @@ import {
   Wrench, Play, GraduationCap, FileText, Menu, X, Zap, ArrowRight, 
   Sparkles, BookOpen, ShoppingBag, Share2, Layers, Briefcase, Rocket, Heart,
   ChevronDown, Library, Brain, MessageSquare, ClipboardCheck, FolderOpen, 
-  Presentation, CheckSquare, Target
+  Presentation, CheckSquare, Target, Star, Check, Twitter, Linkedin, Github, Mail
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -418,6 +418,217 @@ function TrainingSection() {
   )
 }
 
+function TestimonialsSection() {
+  const testimonials = [
+    {
+      name: 'Sarah Chen',
+      role: 'DevOps Lead',
+      company: 'TechScale Inc',
+      avatar: '👩‍💻',
+      content: 'RunbookForge transformed how we onboard new engineers. Our documentation is now interactive and actually gets used.',
+      rating: 5
+    },
+    {
+      name: 'Marcus Johnson',
+      role: 'Senior DBA',
+      company: 'DataFlow Systems',
+      avatar: '👨‍💼',
+      content: 'The AI generation feature saves me hours every week. I can create comprehensive training materials in minutes.',
+      rating: 5
+    },
+    {
+      name: 'Emily Rodriguez',
+      role: 'Training Manager',
+      company: 'CloudFirst Academy',
+      avatar: '👩‍🏫',
+      content: 'The Training Center is exactly what we needed. Our students love the organized sections and progress tracking.',
+      rating: 5
+    },
+    {
+      name: 'David Kim',
+      role: 'Platform Engineer',
+      company: 'Startup Labs',
+      avatar: '🧑‍💻',
+      content: 'Finally, runbooks that people actually follow. The step-by-step execution mode is a game changer for incident response.',
+      rating: 5
+    },
+    {
+      name: 'Lisa Thompson',
+      role: 'IT Director',
+      company: 'Enterprise Co',
+      avatar: '👩‍💼',
+      content: 'We reduced our incident resolution time by 40% after standardizing on RunbookForge across all teams.',
+      rating: 5
+    },
+    {
+      name: 'James Wilson',
+      role: 'Solutions Architect',
+      company: 'Cloud Dynamics',
+      avatar: '👨‍🔬',
+      content: 'The marketplace is brilliant. I now earn passive income from runbooks I created for my own projects.',
+      rating: 5
+    }
+  ]
+
+  return (
+    <section id="testimonials" className="py-24 relative overflow-hidden">
+      <ParallaxSection speed={0.2} className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
+      
+      <div className="max-w-7xl mx-auto px-6 relative">
+        <ScrollReveal direction="up" className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Loved by Teams Worldwide</h2>
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">See what engineers and trainers are saying about RunbookForge</p>
+        </ScrollReveal>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {testimonials.map((testimonial, i) => (
+            <ScrollReveal key={i} direction="up" delay={i * 0.1}>
+              <motion.div
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 h-full"
+              >
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(testimonial.rating)].map((_, j) => (
+                    <Star key={j} size={16} className="text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+                <p className="text-slate-300 mb-6 leading-relaxed">"{testimonial.content}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-2xl">
+                    {testimonial.avatar}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white">{testimonial.name}</p>
+                    <p className="text-sm text-slate-400">{testimonial.role}, {testimonial.company}</p>
+                  </div>
+                </div>
+              </motion.div>
+            </ScrollReveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function PricingSection() {
+  const plans = [
+    {
+      name: 'Free',
+      price: '$0',
+      period: 'forever',
+      description: 'Perfect for individuals getting started',
+      color: 'slate',
+      features: [
+        '5 Runbooks',
+        '1 Training Batch',
+        'Basic block types',
+        'Public sharing',
+        'Community support'
+      ],
+      cta: 'Get Started',
+      href: '/sign-up'
+    },
+    {
+      name: 'Pro',
+      price: '$19',
+      period: '/month',
+      description: 'For professionals and small teams',
+      color: 'teal',
+      popular: true,
+      features: [
+        'Unlimited Runbooks',
+        'Unlimited Training Batches',
+        'All block types',
+        'AI Content Generation',
+        'Advanced analytics',
+        'Priority support',
+        'Custom branding'
+      ],
+      cta: 'Start Free Trial',
+      href: '/sign-up?plan=pro'
+    },
+    {
+      name: 'Team',
+      price: '$49',
+      period: '/month',
+      description: 'For growing organizations',
+      color: 'purple',
+      features: [
+        'Everything in Pro',
+        'Up to 10 team members',
+        'Team collaboration',
+        'Knowledge Base access',
+        'Marketplace selling',
+        'SSO & SAML',
+        'Dedicated support'
+      ],
+      cta: 'Contact Sales',
+      href: '/contact'
+    }
+  ]
+
+  return (
+    <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900/50 to-transparent relative overflow-hidden">
+      <ParallaxSection speed={0.3} className="absolute bottom-0 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl" />
+      
+      <div className="max-w-7xl mx-auto px-6 relative">
+        <ScrollReveal direction="up" className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">Start free, upgrade when you need more</p>
+        </ScrollReveal>
+
+        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          {plans.map((plan, i) => (
+            <ScrollReveal key={i} direction="up" delay={i * 0.1}>
+              <motion.div
+                whileHover={{ y: -10, scale: 1.02 }}
+                className={`relative bg-slate-800/50 border rounded-2xl p-8 ${
+                  plan.popular ? 'border-teal-500 ring-2 ring-teal-500/20' : 'border-slate-700'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full text-sm font-semibold text-white">
+                    Most Popular
+                  </div>
+                )}
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className="text-4xl font-bold text-white">{plan.price}</span>
+                    <span className="text-slate-400">{plan.period}</span>
+                  </div>
+                  <p className="text-sm text-slate-400 mt-2">{plan.description}</p>
+                </div>
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, j) => (
+                    <li key={j} className="flex items-center gap-3 text-slate-300">
+                      <Check size={18} className="text-teal-400 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Link
+                    href={plan.href}
+                    className={`block w-full py-3 rounded-xl font-semibold text-center transition-all ${
+                      plan.popular
+                        ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/25'
+                        : 'bg-slate-700 text-white hover:bg-slate-600'
+                    }`}
+                  >
+                    {plan.cta}
+                  </Link>
+                </motion.div>
+              </motion.div>
+            </ScrollReveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function CTASection() {
   return (
     <section className="py-24 relative overflow-hidden">
@@ -450,29 +661,91 @@ function CTASection() {
 
 function Footer() {
   return (
-    <footer className="py-12 border-t border-slate-800">
+    <footer className="py-16 border-t border-slate-800 bg-slate-900/30">
       <div className="max-w-7xl mx-auto px-6">
         <ScrollReveal direction="up">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                <defs><linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#14b8a6"/><stop offset="100%" stopColor="#10b981"/></linearGradient></defs>
-                <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad2)"/>
-                <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
-                <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
-                <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
-                <circle cx="33" cy="33" r="7" fill="white"/>
-                <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              </svg>
-              <div><span className="text-lg font-bold text-white">RunbookForge</span><p className="text-xs text-slate-500">a SUTA company</p></div>
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
+            {/* Brand */}
+            <div className="md:col-span-1">
+              <div className="flex items-center gap-3 mb-4">
+                <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+                  <defs><linearGradient id="logoGrad3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#14b8a6"/><stop offset="100%" stopColor="#10b981"/></linearGradient></defs>
+                  <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad3)"/>
+                  <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
+                  <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
+                  <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
+                  <circle cx="33" cy="33" r="7" fill="white"/>
+                  <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                </svg>
+                <div>
+                  <span className="text-xl font-bold text-white">RunbookForge</span>
+                  <p className="text-xs text-slate-500">a SUTA company</p>
+                </div>
+              </div>
+              <p className="text-slate-400 text-sm mb-4">
+                The all-in-one platform for technical documentation, training, and knowledge sharing.
+              </p>
+              <div className="flex items-center gap-4">
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-teal-400 transition-colors">
+                  <Twitter size={20} />
+                </a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-teal-400 transition-colors">
+                  <Linkedin size={20} />
+                </a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-teal-400 transition-colors">
+                  <Github size={20} />
+                </a>
+                <a href="mailto:hello@runbookforge.com" className="text-slate-400 hover:text-teal-400 transition-colors">
+                  <Mail size={20} />
+                </a>
+              </div>
             </div>
-            <div className="flex items-center gap-8 text-sm text-slate-400">
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#training" className="hover:text-white transition-colors">Training</a>
-              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-              <Link href="/sign-in" className="hover:text-white transition-colors">Sign In</Link>
+
+            {/* Product */}
+            <div>
+              <h4 className="font-semibold text-white mb-4">Product</h4>
+              <ul className="space-y-3 text-sm">
+                <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
+                <li><a href="#training" className="text-slate-400 hover:text-white transition-colors">Training Center</a></li>
+                <li><a href="#pricing" className="text-slate-400 hover:text-white transition-colors">Pricing</a></li>
+                <li><Link href="/marketplace" className="text-slate-400 hover:text-white transition-colors">Marketplace</Link></li>
+                <li><Link href="/knowledge" className="text-slate-400 hover:text-white transition-colors">Knowledge Base</Link></li>
+              </ul>
             </div>
+
+            {/* Resources */}
+            <div>
+              <h4 className="font-semibold text-white mb-4">Resources</h4>
+              <ul className="space-y-3 text-sm">
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Documentation</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Blog</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Tutorials</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">API Reference</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Community</a></li>
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h4 className="font-semibold text-white mb-4">Company</h4>
+              <ul className="space-y-3 text-sm">
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">About Us</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Careers</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Contact</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-white transition-colors">Terms of Service</a></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">© 2025 RunbookForge. All rights reserved.</p>
+            <div className="flex items-center gap-6 text-sm text-slate-500">
+              <a href="#" className="hover:text-slate-300 transition-colors">Privacy</a>
+              <a href="#" className="hover:text-slate-300 transition-colors">Terms</a>
+              <a href="#" className="hover:text-slate-300 transition-colors">Cookies</a>
+            </div>
           </div>
         </ScrollReveal>
       </div>
@@ -505,6 +778,8 @@ export default function LandingPage() {
       <StatsSection />
       <FeaturesSection />
       <TrainingSection />
+      <TestimonialsSection />
+      <PricingSection />
       <CTASection />
       <Footer />
     </main>

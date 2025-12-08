@@ -131,17 +131,38 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
   const fetchBatch = async () => {
     try {
+      console.log('Fetching batch:', id);
       const res = await fetch(`/api/training/batches/${id}`);
+      console.log('Response status:', res.status);
+      
       if (res.ok) {
         const data = await res.json();
+        console.log('Batch data:', data);
+        
+        // Ensure arrays exist
+        data.training_sections = data.training_sections || [];
+        data.training_modules = data.training_modules || [];
+        data.training_enrollments = data.training_enrollments || [];
+        
+        // Ensure each module has training_content array
+        data.training_modules = data.training_modules.map((m: Module) => ({
+          ...m,
+          training_content: m.training_content || []
+        }));
+        
         setBatch(data);
         // Expand all sections by default
-        setExpandedSections(new Set(data.training_sections?.map((s: Section) => s.id) || []));
+        if (data.training_sections?.length > 0) {
+          setExpandedSections(new Set(data.training_sections.map((s: Section) => s.id)));
+        }
       } else {
+        const errorData = await res.json();
+        console.error('Fetch error:', errorData);
         router.push('/dashboard/training');
       }
     } catch (e) {
-      console.error(e);
+      console.error('Fetch batch exception:', e);
+      router.push('/dashboard/training');
     } finally {
       setIsLoading(false);
     }

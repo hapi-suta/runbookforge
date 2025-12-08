@@ -19,52 +19,70 @@ export async function GET(
     const { id } = await params;
     const supabase = getSupabaseAdmin();
 
-    // Try to fetch with sections first
-    let batch;
-    let error;
-
-    ({ data: batch, error } = await supabase
+    // First get the batch itself
+    const { data: batch, error: batchError } = await supabase
       .from('training_batches')
-      .select(`
-        *,
-        training_sections (*),
-        training_modules (*, training_content (*)),
-        training_enrollments (id, student_email, student_name, status, enrolled_at)
-      `)
+      .select('*')
       .eq('id', id)
       .eq('user_id', userId)
-      .single());
+      .single();
 
-    // If sections table doesn't exist, try without it
-    if (error && error.message.includes('training_sections')) {
-      ({ data: batch, error } = await supabase
-        .from('training_batches')
-        .select(`
-          *,
-          training_modules (*, training_content (*)),
-          training_enrollments (id, student_email, student_name, status, enrolled_at)
-        `)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single());
-      
-      if (batch) batch.training_sections = [];
+    if (batchError) {
+      console.error('Batch fetch error:', batchError);
+      return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
     }
 
-    if (error) throw error;
     if (!batch) {
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
     }
 
-    // Sort sections and modules
-    if (batch.training_sections) {
-      batch.training_sections.sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
-    }
-    if (batch.training_modules) {
-      batch.training_modules.sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
+    // Try to get sections (may not exist)
+    let sections: unknown[] = [];
+    try {
+      const { data: sectionData } = await supabase
+        .from('training_sections')
+        .select('*')
+        .eq('batch_id', id)
+        .order('sort_order', { ascending: true });
+      sections = sectionData || [];
+    } catch (e) {
+      console.warn('Could not fetch sections:', e);
     }
 
-    return NextResponse.json(batch);
+    // Try to get modules with content (may not exist)
+    let modules: unknown[] = [];
+    try {
+      const { data: moduleData } = await supabase
+        .from('training_modules')
+        .select('*, training_content (*)')
+        .eq('batch_id', id)
+        .order('sort_order', { ascending: true });
+      modules = (moduleData || []).map((m: Record<string, unknown>) => ({
+        ...m,
+        training_content: m.training_content || []
+      }));
+    } catch (e) {
+      console.warn('Could not fetch modules:', e);
+    }
+
+    // Try to get enrollments (may not exist)
+    let enrollments: unknown[] = [];
+    try {
+      const { data: enrollmentData } = await supabase
+        .from('training_enrollments')
+        .select('id, student_email, student_name, status, enrolled_at, access_token')
+        .eq('batch_id', id);
+      enrollments = enrollmentData || [];
+    } catch (e) {
+      console.warn('Could not fetch enrollments:', e);
+    }
+
+    return NextResponse.json({
+      ...batch,
+      training_sections: sections,
+      training_modules: modules,
+      training_enrollments: enrollments
+    });
   } catch (error) {
     console.error('Error fetching batch:', error);
     return NextResponse.json({ error: 'Failed to fetch batch' }, { status: 500 });

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useScroll, useSpring, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Loader2, CheckCircle, AlertTriangle, Info, FileText,
   BookOpen, Play, ChevronDown, ChevronRight, Check, Copy, ExternalLink,
-  ThumbsUp
+  ThumbsUp, Sparkles, Clock, Target, Award, Share2
 } from "lucide-react";
 
 interface Block {
@@ -41,6 +41,11 @@ export default function ViewRunbookPage() {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showShareToast, setShowShareToast] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
 
   useEffect(() => {
     const fetchRunbook = async () => {
@@ -56,6 +61,9 @@ export default function ViewRunbookPage() {
         setRunbook(data);
         // Expand all sections by default
         setExpandedSections(new Set(data.sections?.map((s: Section) => s.id) || []));
+        if (data.sections?.length > 0) {
+          setActiveSection(data.sections[0].id);
+        }
       } catch (e) {
         setError('Failed to load runbook');
       } finally {
@@ -71,6 +79,7 @@ export default function ViewRunbookPage() {
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setExpandedSections(newSet);
+    setActiveSection(id);
   };
 
   const toggleStep = (id: string) => {
@@ -86,10 +95,39 @@ export default function ViewRunbookPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const shareRunbook = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowShareToast(true);
+    setTimeout(() => setShowShareToast(false), 2000);
+  };
+
+  // Calculate total checkable items
+  const getTotalCheckItems = () => {
+    if (!runbook) return 0;
+    return runbook.sections.reduce((acc, s) => 
+      acc + s.blocks.filter(b => b.type === 'checklist')
+        .reduce((a, b) => a + (b.checklist?.length || 0), 0), 0);
+  };
+
+  const totalItems = getTotalCheckItems();
+  const progressPercent = totalItems > 0 ? (completedSteps.size / totalItems) * 100 : 0;
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
-        <Loader2 size={32} className="text-teal-400 animate-spin" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          >
+            <Loader2 size={48} className="text-teal-400 mx-auto mb-4" />
+          </motion.div>
+          <p className="text-slate-400">Loading runbook...</p>
+        </motion.div>
       </div>
     );
   }
@@ -97,68 +135,117 @@ export default function ViewRunbookPage() {
   if (error || !runbook) {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle size={48} className="text-amber-400 mx-auto mb-4" />
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            <AlertTriangle size={48} className="text-amber-400 mx-auto mb-4" />
+          </motion.div>
           <h1 className="text-xl font-bold text-white mb-2">{error || 'Runbook not found'}</h1>
           <Link href="/" className="text-teal-400 hover:underline">Go back home</Link>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
-  const renderBlock = (block: Block) => {
+  const renderBlock = (block: Block, blockIndex: number) => {
     switch (block.type) {
       case 'text':
-        return <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: block.content }} />;
+        return (
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: blockIndex * 0.05 }}
+            className="prose prose-invert max-w-none" 
+            dangerouslySetInnerHTML={{ __html: block.content }} 
+          />
+        );
       
       case 'code':
         return (
-          <div className="relative group">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: blockIndex * 0.05 }}
+            className="relative group"
+          >
             <div className="flex items-center justify-between bg-slate-900 px-4 py-2 rounded-t-lg border-b border-slate-700">
-              <span className="text-xs text-slate-400">{block.language || 'bash'}</span>
-              <button
+              <span className="text-xs text-slate-400 font-mono">{block.language || 'bash'}</span>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => copyCode(block.content, block.id)}
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 {copiedId === block.id ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-              </button>
+              </motion.button>
             </div>
             <pre className="bg-slate-900 p-4 rounded-b-lg overflow-x-auto">
               <code className="text-sm text-slate-300">{block.content}</code>
             </pre>
-          </div>
+          </motion.div>
         );
       
       case 'warning':
         return (
-          <div className="flex gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-            <AlertTriangle className="text-amber-400 flex-shrink-0 mt-0.5" size={20} />
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: blockIndex * 0.05 }}
+            whileHover={{ scale: 1.01 }}
+            className="flex gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg"
+          >
+            <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+              <AlertTriangle className="text-amber-400 flex-shrink-0 mt-0.5" size={20} />
+            </motion.div>
             <div className="text-amber-200">{block.content}</div>
-          </div>
+          </motion.div>
         );
       
       case 'info':
         return (
-          <div className="flex gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: blockIndex * 0.05 }}
+            whileHover={{ scale: 1.01 }}
+            className="flex gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg"
+          >
             <Info className="text-blue-400 flex-shrink-0 mt-0.5" size={20} />
             <div className="text-blue-200">{block.content}</div>
-          </div>
+          </motion.div>
         );
       
       case 'success':
         return (
-          <div className="flex gap-3 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: blockIndex * 0.05 }}
+            whileHover={{ scale: 1.01 }}
+            className="flex gap-3 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg"
+          >
             <CheckCircle className="text-emerald-400 flex-shrink-0 mt-0.5" size={20} />
             <div className="text-emerald-200">{block.content}</div>
-          </div>
+          </motion.div>
         );
       
       case 'checklist':
         return (
           <div className="space-y-2">
-            {block.checklist?.map((item) => (
-              <button
+            {block.checklist?.map((item, itemIdx) => (
+              <motion.button
                 key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: (blockIndex * 0.05) + (itemIdx * 0.03) }}
+                whileHover={{ scale: 1.01, x: 5 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => toggleStep(item.id)}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
                   completedSteps.has(item.id)
@@ -166,41 +253,65 @@ export default function ViewRunbookPage() {
                     : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
                 }`}
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center ${
-                  completedSteps.has(item.id) ? 'bg-emerald-500' : 'border-2 border-slate-600'
-                }`}>
-                  {completedSteps.has(item.id) && <Check size={14} className="text-white" />}
-                </div>
+                <motion.div 
+                  animate={completedSteps.has(item.id) ? { scale: [1, 1.2, 1] } : {}}
+                  className={`w-5 h-5 rounded flex items-center justify-center ${
+                    completedSteps.has(item.id) ? 'bg-emerald-500' : 'border-2 border-slate-600'
+                  }`}
+                >
+                  <AnimatePresence>
+                    {completedSteps.has(item.id) && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                      >
+                        <Check size={14} className="text-white" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
                 <span className={completedSteps.has(item.id) ? 'text-slate-400 line-through' : 'text-white'}>
                   {item.text}
                 </span>
-              </button>
+              </motion.button>
             ))}
           </div>
         );
       
       case 'table':
         return (
-          <div className="overflow-x-auto">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: blockIndex * 0.05 }}
+            className="overflow-x-auto rounded-lg border border-slate-700"
+          >
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-slate-800">
                   {block.tableData?.headers.map((h, i) => (
-                    <th key={i} className="px-4 py-3 text-left text-sm font-semibold text-slate-300 border border-slate-700">{h}</th>
+                    <th key={i} className="px-4 py-3 text-left text-sm font-semibold text-slate-300 border-b border-slate-700">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {block.tableData?.rows.map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-800/50">
+                  <motion.tr 
+                    key={i} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="hover:bg-slate-800/50 transition-colors"
+                  >
                     {row.map((cell, j) => (
-                      <td key={j} className="px-4 py-3 text-sm text-slate-300 border border-slate-700">{cell}</td>
+                      <td key={j} className="px-4 py-3 text-sm text-slate-300 border-b border-slate-700/50">{cell}</td>
                     ))}
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </motion.div>
         );
       
       default:
@@ -210,17 +321,48 @@ export default function ViewRunbookPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
+      {/* Scroll Progress */}
+      <motion.div
+        style={{ scaleX }}
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 origin-left z-50"
+      />
+
+      {/* Share Toast */}
+      <AnimatePresence>
+        {showShareToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 px-4 py-2 bg-teal-500 rounded-lg text-white font-medium z-50 shadow-lg"
+          >
+            Link copied to clipboard!
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <header className="bg-slate-900/80 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-sm">
+      <header className="bg-slate-900/80 border-b border-slate-800 sticky top-1 z-40 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
               <ArrowLeft size={18} />
               <span>Back</span>
             </Link>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <BookOpen size={16} />
-              <span>Runbook</span>
+            <div className="flex items-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={shareRunbook}
+                className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <Share2 size={16} />
+                <span className="hidden sm:inline">Share</span>
+              </motion.button>
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <BookOpen size={16} />
+                <span>Runbook</span>
+              </div>
             </div>
           </div>
         </div>
@@ -231,28 +373,82 @@ export default function ViewRunbookPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Title */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">{runbook.title}</h1>
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-3xl md:text-4xl font-bold text-white mb-3"
+            >
+              {runbook.title}
+            </motion.h1>
             {runbook.description && (
-              <p className="text-slate-400">{runbook.description}</p>
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-slate-400 text-lg"
+              >
+                {runbook.description}
+              </motion.p>
             )}
           </div>
 
+          {/* Stats Bar */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="grid grid-cols-3 gap-4 mb-8"
+          >
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 text-center">
+              <Target className="text-teal-400 mx-auto mb-2" size={24} />
+              <p className="text-2xl font-bold text-white">{runbook.sections.length}</p>
+              <p className="text-xs text-slate-400">Sections</p>
+            </div>
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 text-center">
+              <Clock className="text-amber-400 mx-auto mb-2" size={24} />
+              <p className="text-2xl font-bold text-white">{totalItems}</p>
+              <p className="text-xs text-slate-400">Steps</p>
+            </div>
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 text-center">
+              <Award className="text-emerald-400 mx-auto mb-2" size={24} />
+              <p className="text-2xl font-bold text-white">{Math.round(progressPercent)}%</p>
+              <p className="text-xs text-slate-400">Complete</p>
+            </div>
+          </motion.div>
+
           {/* Progress */}
-          {runbook.sections.length > 0 && (
-            <div className="mb-8 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+          {totalItems > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="mb-8 p-4 bg-slate-800/50 rounded-xl border border-slate-700"
+            >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-400">Progress</span>
                 <span className="text-sm text-teal-400 font-medium">
-                  {completedSteps.size} steps completed
+                  {completedSteps.size} of {totalItems} steps completed
                 </span>
               </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300"
-                  style={{ width: `${Math.min(100, (completedSteps.size / Math.max(1, runbook.sections.reduce((acc, s) => acc + s.blocks.filter(b => b.type === 'checklist').reduce((a, b) => a + (b.checklist?.length || 0), 0), 0))) * 100)}%` }}
+              <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressPercent}%` }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full"
                 />
               </div>
-            </div>
+              {progressPercent === 100 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 flex items-center justify-center gap-2 text-emerald-400"
+                >
+                  <Sparkles size={20} />
+                  <span className="font-semibold">Congratulations! You completed this runbook!</span>
+                </motion.div>
+              )}
+            </motion.div>
           )}
 
           {/* Sections */}
@@ -260,40 +456,57 @@ export default function ViewRunbookPage() {
             {runbook.sections.map((section, idx) => (
               <motion.div
                 key={section.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-slate-800/30 border border-slate-700 rounded-xl overflow-hidden"
+                transition={{ delay: 0.5 + idx * 0.1 }}
+                className={`bg-slate-800/30 border rounded-xl overflow-hidden transition-all ${
+                  activeSection === section.id ? 'border-teal-500/50 ring-1 ring-teal-500/20' : 'border-slate-700'
+                }`}
               >
-                <button
+                <motion.button
+                  whileHover={{ backgroundColor: 'rgba(51, 65, 85, 0.5)' }}
                   onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors"
+                  className="w-full flex items-center justify-between p-4 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center text-teal-400 font-semibold text-sm">
+                    <motion.span 
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center text-teal-400 font-semibold text-sm"
+                    >
                       {idx + 1}
-                    </span>
-                    <h2 className="font-semibold text-white">{section.title}</h2>
+                    </motion.span>
+                    <h2 className="font-semibold text-white text-left">{section.title}</h2>
                   </div>
-                  {expandedSections.has(section.id) ? (
+                  <motion.div
+                    animate={{ rotate: expandedSections.has(section.id) ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <ChevronDown className="text-slate-400" size={20} />
-                  ) : (
-                    <ChevronRight className="text-slate-400" size={20} />
-                  )}
-                </button>
+                  </motion.div>
+                </motion.button>
 
-                {expandedSections.has(section.id) && (
-                  <div className="px-4 pb-4 space-y-4">
-                    {section.blocks.map((block) => (
-                      <div key={block.id}>
-                        {block.title && (
-                          <h3 className="font-medium text-slate-300 mb-2">{block.title}</h3>
-                        )}
-                        {renderBlock(block)}
+                <AnimatePresence>
+                  {expandedSections.has(section.id) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-4 space-y-4">
+                        {section.blocks.map((block, blockIdx) => (
+                          <div key={block.id}>
+                            {block.title && (
+                              <h3 className="font-medium text-slate-300 mb-2">{block.title}</h3>
+                            )}
+                            {renderBlock(block, blockIdx)}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ))}
           </div>
@@ -303,9 +516,13 @@ export default function ViewRunbookPage() {
       {/* Footer */}
       <footer className="border-t border-slate-800 mt-12">
         <div className="max-w-4xl mx-auto px-6 py-8 text-center">
-          <p className="text-slate-500 text-sm">
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-slate-500 text-sm"
+          >
             Powered by <span className="text-teal-400 font-semibold">RunbookForge</span>
-          </p>
+          </motion.p>
         </div>
       </footer>
     </div>
