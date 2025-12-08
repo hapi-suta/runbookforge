@@ -83,7 +83,7 @@ interface Batch {
   description?: string;
   status: 'draft' | 'active' | 'archived';
   access_code: string;
-  template: string;
+  settings?: { template_type?: string };
   training_sections: Section[];
   training_modules: Module[];
   training_enrollments: Enrollment[];

@@ -15,7 +15,7 @@ interface Batch {
   description: string;
   status: 'draft' | 'active' | 'archived';
   access_code: string;
-  settings?: { template?: string };
+  settings?: { template_type?: string };
   module_count: number;
   student_count: number;
   created_at: string;
@@ -205,7 +205,7 @@ export default function TrainingCenterPage() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((batch, i) => {
-            const t = getTemplate(batch.settings?.template || 'technical_course');
+            const t = getTemplate(batch.settings?.template_type || 'technical_course');
             return (
               <motion.div key={batch.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 hover:border-purple-500/30 transition-all">
                 <div className="flex items-start justify-between gap-4">

@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
     
-    const { title, description, template = 'technical_course', settings } = body;
+    const { title, description, template = 'technical_course' } = body;
 
     if (!title || !title.trim()) {
       console.log('No title provided');
@@ -129,21 +129,21 @@ export async function POST(request: Request) {
     const accessCode = generateAccessCode(10);
     console.log('Generated access code:', accessCode);
 
-    // Store template in settings since template column may not exist
-    const insertData = {
-      user_id: userId,
-      title: title.trim(),
-      description: description?.trim() || null,
-      access_code: accessCode,
-      settings: { ...(settings || {}), template },
-      status: 'draft'
-    };
-    console.log('Inserting batch:', insertData);
+    // Store template in settings JSONB field (template column doesn't exist in table)
+    const settingsObject = { template_type: template };
     
+    // Only include columns that exist in training_batches table
     const { data: batch, error: batchError } = await supabase
       .from('training_batches')
-      .insert(insertData)
-      .select()
+      .insert({
+        user_id: userId,
+        title: title.trim(),
+        description: description?.trim() || null,
+        access_code: accessCode,
+        settings: settingsObject,
+        status: 'draft'
+      })
+      .select('id, user_id, title, description, access_code, settings, status, created_at, updated_at')
       .single();
 
     if (batchError) {
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
         sectionCount = sectionTemplate.length;
         console.log('Sections created:', sectionCount);
       } else {
-        console.warn('Could not create sections (table may not exist):', sectionError.message);
+        console.warn('Could not create sections:', sectionError.message);
       }
     }
 
