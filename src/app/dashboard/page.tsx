@@ -106,12 +106,12 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        className="mb-6 sm:mb-8"
       >
-        <h1 className="text-3xl font-bold text-white mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
           Welcome back, {firstName}! 👋
         </h1>
-        <p className="text-slate-400">
+        <p className="text-sm sm:text-base text-slate-400">
           Create, manage, and share your technical runbooks.
         </p>
       </motion.div>
@@ -121,24 +121,25 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="mb-8"
+        className="mb-6 sm:mb-8"
       >
-        <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <h2 className="text-lg font-semibold text-white mb-3 sm:mb-4">Quick Actions</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {quickActions.map((action, i) => (
             <Link
               key={action.title}
               href={action.href}
-              className="group p-6 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all duration-300 hover:-translate-y-1"
+              className="group p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all duration-300 hover:-translate-y-1"
             >
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <action.icon size={24} className="text-white" />
+              <div className={`w-10 sm:w-12 h-10 sm:h-12 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform`}>
+                <action.icon size={20} className="text-white sm:hidden" />
+                <action.icon size={24} className="text-white hidden sm:block" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-semibold text-white mb-1 flex items-center gap-2">
                 {action.title}
                 <ArrowRight size={16} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </h3>
-              <p className="text-sm text-slate-400">{action.description}</p>
+              <p className="text-xs sm:text-sm text-slate-400">{action.description}</p>
             </Link>
           ))}
         </div>
@@ -149,21 +150,22 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="mb-8"
+        className="mb-6 sm:mb-8"
       >
-        <h2 className="text-lg font-semibold text-white mb-4">Overview</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
+        <h2 className="text-lg font-semibold text-white mb-3 sm:mb-4">Overview</h2>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="p-6 bg-slate-900 border border-slate-800 rounded-xl"
+              className="p-3 sm:p-6 bg-slate-900 border border-slate-800 rounded-xl"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <stat.icon size={18} className="text-slate-500" />
-                <span className="text-sm text-slate-400">{stat.label}</span>
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <stat.icon size={16} className="text-slate-500 sm:hidden" />
+                <stat.icon size={18} className="text-slate-500 hidden sm:block" />
+                <span className="text-xs sm:text-sm text-slate-400 truncate">{stat.label}</span>
               </div>
-              <p className="text-2xl font-bold text-white">
-                {isLoading ? <Loader2 size={24} className="animate-spin" /> : stat.value}
+              <p className="text-lg sm:text-2xl font-bold text-white">
+                {isLoading ? <Loader2 size={20} className="animate-spin" /> : stat.value}
               </p>
             </div>
           ))}

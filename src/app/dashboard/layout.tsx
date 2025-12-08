@@ -11,6 +11,7 @@ import {
   Sparkles,
   BookOpen,
   Share2,
+  ShoppingBag,
   ChevronRight,
   Menu,
   X
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'My Runbooks', href: '/dashboard/runbooks', icon: FileText },
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
+  { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
   { name: 'Shared with Me', href: '/dashboard/shared', icon: Share2 },
 ];
 

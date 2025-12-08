@@ -158,7 +158,7 @@ export default function RunbooksPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="space-y-4"
+          className="space-y-3 sm:space-y-4"
         >
           {filteredRunbooks.map((runbook, index) => (
             <motion.div
@@ -166,55 +166,58 @@ export default function RunbooksPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 + index * 0.05 }}
-              className="group p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
+              className="group p-4 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all"
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <Link 
                     href={`/dashboard/runbooks/${runbook.id}`}
                     className="block"
                   >
-                    <h3 className="text-lg font-semibold text-white mb-1 group-hover:text-teal-400 transition-colors truncate">
+                    <h3 className="text-base sm:text-lg font-semibold text-white mb-1 group-hover:text-teal-400 transition-colors truncate">
                       {runbook.title}
                     </h3>
                   </Link>
                   {runbook.description && (
-                    <p className="text-slate-400 text-sm mb-3 line-clamp-2">
+                    <p className="text-slate-400 text-sm mb-2 sm:mb-3 line-clamp-2">
                       {runbook.description}
                     </p>
                   )}
-                  <div className="flex items-center gap-4 text-sm text-slate-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-500">
                     <span>{runbook.sections?.length || 0} sections</span>
-                    <span>•</span>
+                    <span className="hidden sm:inline">•</span>
                     <span>{countBlocks(runbook.sections)} blocks</span>
-                    <span>•</span>
-                    <span>Updated {formatDate(runbook.updated_at)}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="text-slate-600 sm:text-slate-500">Updated {formatDate(runbook.updated_at)}</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
                   <Link
                     href={`/dashboard/runbooks/${runbook.id}`}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors sm:p-2"
                   >
                     <Eye size={18} />
+                    <span className="text-sm sm:hidden">View</span>
                   </Link>
                   <Link
                     href={`/dashboard/runbooks/${runbook.id}/edit`}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors sm:p-2"
                   >
                     <Edit size={18} />
+                    <span className="text-sm sm:hidden">Edit</span>
                   </Link>
                   <button
                     onClick={() => handleDelete(runbook.id)}
                     disabled={deleteId === runbook.id}
-                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 sm:p-2"
                   >
                     {deleteId === runbook.id ? (
                       <Loader2 size={18} className="animate-spin" />
                     ) : (
                       <Trash2 size={18} />
                     )}
+                    <span className="text-sm sm:hidden">Delete</span>
                   </button>
                 </div>
               </div>
