@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
+// Prevent static rendering - this route uses auth headers
+export const dynamic = 'force-dynamic';
+
 async function isAdmin(userId: string): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase.from('admin_users').select('id').eq('user_id', userId).single();

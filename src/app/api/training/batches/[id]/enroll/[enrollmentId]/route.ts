@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
+// Prevent static rendering - this route uses auth headers
+export const dynamic = 'force-dynamic';
+
 // DELETE - Remove enrollment
 export async function DELETE(
   request: Request,

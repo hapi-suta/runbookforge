@@ -3,6 +3,9 @@ import { auth } from '@clerk/nextjs/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { randomBytes } from 'crypto';
 
+// Prevent static rendering - this route uses auth headers
+export const dynamic = 'force-dynamic';
+
 function generateToken(): string {
   return randomBytes(32).toString('hex');
 }

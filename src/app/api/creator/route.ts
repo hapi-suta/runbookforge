@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { supabase } from '@/lib/supabase';
 
+// Prevent static rendering - this route uses auth headers
+export const dynamic = 'force-dynamic';
+
 // GET - Get creator dashboard data
 export async function GET(request: Request) {
   try {

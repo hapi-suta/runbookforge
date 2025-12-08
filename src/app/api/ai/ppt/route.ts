@@ -3,6 +3,9 @@ import { auth } from '@clerk/nextjs/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { generatePPTXBuffer, PresentationData } from '@/lib/pptx-generator';
 
+// Prevent static rendering - this route uses auth headers
+export const dynamic = 'force-dynamic';
+
 const anthropic = new Anthropic();
 
 // POST - Generate PPT structure using AI
