@@ -1,35 +1,111 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion'
 import { 
-  Wrench, Play, GraduationCap, Shield, FileText, 
-  Menu, X, Zap, Users, Clock, Check, ArrowRight, 
-  Sparkles, Download, BookOpen, ShoppingBag, Code,
-  Palette, Table, CheckSquare, Share2, Lock, Globe,
-  Star, TrendingUp, DollarSign, Cpu, Bot, FileJson,
-  Layers, Database, Cloud, AlertCircle, Terminal,
-  Briefcase, Award, Target, Rocket, BarChart, Heart,
-  ChevronRight, Monitor, Smartphone, Copy, Eye,
-  PenTool, Settings, Boxes, FileCheck, Workflow,
-  Search, Filter, Tags, Library, Brain, MessageSquare,
-  ClipboardCheck, FolderOpen, Video, Presentation
+  Wrench, Play, GraduationCap, FileText, Menu, X, Zap, ArrowRight, 
+  Sparkles, BookOpen, ShoppingBag, Share2, Layers, Briefcase, Rocket, Heart,
+  ChevronDown, Library, Brain, MessageSquare, ClipboardCheck, FolderOpen, 
+  Presentation, CheckSquare, Target
 } from 'lucide-react'
 import Link from 'next/link'
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+// Scroll-triggered animation wrapper
+function ScrollReveal({ children, direction = 'up', delay = 0, className = '' }: {
+  children: React.ReactNode
+  direction?: 'up' | 'down' | 'left' | 'right' | 'scale' | 'rotate'
+  delay?: number
+  className?: string
+}) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, margin: '-100px' })
+
+  const variants = {
+    up: { hidden: { opacity: 0, y: 60 }, visible: { opacity: 1, y: 0 } },
+    down: { hidden: { opacity: 0, y: -60 }, visible: { opacity: 1, y: 0 } },
+    left: { hidden: { opacity: 0, x: -60 }, visible: { opacity: 1, x: 0 } },
+    right: { hidden: { opacity: 0, x: 60 }, visible: { opacity: 1, x: 0 } },
+    scale: { hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } },
+    rotate: { hidden: { opacity: 0, rotate: -10, scale: 0.9 }, visible: { opacity: 1, rotate: 0, scale: 1 } },
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? 'visible' : 'hidden'}
+      variants={variants[direction]}
+      transition={{ duration: 0.7, delay, ease: [0.25, 0.1, 0.25, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
 }
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+// Floating animation for decorative elements
+function FloatingElement({ children, duration = 3, delay = 0, className = '' }: {
+  children?: React.ReactNode
+  duration?: number
+  delay?: number
+  className?: string
+}) {
+  return (
+    <motion.div
+      animate={{ y: [0, -15, 0] }}
+      transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+// Counter animation
+function AnimatedCounter({ value, duration = 2, suffix = '' }: { value: number; duration?: number; suffix?: string }) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true })
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    if (isInView) {
+      let start = 0
+      const end = value
+      const incrementTime = (duration * 1000) / end
+      const timer = setInterval(() => {
+        start += 1
+        setCount(start)
+        if (start >= end) clearInterval(timer)
+      }, incrementTime)
+      return () => clearInterval(timer)
+    }
+  }, [isInView, value, duration])
+
+  return <span ref={ref}>{count}{suffix}</span>
+}
+
+// Parallax wrapper
+function ParallaxSection({ children, speed = 0.5, className = '' }: {
+  children?: React.ReactNode
+  speed?: number
+  className?: string
+}) {
+  const ref = useRef(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], [0, speed * 100])
+
+  return (
+    <motion.div ref={ref} style={{ y }} className={className}>
+      {children}
+    </motion.div>
+  )
 }
 
 function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 })
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50)
@@ -38,131 +114,179 @@ function Navigation() {
   }, [])
 
   return (
-    <motion.nav 
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'glass border-b border-slate-800' : ''
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-20">
-          <motion.a href="/" className="flex items-center gap-3" whileHover={{ scale: 1.02 }}>
-            <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
-              <defs>
-                <linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#14b8a6"/>
-                  <stop offset="100%" stopColor="#10b981"/>
-                </linearGradient>
-              </defs>
-              <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad1)"/>
-              <path d="M14 12h20c1.1 0 2 .9 2 2v20c0 1.1-.9 2-2 2H14c-1.1 0-2-.9-2-2V14c0-1.1.9-2 2-2z" fill="white" fillOpacity="0.2"/>
-              <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
-              <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
-              <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
-              <circle cx="33" cy="33" r="7" fill="white"/>
-              <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
-            <div className="flex flex-col">
-              <span className="text-xl font-bold text-white leading-tight">RunbookForge</span>
-              <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
+    <>
+      <motion.div style={{ scaleX }} className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 origin-left z-[60]" />
+      
+      <motion.nav 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', stiffness: 100 }}
+        className={`fixed top-1 left-0 right-0 z-50 transition-all duration-500 ${
+          isScrolled ? 'glass border-b border-slate-800 backdrop-blur-xl' : ''
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between h-20">
+            <motion.a href="/" className="flex items-center gap-3" whileHover={{ scale: 1.02 }}>
+              <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}>
+                <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+                  <defs><linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#14b8a6"/><stop offset="100%" stopColor="#10b981"/></linearGradient></defs>
+                  <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad1)"/>
+                  <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
+                  <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
+                  <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
+                  <circle cx="33" cy="33" r="7" fill="white"/>
+                  <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                </svg>
+              </motion.div>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-white leading-tight">RunbookForge</span>
+                <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
+              </div>
+            </motion.a>
+
+            <div className="hidden md:flex items-center gap-8">
+              {['Features', 'Training', 'Marketplace', 'Pricing'].map((item) => (
+                <motion.a key={item} href={`#${item.toLowerCase()}`} className="text-slate-400 hover:text-white transition-colors text-sm font-medium relative group" whileHover={{ y: -2 }}>
+                  {item}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-teal-500 group-hover:w-full transition-all duration-300" />
+                </motion.a>
+              ))}
+              <Link href="/sign-in" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sign In</Link>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/sign-up" className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-sm shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-shadow">
+                  Get Started Free
+                </Link>
+              </motion.div>
             </div>
-          </motion.a>
 
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Features</a>
-            <a href="#training" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Training</a>
-            <a href="#marketplace" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Marketplace</a>
-            <a href="#pricing" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Pricing</a>
-            <Link href="/sign-in" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sign In</Link>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Link href="/sign-up" className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-sm shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-shadow">
-                Get Started Free
-              </Link>
-            </motion.div>
+            <button className="md:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
-
-          <button className="md:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
         </div>
-      </div>
 
-      {isMobileMenuOpen && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="md:hidden glass border-t border-slate-800">
-          <div className="px-6 py-4 space-y-4">
-            <a href="#features" className="block text-slate-400 hover:text-white">Features</a>
-            <a href="#training" className="block text-slate-400 hover:text-white">Training</a>
-            <a href="#marketplace" className="block text-slate-400 hover:text-white">Marketplace</a>
-            <a href="#pricing" className="block text-slate-400 hover:text-white">Pricing</a>
-            <Link href="/sign-in" className="block text-slate-400 hover:text-white">Sign In</Link>
-            <Link href="/sign-up" className="block w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-center">
-              Get Started Free
-            </Link>
-          </div>
-        </motion.div>
-      )}
-    </motion.nav>
+        {isMobileMenuOpen && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="md:hidden glass border-t border-slate-800">
+            <div className="px-6 py-4 space-y-4">
+              <a href="#features" className="block text-slate-400 hover:text-white">Features</a>
+              <a href="#training" className="block text-slate-400 hover:text-white">Training</a>
+              <a href="#marketplace" className="block text-slate-400 hover:text-white">Marketplace</a>
+              <a href="#pricing" className="block text-slate-400 hover:text-white">Pricing</a>
+              <Link href="/sign-in" className="block text-slate-400 hover:text-white">Sign In</Link>
+              <Link href="/sign-up" className="block w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg text-white font-semibold text-center">Get Started Free</Link>
+            </div>
+          </motion.div>
+        )}
+      </motion.nav>
+    </>
   )
 }
 
 function HeroSection() {
+  const { scrollY } = useScroll()
+  const y = useTransform(scrollY, [0, 500], [0, 150])
+  const opacity = useTransform(scrollY, [0, 300], [1, 0])
+  const scale = useTransform(scrollY, [0, 300], [1, 0.9])
+
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
       <div className="absolute inset-0 bg-grid-pattern opacity-20" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-gradient-radial from-teal-500/20 to-transparent rounded-full blur-3xl" />
       
-      <div className="relative max-w-7xl mx-auto px-6 text-center">
-        <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
-          <motion.div variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 to-teal-500/10 border border-purple-500/30 rounded-full text-sm mb-8">
-            <Sparkles size={16} className="text-purple-400" />
-            <span className="text-purple-400">New:</span>
-            <span className="text-slate-300">Training Center + Knowledge Base + AI Generation</span>
+      <motion.div style={{ y }} className="absolute inset-0 pointer-events-none">
+        <FloatingElement duration={4} className="absolute top-1/4 left-1/4 w-64 h-64 bg-teal-500/20 rounded-full blur-3xl" />
+        <FloatingElement duration={5} delay={1} className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl" />
+        <FloatingElement duration={6} delay={2} className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl" />
+      </motion.div>
+
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <FloatingElement duration={3} className="absolute top-[20%] left-[10%]"><FileText className="text-teal-500/30" size={40} /></FloatingElement>
+        <FloatingElement duration={4} delay={0.5} className="absolute top-[30%] right-[15%]"><GraduationCap className="text-purple-500/30" size={48} /></FloatingElement>
+        <FloatingElement duration={3.5} delay={1} className="absolute bottom-[30%] left-[15%]"><Brain className="text-pink-500/30" size={36} /></FloatingElement>
+        <FloatingElement duration={4.5} delay={1.5} className="absolute bottom-[25%] right-[10%]"><Rocket className="text-amber-500/30" size={44} /></FloatingElement>
+      </div>
+      
+      <motion.div style={{ opacity, scale }} className="relative max-w-7xl mx-auto px-6 text-center">
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 to-teal-500/10 border border-purple-500/30 rounded-full text-sm mb-8">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}><Sparkles size={16} className="text-purple-400" /></motion.div>
+          <span className="text-purple-400">New:</span>
+          <span className="text-slate-300">Training Center + Knowledge Base + AI Generation</span>
+        </motion.div>
+
+        <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }} className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
+          Build. Train. Share.
+          <br />
+          <span className="gradient-text">Technical Excellence Made Simple.</span>
+        </motion.h1>
+
+        <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.6 }} className="text-xl text-slate-400 max-w-3xl mx-auto mb-10">
+          The all-in-one platform for runbooks, training, and knowledge sharing. Create beautiful documentation, train your team with AI-generated content, and build a community knowledge base.
+        </motion.p>
+
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.8 }} className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+          <motion.div whileHover={{ scale: 1.05, y: -3 }} whileTap={{ scale: 0.95 }}>
+            <Link href="/sign-up" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all">
+              Start Building Free
+              <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1, repeat: Infinity }}><ArrowRight size={18} /></motion.span>
+            </Link>
           </motion.div>
-
-          <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
-            Build. Train. Share.
-            <br />
-            <span className="gradient-text">Technical Excellence Made Simple.</span>
-          </motion.h1>
-
-          <motion.p variants={fadeInUp} className="text-xl text-slate-400 max-w-3xl mx-auto mb-10">
-            The all-in-one platform for runbooks, training, and knowledge sharing. 
-            Create beautiful documentation, train your team with AI-generated content, 
-            and build a community knowledge base.
-          </motion.p>
-
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Link href="/sign-up" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all">
-                Start Building Free
-                <ArrowRight size={18} />
-              </Link>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <a href="#features" className="inline-flex items-center gap-2 px-8 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold hover:bg-slate-700 transition-all">
-                <Play size={18} />
-                See How It Works
-              </a>
-            </motion.div>
-          </motion.div>
-
-          {/* Feature Pills */}
-          <motion.div variants={fadeInUp} className="flex flex-wrap justify-center gap-3">
-            {[
-              { icon: FileText, label: 'Interactive Runbooks', color: 'teal' },
-              { icon: GraduationCap, label: 'Training Center', color: 'purple' },
-              { icon: Library, label: 'Knowledge Base', color: 'blue' },
-              { icon: Brain, label: 'AI Generation', color: 'pink' },
-              { icon: ShoppingBag, label: 'Marketplace', color: 'amber' },
-            ].map((item, i) => (
-              <div key={i} className={`flex items-center gap-2 px-4 py-2 bg-${item.color}-500/10 border border-${item.color}-500/30 rounded-full text-${item.color}-400 text-sm`}>
-                <item.icon size={16} />
-                {item.label}
-              </div>
-            ))}
+          <motion.div whileHover={{ scale: 1.05, y: -3 }} whileTap={{ scale: 0.95 }}>
+            <a href="#features" className="inline-flex items-center gap-2 px-8 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold hover:bg-slate-700 transition-all">
+              <Play size={18} />See How It Works
+            </a>
           </motion.div>
         </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 1 }} className="flex flex-wrap justify-center gap-3">
+          {[
+            { icon: FileText, label: 'Interactive Runbooks', color: 'teal' },
+            { icon: GraduationCap, label: 'Training Center', color: 'purple' },
+            { icon: Library, label: 'Knowledge Base', color: 'blue' },
+            { icon: Brain, label: 'AI Generation', color: 'pink' },
+            { icon: ShoppingBag, label: 'Marketplace', color: 'amber' },
+          ].map((item, i) => (
+            <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1 + i * 0.1 }} whileHover={{ scale: 1.1, y: -3 }}
+              className={`flex items-center gap-2 px-4 py-2 bg-${item.color}-500/10 border border-${item.color}-500/30 rounded-full text-${item.color}-400 text-sm cursor-default`}>
+              <item.icon size={16} />{item.label}
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }} className="absolute bottom-8 left-1/2 -translate-x-1/2">
+        <motion.div animate={{ y: [0, 10, 0] }} transition={{ duration: 2, repeat: Infinity }} className="flex flex-col items-center gap-2 text-slate-500">
+          <span className="text-xs">Scroll to explore</span>
+          <ChevronDown size={20} />
+        </motion.div>
+      </motion.div>
+    </section>
+  )
+}
+
+function StatsSection() {
+  const stats = [
+    { value: 15, suffix: '+', label: 'Block Types', icon: Layers },
+    { value: 5, suffix: '', label: 'Training Sections', icon: GraduationCap },
+    { value: 6, suffix: '+', label: 'AI Content Types', icon: Brain },
+    { value: 100, suffix: '%', label: 'Free to Start', icon: Heart },
+  ]
+
+  return (
+    <section className="py-16 border-y border-slate-800 bg-slate-900/30">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          {stats.map((stat, i) => (
+            <ScrollReveal key={i} direction="up" delay={i * 0.1}>
+              <motion.div whileHover={{ scale: 1.05, y: -5 }} className="text-center">
+                <stat.icon className="mx-auto text-teal-400 mb-3" size={32} />
+                <div className="text-4xl md:text-5xl font-bold text-white mb-1">
+                  <AnimatedCounter value={stat.value} suffix={stat.suffix} />
+                </div>
+                <p className="text-slate-400">{stat.label}</p>
+              </motion.div>
+            </ScrollReveal>
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -170,76 +294,42 @@ function HeroSection() {
 
 function FeaturesSection() {
   const features = [
-    {
-      icon: FileText,
-      title: 'Interactive Runbooks',
-      description: '15+ block types including code, checklists, diagrams, and more. Execute step-by-step with Run Mode.',
-      color: 'teal'
-    },
-    {
-      icon: GraduationCap,
-      title: 'Training Center',
-      description: 'Create courses with organized sections. Auto-generate quizzes, assignments, and labs with AI.',
-      color: 'purple',
-      badge: 'NEW'
-    },
-    {
-      icon: Library,
-      title: 'Knowledge Base',
-      description: 'Community-contributed runbooks. Submit, review, and share expertise across your organization.',
-      color: 'blue',
-      badge: 'NEW'
-    },
-    {
-      icon: Brain,
-      title: 'AI-Powered Generation',
-      description: 'Generate presentations, runbooks, quizzes, and interview questions instantly with Claude AI.',
-      color: 'pink'
-    },
-    {
-      icon: ShoppingBag,
-      title: 'Marketplace',
-      description: 'Buy and sell professional runbooks. Monetize your expertise or learn from the community.',
-      color: 'amber'
-    },
-    {
-      icon: Share2,
-      title: 'Easy Sharing',
-      description: 'Share via link, embed anywhere, or collaborate with your team in real-time.',
-      color: 'emerald'
-    }
+    { icon: FileText, title: 'Interactive Runbooks', description: '15+ block types including code, checklists, diagrams, and more.', color: 'teal' },
+    { icon: GraduationCap, title: 'Training Center', description: 'Create courses with organized sections. Auto-generate with AI.', color: 'purple', badge: 'NEW' },
+    { icon: Library, title: 'Knowledge Base', description: 'Community-contributed runbooks. Submit, review, and share.', color: 'blue', badge: 'NEW' },
+    { icon: Brain, title: 'AI-Powered Generation', description: 'Generate presentations, runbooks, quizzes instantly.', color: 'pink' },
+    { icon: ShoppingBag, title: 'Marketplace', description: 'Buy and sell professional runbooks. Monetize your expertise.', color: 'amber' },
+    { icon: Share2, title: 'Easy Sharing', description: 'Share via link, embed anywhere, collaborate in real-time.', color: 'emerald' },
   ]
 
   return (
-    <section id="features" className="py-24 relative">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
+    <section id="features" className="py-24 relative overflow-hidden">
+      <ParallaxSection speed={-0.2} className="absolute top-0 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl" />
+      <ParallaxSection speed={0.3} className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
+      
+      <div className="max-w-7xl mx-auto px-6 relative">
+        <ScrollReveal direction="up" className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">Everything You Need</h2>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">One platform for documentation, training, and knowledge management</p>
-        </motion.div>
+        </ScrollReveal>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ y: -5, borderColor: `var(--${feature.color}-500)` }}
-              className="relative p-6 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-slate-600 transition-all"
-            >
-              {feature.badge && (
-                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-[10px] font-bold text-white">
-                  {feature.badge}
-                </span>
-              )}
-              <div className={`w-12 h-12 rounded-xl bg-${feature.color}-500/20 flex items-center justify-center mb-4`}>
-                <feature.icon className={`text-${feature.color}-400`} size={24} />
-              </div>
-              <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-              <p className="text-slate-400">{feature.description}</p>
-            </motion.div>
+            <ScrollReveal key={i} direction={i % 2 === 0 ? 'left' : 'right'} delay={i * 0.1}>
+              <motion.div whileHover={{ y: -10, scale: 1.02 }} transition={{ type: 'spring', stiffness: 300 }}
+                className="relative p-6 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-slate-600 transition-all group">
+                {feature.badge && (
+                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-2 -right-2 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-[10px] font-bold text-white">
+                    {feature.badge}
+                  </motion.span>
+                )}
+                <motion.div whileHover={{ rotate: 10, scale: 1.1 }} className={`w-12 h-12 rounded-xl bg-${feature.color}-500/20 flex items-center justify-center mb-4`}>
+                  <feature.icon className={`text-${feature.color}-400`} size={24} />
+                </motion.div>
+                <h3 className="text-xl font-bold mb-2 group-hover:text-teal-400 transition-colors">{feature.title}</h3>
+                <p className="text-slate-400">{feature.description}</p>
+              </motion.div>
+            </ScrollReveal>
           ))}
         </div>
       </div>
@@ -267,314 +357,62 @@ function TrainingSection() {
 
   return (
     <section id="training" className="py-24 bg-gradient-to-b from-slate-900/50 to-transparent relative overflow-hidden">
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl" />
+      <ParallaxSection speed={0.4} className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl" />
       
       <div className="max-w-7xl mx-auto px-6 relative">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full text-purple-400 text-sm mb-6">
-            <GraduationCap size={16} />
-            Training Center
-          </div>
+        <ScrollReveal direction="up" className="text-center mb-16">
+          <motion.div whileHover={{ scale: 1.05 }} className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full text-purple-400 text-sm mb-6">
+            <GraduationCap size={16} />Training Center
+          </motion.div>
           <h2 className="text-4xl md:text-5xl font-bold mb-4">Train Your Team Like Never Before</h2>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto">Create structured courses with AI-generated content. Organized sections, automatic progress tracking, and powerful assessments.</p>
-        </motion.div>
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">Create structured courses with AI-generated content.</p>
+        </ScrollReveal>
 
-        {/* Sections Preview */}
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-16">
+        <ScrollReveal direction="up" className="mb-16">
           <h3 className="text-center text-lg font-semibold text-slate-300 mb-6">Auto-Created Course Sections</h3>
           <div className="flex flex-wrap justify-center gap-4">
             {sections.map((section, i) => (
-              <motion.div
-                key={section.key}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                whileHover={{ scale: 1.05, y: -3 }}
-                className={`flex items-center gap-3 px-5 py-3 bg-slate-800/80 border border-slate-700 rounded-xl hover:border-${section.color}-500/50 transition-all cursor-default`}
-              >
-                <div className={`w-10 h-10 rounded-lg bg-${section.color}-500/20 flex items-center justify-center`}>
-                  <section.icon className={`text-${section.color}-400`} size={20} />
-                </div>
-                <div>
-                  <p className="font-semibold text-white">{section.title}</p>
-                  <p className="text-xs text-slate-500">{section.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* AI Generation */}
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="bg-gradient-to-br from-slate-800/50 to-purple-900/20 border border-purple-500/20 rounded-3xl p-8 md:p-12">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Brain className="text-white" size={24} />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold">AI Content Generation</h3>
-              <p className="text-slate-400">Click a button, get professional content</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {aiTypes.map((type, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                className="text-center p-4 bg-slate-900/50 rounded-xl border border-slate-700 hover:border-purple-500/30 transition-all"
-              >
-                <type.icon className="mx-auto text-purple-400 mb-2" size={28} />
-                <p className="font-medium text-sm">{type.label}</p>
-                <p className="text-xs text-slate-500">{type.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <p className="text-slate-400">Just enter a topic and difficulty level →</p>
-            <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 rounded-lg border border-slate-700">
-              <Sparkles className="text-purple-400" size={16} />
-              <span className="text-white font-medium">Generate with AI</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-function KnowledgeBaseSection() {
-  const categories = [
-    { icon: Database, name: 'Databases', count: 'PostgreSQL, MySQL, MongoDB' },
-    { icon: Cloud, name: 'Cloud', count: 'AWS, Azure, GCP' },
-    { icon: Boxes, name: 'Containers', count: 'Docker, Kubernetes' },
-    { icon: Shield, name: 'Security', count: 'Compliance, Hardening' },
-  ]
-
-  return (
-    <section className="py-24 relative">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-400 text-sm mb-6">
-              <Library size={16} />
-              Knowledge Base
-            </div>
-            <h2 className="text-4xl font-bold mb-4">Community-Powered Learning</h2>
-            <p className="text-xl text-slate-400 mb-8">
-              Share your expertise with the community. Submit runbooks for review, 
-              browse curated content, and build a searchable library of best practices.
-            </p>
-
-            <div className="space-y-4 mb-8">
-              {[
-                { icon: Share2, text: 'Submit your runbooks for community access' },
-                { icon: CheckSquare, text: 'Admin review ensures quality content' },
-                { icon: Search, text: 'Search by category, difficulty, and tags' },
-                { icon: Star, text: 'Upvote helpful content' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                    <item.icon className="text-blue-400" size={16} />
-                  </div>
-                  <span className="text-slate-300">{item.text}</span>
-                </div>
-              ))}
-            </div>
-
-            <Link href="/sign-up" className="inline-flex items-center gap-2 text-blue-400 font-medium hover:text-blue-300 transition-colors">
-              Start Contributing <ArrowRight size={16} />
-            </Link>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-            <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-lg border border-slate-700">
-                  <Search className="text-slate-500" size={18} />
-                  <span className="text-slate-500">Search knowledge base...</span>
-                </div>
-                <button className="p-2 bg-slate-800 rounded-lg border border-slate-700">
-                  <Filter className="text-slate-400" size={18} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {categories.map((cat, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
-                    className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <cat.icon className="text-blue-400" size={20} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-white">{cat.name}</p>
-                        <p className="text-xs text-slate-500">{cat.count}</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="text-slate-600" size={18} />
+              <ScrollReveal key={section.key} direction="scale" delay={i * 0.1}>
+                <motion.div whileHover={{ scale: 1.1, y: -5, rotate: 2 }} className={`flex items-center gap-3 px-5 py-3 bg-slate-800/80 border border-slate-700 rounded-xl hover:border-${section.color}-500/50 transition-all cursor-default`}>
+                  <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }} className={`w-10 h-10 rounded-lg bg-${section.color}-500/20 flex items-center justify-center`}>
+                    <section.icon className={`text-${section.color}-400`} size={20} />
                   </motion.div>
-                ))}
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-slate-700 flex items-center justify-between">
-                <span className="text-sm text-slate-500">8 categories • Growing daily</span>
-                <span className="text-sm text-blue-400 font-medium">Browse All →</span>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function MarketplaceSection() {
-  return (
-    <section id="marketplace" className="py-24 bg-gradient-to-b from-transparent via-amber-900/10 to-transparent relative">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-sm mb-6">
-            <ShoppingBag size={16} />
-            Marketplace
+                  <div><p className="font-semibold text-white">{section.title}</p><p className="text-xs text-slate-500">{section.desc}</p></div>
+                </motion.div>
+              </ScrollReveal>
+            ))}
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Monetize Your Expertise</h2>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto">Buy professional runbooks or sell your own. Join a community of experts sharing knowledge.</p>
-        </motion.div>
+        </ScrollReveal>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl p-8">
-            <div className="w-14 h-14 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-6">
-              <DollarSign className="text-emerald-400" size={28} />
+        <ScrollReveal direction="up">
+          <motion.div whileHover={{ scale: 1.01 }} className="bg-gradient-to-br from-slate-800/50 to-purple-900/20 border border-purple-500/20 rounded-3xl p-8 md:p-12">
+            <div className="flex items-center gap-3 mb-6">
+              <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }} className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Brain className="text-white" size={24} />
+              </motion.div>
+              <div><h3 className="text-2xl font-bold">AI Content Generation</h3><p className="text-slate-400">Click a button, get professional content</p></div>
             </div>
-            <h3 className="text-2xl font-bold mb-4">For Sellers</h3>
-            <ul className="space-y-3 mb-6">
-              {['Set your own prices', 'Personal & team licensing', 'Instant payouts', 'Analytics dashboard'].map((item, i) => (
-                <li key={i} className="flex items-center gap-3 text-slate-300">
-                  <Check className="text-emerald-400" size={18} />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href="/sign-up" className="inline-flex items-center gap-2 text-emerald-400 font-medium">
-              Start Selling <ArrowRight size={16} />
-            </Link>
-          </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl p-8">
-            <div className="w-14 h-14 rounded-xl bg-amber-500/20 flex items-center justify-center mb-6">
-              <Download className="text-amber-400" size={28} />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {aiTypes.map((type, i) => (
+                <ScrollReveal key={i} direction="up" delay={i * 0.05}>
+                  <motion.div whileHover={{ scale: 1.1, y: -5 }} className="text-center p-4 bg-slate-900/50 rounded-xl border border-slate-700 hover:border-purple-500/30 transition-all cursor-default">
+                    <motion.div whileHover={{ rotate: 15 }}><type.icon className="mx-auto text-purple-400 mb-2" size={28} /></motion.div>
+                    <p className="font-medium text-sm">{type.label}</p><p className="text-xs text-slate-500">{type.desc}</p>
+                  </motion.div>
+                </ScrollReveal>
+              ))}
             </div>
-            <h3 className="text-2xl font-bold mb-4">For Buyers</h3>
-            <ul className="space-y-3 mb-6">
-              {['Curated quality content', 'Instant access', 'Use in your training', 'Support creators'].map((item, i) => (
-                <li key={i} className="flex items-center gap-3 text-slate-300">
-                  <Check className="text-amber-400" size={18} />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href="/dashboard/marketplace" className="inline-flex items-center gap-2 text-amber-400 font-medium">
-              Browse Marketplace <ArrowRight size={16} />
-            </Link>
+
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <p className="text-slate-400">Just enter a topic and difficulty level →</p>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-4 py-2 bg-slate-900 rounded-lg border border-slate-700 cursor-pointer">
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}><Sparkles className="text-purple-400" size={16} /></motion.div>
+                <span className="text-white font-medium">Generate with AI</span>
+              </motion.div>
+            </div>
           </motion.div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function PricingSection() {
-  const plans = [
-    {
-      name: 'Free',
-      price: '$0',
-      period: '/forever',
-      features: ['10 runbooks', '5 documents', 'Basic templates', 'Community support', 'Knowledge Base access'],
-      cta: 'Get Started'
-    },
-    {
-      name: 'Pro',
-      price: '$19',
-      period: '/month',
-      features: ['Unlimited runbooks', 'Unlimited documents', 'AI generation', 'Training Center', 'Priority support', 'Custom branding'],
-      cta: 'Start Pro Trial',
-      featured: true
-    },
-    {
-      name: 'Team',
-      price: '$49',
-      period: '/month',
-      features: ['Everything in Pro', 'Up to 10 team members', 'Team collaboration', 'Admin controls', 'SSO integration', 'Dedicated support'],
-      cta: 'Contact Sales'
-    }
-  ]
-
-  return (
-    <section id="pricing" className="py-24 relative">
-      <div className="max-w-5xl mx-auto px-6">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Simple Pricing</h2>
-          <p className="text-xl text-slate-400">Start free, upgrade when you need more</p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          {plans.map((plan, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ y: -8 }}
-              className={`relative p-8 rounded-2xl transition-all ${
-                plan.featured ? 'bg-slate-900 border-2 border-teal-500' : 'bg-slate-900 border border-slate-800'
-              }`}
-            >
-              {plan.featured && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full text-xs font-bold text-white">
-                  MOST POPULAR
-                </div>
-              )}
-              
-              <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
-              <div className="mb-6">
-                <span className="text-5xl font-extrabold">{plan.price}</span>
-                <span className="text-slate-500">{plan.period}</span>
-              </div>
-              
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, j) => (
-                  <li key={j} className="flex items-center gap-3 text-sm text-slate-300">
-                    <Check size={16} className="text-teal-500 flex-shrink-0" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              
-              <Link
-                href="/sign-up"
-                className={`block w-full py-4 rounded-xl font-semibold transition-all text-center ${
-                  plan.featured
-                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/25'
-                    : 'bg-slate-800 text-white hover:bg-slate-700'
-                }`}
-              >
-                {plan.cta}
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+        </ScrollReveal>
       </div>
     </section>
   )
@@ -582,26 +420,29 @@ function PricingSection() {
 
 function CTASection() {
   return (
-    <section className="py-24 border-t border-slate-800 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-t from-teal-500/10 to-transparent" />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-teal-500/20 rounded-full blur-3xl" />
+    <section className="py-24 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-purple-500/5" />
+      <ParallaxSection speed={0.3} className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl" />
+      <ParallaxSection speed={-0.2} className="absolute bottom-0 right-1/4 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl" />
       
-      <div className="relative max-w-3xl mx-auto px-6 text-center">
-        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to Level Up?</h2>
-          <p className="text-xl text-slate-400 mb-10">
-            Join thousands of engineers building better documentation and training.
-          </p>
-
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Link href="/sign-up" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all text-lg">
-              Get Started Free
-              <ArrowRight size={20} />
-            </Link>
+      <div className="max-w-4xl mx-auto px-6 text-center relative">
+        <ScrollReveal direction="scale">
+          <motion.div whileHover={{ scale: 1.02 }} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-3xl p-12 backdrop-blur-sm">
+            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity }}><Rocket className="mx-auto text-teal-400 mb-6" size={56} /></motion.div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">Ready to Transform Your Documentation?</h2>
+            <p className="text-xl text-slate-400 mb-8 max-w-2xl mx-auto">Join thousands of teams using RunbookForge to create better documentation and train their teams.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <motion.div whileHover={{ scale: 1.05, y: -3 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/sign-up" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all">
+                  Start Building Free<ArrowRight size={18} />
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05, y: -3 }} whileTap={{ scale: 0.95 }}>
+                <a href="#features" className="inline-flex items-center gap-2 px-8 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold hover:bg-slate-700 transition-all">Learn More</a>
+              </motion.div>
+            </div>
           </motion.div>
-
-          <p className="text-sm text-slate-500 mt-6">No credit card required • Free forever tier</p>
-        </motion.div>
+        </ScrollReveal>
       </div>
     </section>
   )
@@ -611,66 +452,59 @@ function Footer() {
   return (
     <footer className="py-12 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-4 gap-8 mb-12">
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-3 mb-4">
-              <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
-                <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad1)"/>
+        <ScrollReveal direction="up">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+                <defs><linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#14b8a6"/><stop offset="100%" stopColor="#10b981"/></linearGradient></defs>
+                <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGrad2)"/>
                 <rect x="16" y="17" width="12" height="2" rx="1" fill="white"/>
                 <rect x="16" y="22" width="16" height="2" rx="1" fill="white"/>
                 <rect x="16" y="27" width="10" height="2" rx="1" fill="white"/>
                 <circle cx="33" cy="33" r="7" fill="white"/>
                 <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
-              <div className="flex flex-col">
-                <span className="font-bold text-xl text-white leading-tight">RunbookForge</span>
-                <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
-              </div>
+              <div><span className="text-lg font-bold text-white">RunbookForge</span><p className="text-xs text-slate-500">a SUTA company</p></div>
             </div>
-            <p className="text-slate-400 text-sm max-w-sm">
-              The complete platform for runbooks, training, and knowledge sharing.
-            </p>
+            <div className="flex items-center gap-8 text-sm text-slate-400">
+              <a href="#features" className="hover:text-white transition-colors">Features</a>
+              <a href="#training" className="hover:text-white transition-colors">Training</a>
+              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+              <Link href="/sign-in" className="hover:text-white transition-colors">Sign In</Link>
+            </div>
+            <p className="text-sm text-slate-500">© 2025 RunbookForge. All rights reserved.</p>
           </div>
-          
-          <div>
-            <h4 className="font-semibold text-white mb-4">Product</h4>
-            <ul className="space-y-2 text-sm">
-              <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
-              <li><a href="#training" className="text-slate-400 hover:text-white transition-colors">Training Center</a></li>
-              <li><Link href="/dashboard/knowledge" className="text-slate-400 hover:text-white transition-colors">Knowledge Base</Link></li>
-              <li><Link href="/dashboard/marketplace" className="text-slate-400 hover:text-white transition-colors">Marketplace</Link></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold text-white mb-4">Get Started</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/sign-up" className="text-slate-400 hover:text-white transition-colors">Create Account</Link></li>
-              <li><Link href="/sign-in" className="text-slate-400 hover:text-white transition-colors">Sign In</Link></li>
-              <li><Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</Link></li>
-            </ul>
-          </div>
-        </div>
-        
-        <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-slate-600">© 2025 RunbookForge. All rights reserved.</p>
-          <p className="text-slate-600 text-sm">A <span className="text-teal-500 font-semibold">SUTA</span> Company</p>
-        </div>
+        </ScrollReveal>
       </div>
     </footer>
   )
 }
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-[#0a0f1a] text-white overflow-x-hidden">
+      <style jsx global>{`
+        .glass { background: rgba(10, 15, 26, 0.8); backdrop-filter: blur(12px); }
+        .gradient-text {
+          background: linear-gradient(135deg, #14b8a6, #10b981, #8b5cf6, #14b8a6);
+          background-size: 300% 300%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: gradient-shift 5s ease infinite;
+        }
+        @keyframes gradient-shift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .bg-grid-pattern {
+          background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+          background-size: 50px 50px;
+        }
+      `}</style>
+      
       <Navigation />
       <HeroSection />
+      <StatsSection />
       <FeaturesSection />
       <TrainingSection />
-      <KnowledgeBaseSection />
-      <MarketplaceSection />
-      <PricingSection />
       <CTASection />
       <Footer />
     </main>
