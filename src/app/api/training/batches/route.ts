@@ -19,7 +19,7 @@ function generateAccessCode(length = 10): string {
 
 // Section templates - auto-created when batch is created
 const SECTION_TEMPLATES = {
-  full_course: [
+  technical_course: [
     { section_key: 'learn', title: 'Learn', description: 'Presentations, tutorials, and reading materials', icon: 'BookOpen', color: 'amber', sort_order: 1 },
     { section_key: 'practice', title: 'Practice', description: 'Labs, runbooks, and hands-on exercises', icon: 'Wrench', color: 'teal', sort_order: 2 },
     { section_key: 'assess', title: 'Assess', description: 'Quizzes, assignments, and challenges', icon: 'ClipboardCheck', color: 'purple', sort_order: 3 },
@@ -31,12 +31,14 @@ const SECTION_TEMPLATES = {
     { section_key: 'practice', title: 'Practice', description: 'Hands-on labs and exercises', icon: 'Wrench', color: 'teal', sort_order: 2 },
     { section_key: 'resources', title: 'Resources', description: 'Additional materials', icon: 'FolderOpen', color: 'blue', sort_order: 3 },
   ],
-  assessment: [
-    { section_key: 'assess', title: 'Assessments', description: 'Quizzes and tests', icon: 'ClipboardCheck', color: 'purple', sort_order: 1 },
-  ],
   interview_prep: [
     { section_key: 'learn', title: 'Study Materials', description: 'Preparation guides and concepts', icon: 'BookOpen', color: 'amber', sort_order: 1 },
     { section_key: 'career', title: 'Interview Practice', description: 'Questions and mock interviews', icon: 'Briefcase', color: 'emerald', sort_order: 2 },
+  ],
+  certification: [
+    { section_key: 'learn', title: 'Study Guide', description: 'Comprehensive study materials', icon: 'BookOpen', color: 'amber', sort_order: 1 },
+    { section_key: 'assess', title: 'Practice Tests', description: 'Mock exams and quizzes', icon: 'ClipboardCheck', color: 'purple', sort_order: 2 },
+    { section_key: 'resources', title: 'Resources', description: 'Additional study resources', icon: 'FolderOpen', color: 'blue', sort_order: 3 },
   ],
   custom: []
 };
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { title, description, template = 'full_course', settings } = body;
+    const { title, description, template = 'technical_course', settings } = body;
 
     if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -110,7 +112,7 @@ export async function POST(request: Request) {
     if (batchError) throw batchError;
 
     // Create default sections based on template
-    const sectionTemplate = SECTION_TEMPLATES[template as keyof typeof SECTION_TEMPLATES] || SECTION_TEMPLATES.full_course;
+    const sectionTemplate = SECTION_TEMPLATES[template as keyof typeof SECTION_TEMPLATES] || SECTION_TEMPLATES.technical_course;
     
     if (sectionTemplate.length > 0) {
       const sections = sectionTemplate.map(section => ({
