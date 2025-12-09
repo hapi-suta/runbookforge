@@ -29,7 +29,7 @@ const navigation = [
   { name: 'My Runbooks', href: '/dashboard/runbooks', icon: FileText },
   { name: 'My Documents', href: '/dashboard/documents', icon: Presentation },
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
-  // Training Center - temporarily removed for rebuild
+  { name: 'Training Center', href: '/dashboard/training', icon: GraduationCap },
   { name: 'Knowledge Base', href: '/dashboard/knowledge', icon: Library },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
