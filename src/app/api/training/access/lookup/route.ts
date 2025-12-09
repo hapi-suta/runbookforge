@@ -43,10 +43,17 @@ export async function GET(request: Request) {
         .eq('batch_id', batch.id)
         .order('sort_order');
 
-      // Get modules with content
+      // Get modules with content (including linked documents and runbooks)
       const { data: modules } = await supabase
         .from('training_modules')
-        .select(`*, training_content (*)`)
+        .select(`
+          *,
+          training_content (
+            *,
+            documents (id, title, metadata),
+            runbooks (id, title, sections)
+          )
+        `)
         .eq('batch_id', batch.id)
         .order('sort_order');
 

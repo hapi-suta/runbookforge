@@ -40,14 +40,16 @@ export async function GET(
       return NextResponse.json({ error: 'Training not available' }, { status: 404 });
     }
 
-    // Get modules with content
+    // Get modules with content (including linked documents and runbooks)
     const { data: modules } = await supabase
       .from('training_modules')
       .select(`
         id, title, description, section_id, sort_order, is_published,
         training_content (
           id, title, content_type, document_id, runbook_id, external_url,
-          content_data, sort_order, is_required, estimated_minutes
+          content_data, sort_order, is_required, estimated_minutes,
+          documents (id, title, metadata),
+          runbooks (id, title, sections)
         )
       `)
       .eq('batch_id', batch.id)

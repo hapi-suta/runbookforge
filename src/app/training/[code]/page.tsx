@@ -29,7 +29,20 @@ const CONTENT_ICONS: Record<string, React.ElementType> = {
 };
 
 interface Section { id: string; section_key: string; title: string; description: string; icon: string; color: string; sort_order: number; }
-interface Content { id: string; title: string; content_type: string; document_id?: string; runbook_id?: string; external_url?: string; content_data?: Record<string, unknown>; estimated_minutes?: number; }
+interface LinkedDocument { id: string; title: string; metadata?: { slides?: SlideData[] } }
+interface LinkedRunbook { id: string; title: string; sections?: Array<{ title: string; content: string }> }
+interface Content { 
+  id: string; 
+  title: string; 
+  content_type: string; 
+  document_id?: string; 
+  runbook_id?: string; 
+  external_url?: string; 
+  content_data?: Record<string, unknown>; 
+  estimated_minutes?: number;
+  documents?: LinkedDocument;
+  runbooks?: LinkedRunbook;
+}
 interface Module { id: string; section_id?: string; title: string; training_content: Content[]; }
 interface Progress { content_id: string; status: string; completed_at?: string; }
 
@@ -512,8 +525,70 @@ export default function StudentPortalPage() {
                         </button>
                       </div>
                     )}
-                    {!['quiz', 'tutorial', 'presentation'].includes(activeContent.content_type) && (
+                    {activeContent.content_type === 'assignment' && (
+                      <AssignmentViewer data={activeContent.content_data as AssignmentData} />
+                    )}
+                    {activeContent.content_type === 'challenge' && (
+                      <ChallengeViewer data={activeContent.content_data as ChallengeData} />
+                    )}
+                    {activeContent.content_type === 'interview_prep' && (
+                      <InterviewPrepViewer data={activeContent.content_data as InterviewPrepData} />
+                    )}
+                    {activeContent.content_type === 'runbook' && (
+                      <RunbookViewer data={activeContent.content_data as RunbookData} />
+                    )}
+                    {!['quiz', 'tutorial', 'presentation', 'assignment', 'challenge', 'interview_prep', 'runbook'].includes(activeContent.content_type) && (
                       <pre className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-800/50 p-4 rounded-xl">{JSON.stringify(activeContent.content_data, null, 2)}</pre>
+                    )}
+                  </div>
+                ) : activeContent.documents ? (
+                  // Linked Document (Presentation from Documents)
+                  <div>
+                    {activeContent.documents.metadata?.slides ? (
+                      <div className="text-center py-8">
+                        <Presentation size={48} className="mx-auto text-blue-400 mb-4" />
+                        <p className="text-slate-300 mb-2 font-medium">{activeContent.documents.title}</p>
+                        <p className="text-slate-400 mb-4">
+                          {activeContent.documents.metadata.slides.length} slides
+                        </p>
+                        <button
+                          onClick={() => {
+                            setViewingPresentation({
+                              title: activeContent.documents!.title,
+                              slides: activeContent.documents!.metadata?.slides || []
+                            });
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 shadow-lg shadow-blue-500/25"
+                        >
+                          <Play size={18} /> View Presentation
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileText size={48} className="mx-auto text-purple-400 mb-4" />
+                        <p className="text-slate-300 font-medium">{activeContent.documents.title}</p>
+                        <p className="text-slate-400 mt-2">Linked document</p>
+                      </div>
+                    )}
+                  </div>
+                ) : activeContent.runbooks ? (
+                  // Linked Runbook
+                  <div className="space-y-6">
+                    <div className="bg-teal-500/10 rounded-xl p-5 border border-teal-500/30">
+                      <h3 className="text-teal-400 font-semibold mb-2">{activeContent.runbooks.title}</h3>
+                      <p className="text-slate-400 text-sm">Linked Runbook</p>
+                    </div>
+                    {activeContent.runbooks.sections && activeContent.runbooks.sections.length > 0 && (
+                      <div className="space-y-4">
+                        {activeContent.runbooks.sections.map((section, i) => (
+                          <div key={i} className="bg-slate-800/50 rounded-xl p-5 border border-slate-700">
+                            <h4 className="text-white font-semibold mb-3">{section.title}</h4>
+                            <div className="prose prose-invert prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap text-slate-300">{section.content}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -643,6 +718,498 @@ function QuizViewer({ questions }: { questions: Question[] }) {
         <div className="text-center py-4">
           <p className="text-2xl font-bold text-white">{score}/{questions.length}</p>
           <p className="text-slate-400">Score: {Math.round((score / questions.length) * 100)}%</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Assignment Viewer Component
+interface AssignmentData {
+  title: string;
+  description?: string;
+  instructions?: string;
+  requirements?: string[];
+  deliverables?: string[];
+  rubric?: Array<{ criterion: string; points: number; description: string }>;
+  hints?: string[];
+  bonus_challenges?: string[];
+  estimated_minutes?: number;
+}
+
+function AssignmentViewer({ data }: { data: AssignmentData }) {
+  const [showHints, setShowHints] = useState(false);
+  
+  return (
+    <div className="space-y-6">
+      {data.description && (
+        <p className="text-slate-300">{data.description}</p>
+      )}
+      
+      {data.instructions && (
+        <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700">
+          <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <ClipboardList size={18} className="text-purple-400" /> Instructions
+          </h4>
+          <div className="prose prose-invert prose-sm max-w-none">
+            <p className="whitespace-pre-wrap text-slate-300">{data.instructions}</p>
+          </div>
+        </div>
+      )}
+      
+      {data.requirements && data.requirements.length > 0 && (
+        <div className="bg-blue-500/10 rounded-xl p-5 border border-blue-500/30">
+          <h4 className="text-blue-400 font-semibold mb-3">Requirements</h4>
+          <ul className="space-y-2">
+            {data.requirements.map((req, i) => (
+              <li key={i} className="flex items-start gap-2 text-slate-300">
+                <CheckCircle size={16} className="text-blue-400 mt-0.5 shrink-0" />
+                {req}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {data.deliverables && data.deliverables.length > 0 && (
+        <div className="bg-emerald-500/10 rounded-xl p-5 border border-emerald-500/30">
+          <h4 className="text-emerald-400 font-semibold mb-3">What to Submit</h4>
+          <ul className="space-y-2">
+            {data.deliverables.map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-slate-300">
+                <Target size={16} className="text-emerald-400 mt-0.5 shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {data.rubric && data.rubric.length > 0 && (
+        <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700">
+          <h4 className="text-white font-semibold mb-3">Grading Rubric</h4>
+          <div className="space-y-3">
+            {data.rubric.map((item, i) => (
+              <div key={i} className="flex items-start justify-between gap-4 p-3 bg-slate-900/50 rounded-lg">
+                <div>
+                  <p className="text-white font-medium">{item.criterion}</p>
+                  <p className="text-sm text-slate-400">{item.description}</p>
+                </div>
+                <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-bold shrink-0">
+                  {item.points} pts
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {data.hints && data.hints.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowHints(!showHints)}
+            className="text-amber-400 hover:text-amber-300 text-sm flex items-center gap-2"
+          >
+            <HelpCircle size={16} />
+            {showHints ? 'Hide Hints' : 'Show Hints'}
+          </button>
+          {showHints && (
+            <div className="mt-3 bg-amber-500/10 rounded-xl p-4 border border-amber-500/30">
+              <ul className="space-y-2">
+                {data.hints.map((hint, i) => (
+                  <li key={i} className="text-sm text-amber-300">💡 {hint}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {data.bonus_challenges && data.bonus_challenges.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl p-5 border border-purple-500/30">
+          <h4 className="text-purple-400 font-semibold mb-3">⭐ Bonus Challenges</h4>
+          <ul className="space-y-2">
+            {data.bonus_challenges.map((item, i) => (
+              <li key={i} className="text-slate-300">{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Challenge Viewer Component
+interface ChallengeData {
+  title: string;
+  description?: string;
+  scenario?: string;
+  objectives?: string[];
+  constraints?: string[];
+  starter_code?: string;
+  test_cases?: Array<{ input: string; expected_output: string; explanation?: string }>;
+  hints?: string[];
+  solution_approach?: string;
+  estimated_minutes?: number;
+}
+
+function ChallengeViewer({ data }: { data: ChallengeData }) {
+  const [showSolution, setShowSolution] = useState(false);
+  const [showHints, setShowHints] = useState(false);
+  
+  return (
+    <div className="space-y-6">
+      {data.scenario && (
+        <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 rounded-xl p-5 border border-red-500/30">
+          <h4 className="text-red-400 font-semibold mb-3 flex items-center gap-2">
+            <Target size={18} /> Scenario
+          </h4>
+          <p className="text-slate-300">{data.scenario}</p>
+        </div>
+      )}
+      
+      {data.objectives && data.objectives.length > 0 && (
+        <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700">
+          <h4 className="text-white font-semibold mb-3">Objectives</h4>
+          <ul className="space-y-2">
+            {data.objectives.map((obj, i) => (
+              <li key={i} className="flex items-start gap-2 text-slate-300">
+                <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-sm shrink-0">{i + 1}</span>
+                {obj}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {data.constraints && data.constraints.length > 0 && (
+        <div className="bg-amber-500/10 rounded-xl p-5 border border-amber-500/30">
+          <h4 className="text-amber-400 font-semibold mb-3">Constraints & Rules</h4>
+          <ul className="space-y-2">
+            {data.constraints.map((c, i) => (
+              <li key={i} className="text-slate-300">⚠️ {c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {data.starter_code && (
+        <div className="bg-slate-900 rounded-xl p-5 border border-slate-700">
+          <h4 className="text-white font-semibold mb-3">Starter Code</h4>
+          <pre className="text-sm text-emerald-400 font-mono overflow-x-auto whitespace-pre-wrap">{data.starter_code}</pre>
+        </div>
+      )}
+      
+      {data.test_cases && data.test_cases.length > 0 && (
+        <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700">
+          <h4 className="text-white font-semibold mb-3">Test Cases</h4>
+          <div className="space-y-3">
+            {data.test_cases.map((tc, i) => (
+              <div key={i} className="p-3 bg-slate-900/50 rounded-lg font-mono text-sm">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <span className="text-slate-500">Input:</span>
+                    <p className="text-blue-400">{tc.input}</p>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-slate-500">Expected:</span>
+                    <p className="text-emerald-400">{tc.expected_output}</p>
+                  </div>
+                </div>
+                {tc.explanation && <p className="text-slate-400 mt-2 text-xs">{tc.explanation}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {data.hints && data.hints.length > 0 && (
+        <button
+          onClick={() => setShowHints(!showHints)}
+          className="text-amber-400 hover:text-amber-300 text-sm flex items-center gap-2"
+        >
+          <HelpCircle size={16} />
+          {showHints ? 'Hide Hints' : `Show Hints (${data.hints.length})`}
+        </button>
+      )}
+      {showHints && data.hints && (
+        <div className="bg-amber-500/10 rounded-xl p-4 border border-amber-500/30">
+          {data.hints.map((hint, i) => (
+            <p key={i} className="text-sm text-amber-300 mb-2">💡 Hint {i + 1}: {hint}</p>
+          ))}
+        </div>
+      )}
+      
+      {data.solution_approach && (
+        <div>
+          <button
+            onClick={() => setShowSolution(!showSolution)}
+            className="text-purple-400 hover:text-purple-300 text-sm flex items-center gap-2"
+          >
+            {showSolution ? '🔒 Hide Solution' : '🔓 Show Solution Approach'}
+          </button>
+          {showSolution && (
+            <div className="mt-3 bg-purple-500/10 rounded-xl p-4 border border-purple-500/30">
+              <p className="text-slate-300">{data.solution_approach}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Interview Prep Viewer Component
+interface InterviewPrepData {
+  title: string;
+  description?: string;
+  questions?: Array<{
+    question: string;
+    category: string;
+    difficulty: string;
+    key_points?: string[];
+    sample_answer?: string;
+    follow_ups?: string[];
+  }>;
+  tips?: string[];
+  common_mistakes?: string[];
+  estimated_minutes?: number;
+}
+
+function InterviewPrepViewer({ data }: { data: InterviewPrepData }) {
+  const [expandedQ, setExpandedQ] = useState<number | null>(null);
+  
+  const getDifficultyColor = (diff: string) => {
+    switch (diff.toLowerCase()) {
+      case 'easy': return 'bg-emerald-500/20 text-emerald-400';
+      case 'medium': return 'bg-amber-500/20 text-amber-400';
+      case 'hard': return 'bg-red-500/20 text-red-400';
+      default: return 'bg-slate-500/20 text-slate-400';
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      {data.description && (
+        <p className="text-slate-300">{data.description}</p>
+      )}
+      
+      {data.tips && data.tips.length > 0 && (
+        <div className="bg-emerald-500/10 rounded-xl p-5 border border-emerald-500/30">
+          <h4 className="text-emerald-400 font-semibold mb-3">💡 Interview Tips</h4>
+          <ul className="space-y-2">
+            {data.tips.map((tip, i) => (
+              <li key={i} className="text-slate-300 text-sm">• {tip}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {data.questions && data.questions.length > 0 && (
+        <div className="space-y-4">
+          <h4 className="text-white font-semibold">Practice Questions ({data.questions.length})</h4>
+          {data.questions.map((q, i) => (
+            <div key={i} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+              <button
+                onClick={() => setExpandedQ(expandedQ === i ? null : i)}
+                className="w-full p-4 text-left flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex-1">
+                  <p className="text-white font-medium">{q.question}</p>
+                  <div className="flex gap-2 mt-2">
+                    <span className="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-400">{q.category}</span>
+                    <span className={`px-2 py-0.5 text-xs rounded ${getDifficultyColor(q.difficulty)}`}>{q.difficulty}</span>
+                  </div>
+                </div>
+                <ChevronDown size={20} className={`text-slate-400 transition-transform ${expandedQ === i ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {expandedQ === i && (
+                <div className="p-4 border-t border-slate-700 space-y-4">
+                  {q.key_points && q.key_points.length > 0 && (
+                    <div>
+                      <h5 className="text-sm text-slate-400 mb-2">What interviewers look for:</h5>
+                      <ul className="space-y-1">
+                        {q.key_points.map((point, j) => (
+                          <li key={j} className="text-sm text-emerald-400 flex items-start gap-2">
+                            <CheckCircle size={14} className="mt-0.5 shrink-0" />
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {q.sample_answer && (
+                    <div>
+                      <h5 className="text-sm text-slate-400 mb-2">Sample Answer:</h5>
+                      <p className="text-sm text-slate-300 bg-slate-900/50 rounded-lg p-3">{q.sample_answer}</p>
+                    </div>
+                  )}
+                  
+                  {q.follow_ups && q.follow_ups.length > 0 && (
+                    <div>
+                      <h5 className="text-sm text-slate-400 mb-2">Possible Follow-up Questions:</h5>
+                      <ul className="space-y-1">
+                        {q.follow_ups.map((fu, j) => (
+                          <li key={j} className="text-sm text-amber-400">→ {fu}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {data.common_mistakes && data.common_mistakes.length > 0 && (
+        <div className="bg-red-500/10 rounded-xl p-5 border border-red-500/30">
+          <h4 className="text-red-400 font-semibold mb-3">⚠️ Common Mistakes to Avoid</h4>
+          <ul className="space-y-2">
+            {data.common_mistakes.map((mistake, i) => (
+              <li key={i} className="text-slate-300 text-sm">• {mistake}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Runbook Viewer Component
+interface RunbookData {
+  title: string;
+  description?: string;
+  prerequisites?: string[];
+  steps?: Array<{
+    title: string;
+    description?: string;
+    instructions?: string;
+    commands?: string[];
+    expected_output?: string;
+    troubleshooting?: string;
+  }>;
+  verification?: string;
+  rollback?: string;
+  estimated_minutes?: number;
+}
+
+function RunbookViewer({ data }: { data: RunbookData }) {
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  
+  const toggleStep = (index: number) => {
+    const newSet = new Set(completedSteps);
+    if (newSet.has(index)) newSet.delete(index);
+    else newSet.add(index);
+    setCompletedSteps(newSet);
+  };
+  
+  return (
+    <div className="space-y-6">
+      {data.description && (
+        <p className="text-slate-300">{data.description}</p>
+      )}
+      
+      {data.prerequisites && data.prerequisites.length > 0 && (
+        <div className="bg-amber-500/10 rounded-xl p-5 border border-amber-500/30">
+          <h4 className="text-amber-400 font-semibold mb-3">Prerequisites</h4>
+          <ul className="space-y-2">
+            {data.prerequisites.map((prereq, i) => (
+              <li key={i} className="text-slate-300 text-sm">• {prereq}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {data.steps && data.steps.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-white font-semibold">Steps ({completedSteps.size}/{data.steps.length} completed)</h4>
+            <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300"
+                style={{ width: `${(completedSteps.size / data.steps.length) * 100}%` }}
+              />
+            </div>
+          </div>
+          
+          {data.steps.map((step, i) => (
+            <div 
+              key={i} 
+              className={`rounded-xl border overflow-hidden transition-all ${
+                completedSteps.has(i) 
+                  ? 'bg-emerald-500/10 border-emerald-500/30' 
+                  : 'bg-slate-800/50 border-slate-700'
+              }`}
+            >
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => toggleStep(i)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      completedSteps.has(i)
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                    }`}
+                  >
+                    {completedSteps.has(i) ? <CheckCircle size={18} /> : <span>{i + 1}</span>}
+                  </button>
+                  <div className="flex-1">
+                    <h5 className="text-white font-medium">{step.title}</h5>
+                    {step.description && <p className="text-sm text-slate-400 mt-1">{step.description}</p>}
+                  </div>
+                </div>
+                
+                {step.instructions && (
+                  <div className="mt-4 pl-11">
+                    <p className="text-sm text-slate-300 whitespace-pre-wrap">{step.instructions}</p>
+                  </div>
+                )}
+                
+                {step.commands && step.commands.length > 0 && (
+                  <div className="mt-4 pl-11">
+                    <div className="bg-slate-900 rounded-lg p-3 font-mono text-sm">
+                      {step.commands.map((cmd, j) => (
+                        <div key={j} className="text-emerald-400">$ {cmd}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {step.expected_output && (
+                  <div className="mt-3 pl-11">
+                    <p className="text-xs text-slate-500 mb-1">Expected output:</p>
+                    <p className="text-sm text-slate-400 bg-slate-900/50 rounded p-2 font-mono">{step.expected_output}</p>
+                  </div>
+                )}
+                
+                {step.troubleshooting && (
+                  <div className="mt-3 pl-11">
+                    <p className="text-xs text-amber-500 mb-1">If something goes wrong:</p>
+                    <p className="text-sm text-amber-400/80">{step.troubleshooting}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {data.verification && (
+        <div className="bg-emerald-500/10 rounded-xl p-5 border border-emerald-500/30">
+          <h4 className="text-emerald-400 font-semibold mb-3 flex items-center gap-2">
+            <CheckCircle size={18} /> Verification
+          </h4>
+          <p className="text-slate-300 text-sm">{data.verification}</p>
+        </div>
+      )}
+      
+      {data.rollback && (
+        <div className="bg-red-500/10 rounded-xl p-5 border border-red-500/30">
+          <h4 className="text-red-400 font-semibold mb-3">🔙 Rollback Procedure</h4>
+          <p className="text-slate-300 text-sm">{data.rollback}</p>
         </div>
       )}
     </div>
