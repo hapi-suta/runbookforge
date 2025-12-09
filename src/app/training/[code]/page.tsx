@@ -7,7 +7,7 @@ import {
   GraduationCap, BookOpen, Wrench, ClipboardCheck, FolderOpen, Briefcase, 
   ChevronDown, ChevronRight, Loader2, CheckCircle, Circle, Play, FileText,
   Presentation, HelpCircle, Target, ClipboardList, MessageSquare, Video, Link as LinkIcon,
-  ExternalLink, Clock, Award, X
+  ExternalLink, Clock, Award, X, Eye
 } from 'lucide-react';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
@@ -49,15 +49,21 @@ export default function StudentPortalPage() {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [activeContent, setActiveContent] = useState<Content | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   useEffect(() => {
     // Get token from URL or localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('token');
+    const isPreview = urlParams.get('preview') === 'true';
     const storedToken = localStorage.getItem(`training_token_${code}`);
     const accessToken = urlToken || storedToken;
     
-    if (accessToken) {
+    if (isPreview) {
+      // Preview mode for instructors
+      setIsPreviewMode(true);
+      fetchPreview();
+    } else if (accessToken) {
       setToken(accessToken);
       if (urlToken) {
         localStorage.setItem(`training_token_${code}`, urlToken);
@@ -66,10 +72,32 @@ export default function StudentPortalPage() {
       }
       fetchTraining(accessToken);
     } else {
-      setError('No access token provided. Please use the link sent to your email.');
+      // No token - show enrollment form
+      setError('Enter your email to access this training');
       setIsLoading(false);
     }
   }, [code]);
+
+  const fetchPreview = async () => {
+    try {
+      const res = await fetch(`/api/training/access/lookup?code=${code}&preview=true`);
+      if (res.ok) {
+        const trainingData = await res.json();
+        setData(trainingData);
+        if (trainingData.batch.sections?.length > 0) {
+          setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
+        }
+      } else {
+        const errData = await res.json();
+        setError(errData.error || 'Failed to load preview');
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Failed to load preview');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchTraining = async (accessToken: string) => {
     try {
@@ -100,6 +128,10 @@ export default function StudentPortalPage() {
     setExpandedSections(newSet);
   };
 
+  const [enrollEmail, setEnrollEmail] = useState('');
+  const [enrollName, setEnrollName] = useState('');
+  const [enrolling, setEnrolling] = useState(false);
+
   const getContentForSection = (sectionId: string): Content[] => {
     if (!data?.modules) return [];
     return data.modules
@@ -112,7 +144,7 @@ export default function StudentPortalPage() {
   };
 
   const markProgress = async (contentId: string, status: 'in_progress' | 'completed') => {
-    if (!token) return;
+    if (!token || isPreviewMode) return;
     try {
       await fetch(`/api/training/access/${token}`, {
         method: 'POST',
@@ -128,12 +160,12 @@ export default function StudentPortalPage() {
 
   const openContent = (content: Content) => {
     setActiveContent(content);
-    markProgress(content.id, 'in_progress');
+    if (!isPreviewMode) markProgress(content.id, 'in_progress');
   };
 
   const completeContent = () => {
     if (activeContent) {
-      markProgress(activeContent.id, 'completed');
+      if (!isPreviewMode) markProgress(activeContent.id, 'completed');
       setActiveContent(null);
     }
   };
@@ -146,6 +178,34 @@ export default function StudentPortalPage() {
     return { completed, total, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
   };
 
+  const handleSelfEnroll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!enrollEmail.trim()) return;
+    setEnrolling(true);
+    try {
+      const res = await fetch('/api/training/access/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, email: enrollEmail, name: enrollName })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setToken(data.access_token);
+        localStorage.setItem(`training_token_${code}`, data.access_token);
+        setError(null);
+        fetchTraining(data.access_token);
+      } else {
+        const errData = await res.json();
+        setError(errData.error || 'Failed to enroll');
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Failed to enroll');
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
@@ -154,13 +214,54 @@ export default function StudentPortalPage() {
     );
   }
 
-  if (error) {
+  // Self-registration form
+  if (!data && !isPreviewMode) {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-4">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 max-w-md text-center">
-          <GraduationCap size={48} className="mx-auto text-slate-600 mb-4" />
-          <h1 className="text-xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-slate-400">{error}</p>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <GraduationCap size={32} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Join Training</h1>
+            <p className="text-slate-400">Enter your email to access this training</p>
+          </div>
+          
+          <form onSubmit={handleSelfEnroll} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
+              <input
+                type="email"
+                value={enrollEmail}
+                onChange={(e) => setEnrollEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Name (optional)</label>
+              <input
+                type="text"
+                value={enrollName}
+                onChange={(e) => setEnrollName(e.target.value)}
+                placeholder="Your name"
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            {error && (
+              <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={!enrollEmail.trim() || enrolling}
+              className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {enrolling ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Access Training'}
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -172,6 +273,23 @@ export default function StudentPortalPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
+      {/* Preview Mode Banner */}
+      {isPreviewMode && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 px-4 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <Eye size={18} />
+            <span className="font-medium">Preview Mode</span>
+            <span className="hidden sm:inline">- This is how students will see your training</span>
+            <button 
+              onClick={() => window.close()}
+              className="ml-4 px-3 py-1 bg-white/20 rounded-lg text-sm hover:bg-white/30 transition-colors"
+            >
+              Close Preview
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-lg border-b border-slate-800">
         <div className="max-w-6xl mx-auto px-4 py-4">
