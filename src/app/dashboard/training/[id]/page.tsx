@@ -8,8 +8,9 @@ import {
   ArrowLeft, Plus, Users, BookOpen, Settings, Trash2, ExternalLink, Copy, Check, Loader2,
   ChevronDown, ChevronRight, FileText, Presentation, Link as LinkIcon, UserPlus, X, Save, Sparkles,
   Video, HelpCircle, Target, ClipboardList, MessageSquare, Wrench, FolderOpen, Briefcase, ClipboardCheck, Send,
-  CheckCircle, Clock, Archive, Zap, GraduationCap, Mail, Globe, Hash
+  CheckCircle, Clock, Archive, Zap, GraduationCap, Mail, Globe, Hash, Edit3, Eye, Play
 } from 'lucide-react';
+import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -36,10 +37,12 @@ const CONTENT_TYPES = [
 ];
 
 interface Section { id: string; section_key: string; title: string; description: string; icon: string; color: string; sort_order: number; is_enabled: boolean; }
-interface Content { id: string; title: string; content_type: string; document_id?: string; runbook_id?: string; external_url?: string; content_data?: Record<string, unknown>; sort_order: number; }
+interface Content { id: string; title: string; description?: string; content_type: string; document_id?: string; runbook_id?: string; external_url?: string; content_data?: Record<string, unknown>; sort_order: number; estimated_minutes?: number; }
 interface Module { id: string; section_id?: string; title: string; description?: string; sort_order: number; is_published: boolean; training_content: Content[]; }
 interface Enrollment { id: string; student_email: string; student_name?: string; status: string; enrolled_at: string; access_token: string; }
 interface Batch { id: string; title: string; description?: string; status: 'draft' | 'active' | 'archived'; access_code: string; settings?: { template_type?: string }; training_sections: Section[]; training_modules: Module[]; training_enrollments: Enrollment[]; }
+interface UserRunbook { id: string; title: string; }
+interface UserDocument { id: string; title: string; }
 
 export default function BatchDetailPage() {
   const params = useParams();
@@ -69,6 +72,21 @@ export default function BatchDetailPage() {
   const [aiDifficulty, setAiDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPreview, setGeneratedPreview] = useState<Record<string, unknown> | null>(null);
+  
+  // Edit Content states
+  const [editingContent, setEditingContent] = useState<Content | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editUrl, setEditUrl] = useState('');
+  const [editContentData, setEditContentData] = useState<string>('');
+  const [editDocumentId, setEditDocumentId] = useState<string>('');
+  const [editRunbookId, setEditRunbookId] = useState<string>('');
+  const [userRunbooks, setUserRunbooks] = useState<UserRunbook[]>([]);
+  const [userDocuments, setUserDocuments] = useState<UserDocument[]>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  
+  // Presentation viewer state
+  const [viewingPresentation, setViewingPresentation] = useState<PresentationData | null>(null);
 
   useEffect(() => { 
     if (id) fetchBatch(); 
@@ -236,6 +254,74 @@ export default function BatchDetailPage() {
     } catch (e) { console.error(e); }
   };
 
+  // Open edit modal
+  const openEditContent = async (content: Content) => {
+    setEditingContent(content);
+    setEditTitle(content.title);
+    setEditDescription(content.description || '');
+    setEditUrl(content.external_url || '');
+    setEditDocumentId(content.document_id || '');
+    setEditRunbookId(content.runbook_id || '');
+    setEditContentData(content.content_data ? JSON.stringify(content.content_data, null, 2) : '');
+    
+    // Fetch user's runbooks and documents for linking
+    try {
+      const [runbooksRes, docsRes] = await Promise.all([
+        fetch('/api/runbooks'),
+        fetch('/api/documents')
+      ]);
+      if (runbooksRes.ok) setUserRunbooks(await runbooksRes.json());
+      if (docsRes.ok) setUserDocuments(await docsRes.json());
+    } catch (e) { console.error(e); }
+  };
+
+  // Save content edits
+  const saveContentEdit = async () => {
+    if (!editingContent || !editTitle.trim()) return;
+    setIsSavingEdit(true);
+    try {
+      const updates: Record<string, unknown> = { title: editTitle.trim() };
+      if (editDescription) updates.description = editDescription.trim();
+      if (editUrl) updates.external_url = editUrl.trim();
+      if (editDocumentId) updates.document_id = editDocumentId || null;
+      if (editRunbookId) updates.runbook_id = editRunbookId || null;
+      if (editContentData) {
+        try {
+          updates.content_data = JSON.parse(editContentData);
+        } catch { /* ignore parse errors */ }
+      }
+
+      const res = await fetch(`/api/training/content/${editingContent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        setEditingContent(null);
+        fetchBatch();
+      }
+    } catch (e) { console.error(e); }
+    finally { setIsSavingEdit(false); }
+  };
+
+  // Open preview as student
+  const openStudentPreview = () => {
+    if (batch?.access_code) {
+      window.open(`/training/${batch.access_code}?preview=true`, '_blank');
+    }
+  };
+
+  // View presentation content
+  const viewPresentation = (content: Content) => {
+    if (content.content_data && content.content_type === 'presentation') {
+      const data = content.content_data as { title?: string; slides?: SlideData[] };
+      setViewingPresentation({
+        title: data.title || content.title,
+        slides: data.slides || []
+      });
+    }
+  };
+
   const removeStudent = async (enrollmentId: string) => {
     if (!confirm('Remove this student?')) return;
     try {
@@ -361,7 +447,17 @@ export default function BatchDetailPage() {
                   {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <motion.button 
+                    onClick={openStudentPreview}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-xl text-blue-400 hover:from-blue-500/30 hover:to-cyan-500/30 transition-all"
+                  >
+                    <Eye size={16} />
+                    Preview as Student
+                  </motion.button>
+                  
                   <motion.button 
                     onClick={copyEnrollLink} 
                     whileHover={{ scale: 1.02 }}
@@ -512,6 +608,7 @@ export default function BatchDetailPage() {
                             <div className="space-y-2 mb-4">
                               {sectionContent.map((content) => {
                                 const typeInfo = getContentTypeInfo(content.content_type);
+                                const hasPresentation = content.content_type === 'presentation' && content.content_data;
                                 return (
                                   <motion.div 
                                     key={content.id}
@@ -528,15 +625,38 @@ export default function BatchDetailPage() {
                                         <span className="text-xs text-slate-500 ml-2 capitalize">
                                           {content.content_type.replace('_', ' ')}
                                         </span>
+                                        {content.content_data && (
+                                          <span className="text-xs text-purple-400 ml-2">• AI Generated</span>
+                                        )}
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {hasPresentation && (
+                                        <button 
+                                          onClick={() => viewPresentation(content)} 
+                                          className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg"
+                                          title="View Presentation"
+                                        >
+                                          <Play size={16} />
+                                        </button>
+                                      )}
                                       {content.external_url && (
-                                        <a href={content.external_url} target="_blank" rel="noopener" className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                        <a href={content.external_url} target="_blank" rel="noopener" className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="Open Link">
                                           <ExternalLink size={16} />
                                         </a>
                                       )}
-                                      <button onClick={() => deleteContent(content.id)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg">
+                                      <button 
+                                        onClick={() => openEditContent(content)} 
+                                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"
+                                        title="Edit Content"
+                                      >
+                                        <Edit3 size={16} />
+                                      </button>
+                                      <button 
+                                        onClick={() => deleteContent(content.id)} 
+                                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
+                                        title="Delete"
+                                      >
                                         <Trash2 size={16} />
                                       </button>
                                     </div>
@@ -927,6 +1047,140 @@ export default function BatchDetailPage() {
               </motion.button>
             </div>
           </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Content Modal */}
+      <AnimatePresence>
+        {editingContent && (
+          <Modal onClose={() => setEditingContent(null)} title="Edit Content" wide>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  Title <span className="text-purple-400">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={editTitle} 
+                  onChange={(e) => setEditTitle(e.target.value)} 
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
+                <textarea 
+                  value={editDescription} 
+                  onChange={(e) => setEditDescription(e.target.value)} 
+                  placeholder="Brief description..."
+                  rows={2}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                />
+              </div>
+
+              {/* External URL field for links/recordings */}
+              {(editingContent.content_type === 'external_link' || editingContent.content_type === 'recording') && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">URL</label>
+                  <input 
+                    type="url" 
+                    value={editUrl} 
+                    onChange={(e) => setEditUrl(e.target.value)} 
+                    placeholder="https://..."
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                  />
+                </div>
+              )}
+
+              {/* Link to Runbook */}
+              {editingContent.content_type === 'runbook' && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Link to Runbook</label>
+                  <select 
+                    value={editRunbookId} 
+                    onChange={(e) => setEditRunbookId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                  >
+                    <option value="">Select a runbook...</option>
+                    {userRunbooks.map(rb => (
+                      <option key={rb.id} value={rb.id}>{rb.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Link to Document/Presentation */}
+              {(editingContent.content_type === 'presentation' && !editingContent.content_data) && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Link to Document</label>
+                  <select 
+                    value={editDocumentId} 
+                    onChange={(e) => setEditDocumentId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                  >
+                    <option value="">Select a document...</option>
+                    {userDocuments.map(doc => (
+                      <option key={doc.id} value={doc.id}>{doc.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* AI Generated Content JSON Editor */}
+              {editingContent.content_data && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    AI Generated Content (JSON)
+                  </label>
+                  <textarea 
+                    value={editContentData} 
+                    onChange={(e) => setEditContentData(e.target.value)} 
+                    rows={10}
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-300 font-mono text-sm resize-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                  />
+                  <p className="text-xs text-slate-500 mt-2">Edit the JSON structure carefully to modify the generated content.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button 
+                onClick={() => setEditingContent(null)} 
+                className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <motion.button 
+                onClick={saveContentEdit} 
+                disabled={!editTitle.trim() || isSavingEdit}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl disabled:opacity-50 font-medium flex items-center justify-center gap-2 shadow-lg shadow-teal-500/25"
+              >
+                {isSavingEdit ? <Loader2 size={18} className="animate-spin" /> : <><Save size={18} /> Save Changes</>}
+              </motion.button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Presentation Viewer Modal */}
+      <AnimatePresence>
+        {viewingPresentation && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          >
+            <div className="w-full max-w-6xl">
+              <PresentationViewer 
+                presentation={viewingPresentation} 
+                onClose={() => setViewingPresentation(null)}
+                showHeader={true}
+              />
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

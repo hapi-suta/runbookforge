@@ -7,8 +7,9 @@ import {
   GraduationCap, BookOpen, Wrench, ClipboardCheck, FolderOpen, Briefcase, 
   ChevronDown, ChevronRight, Loader2, CheckCircle, Circle, Play, FileText,
   Presentation, HelpCircle, Target, ClipboardList, MessageSquare, Video, Link as LinkIcon,
-  ExternalLink, Clock, Award, X, Eye
+  ExternalLink, Clock, Award, X, Eye, AlertCircle
 } from 'lucide-react';
+import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -50,6 +51,7 @@ export default function StudentPortalPage() {
   const [activeContent, setActiveContent] = useState<Content | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [viewingPresentation, setViewingPresentation] = useState<PresentationData | null>(null);
 
   useEffect(() => {
     // Get token from URL or localStorage
@@ -275,17 +277,29 @@ export default function StudentPortalPage() {
     <div className="min-h-screen bg-[#0a0f1a]">
       {/* Preview Mode Banner */}
       {isPreviewMode && (
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 px-4 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <Eye size={18} />
-            <span className="font-medium">Preview Mode</span>
-            <span className="hidden sm:inline">- This is how students will see your training</span>
-            <button 
-              onClick={() => window.close()}
-              className="ml-4 px-3 py-1 bg-white/20 rounded-lg text-sm hover:bg-white/30 transition-colors"
-            >
-              Close Preview
-            </button>
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white py-4 px-4 shadow-lg">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <Eye size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold">Preview Mode</h3>
+                <p className="text-white/80 text-sm hidden sm:block">This is how students will see your training. You can test quizzes and view all content.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 bg-white/20 rounded-lg text-sm flex items-center gap-2">
+                <AlertCircle size={14} />
+                Progress not saved in preview
+              </div>
+              <button 
+                onClick={() => window.close()}
+                className="px-4 py-2 bg-white text-orange-600 rounded-lg text-sm font-semibold hover:bg-white/90 transition-colors shadow-md"
+              >
+                Exit Preview
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -429,9 +443,26 @@ export default function StudentPortalPage() {
                   <h2 className="text-lg font-bold text-white">{activeContent.title}</h2>
                   <p className="text-sm text-slate-400 capitalize">{activeContent.content_type.replace('_', ' ')}</p>
                 </div>
-                <button onClick={() => setActiveContent(null)} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800">
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* View Presentation Button for presentation content */}
+                  {activeContent.content_type === 'presentation' && activeContent.content_data && (
+                    <button
+                      onClick={() => {
+                        const data = activeContent.content_data as { title?: string; slides?: SlideData[] };
+                        setViewingPresentation({
+                          title: data.title || activeContent.title,
+                          slides: data.slides || []
+                        });
+                      }}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 text-sm font-medium"
+                    >
+                      <Play size={16} /> View Full Presentation
+                    </button>
+                  )}
+                  <button onClick={() => setActiveContent(null)} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* Modal Content */}
@@ -460,8 +491,29 @@ export default function StudentPortalPage() {
                         ))}
                       </div>
                     )}
-                    {!['quiz', 'tutorial'].includes(activeContent.content_type) && (
-                      <pre className="text-sm text-slate-400 whitespace-pre-wrap">{JSON.stringify(activeContent.content_data, null, 2)}</pre>
+                    {activeContent.content_type === 'presentation' && (
+                      <div className="text-center py-8">
+                        <Presentation size={48} className="mx-auto text-blue-400 mb-4" />
+                        <p className="text-slate-300 mb-2 font-medium">AI-Generated Presentation</p>
+                        <p className="text-slate-400 mb-4">
+                          {((activeContent.content_data as { slides?: SlideData[] }).slides || []).length} slides ready to view
+                        </p>
+                        <button
+                          onClick={() => {
+                            const data = activeContent.content_data as { title?: string; slides?: SlideData[] };
+                            setViewingPresentation({
+                              title: data.title || activeContent.title,
+                              slides: data.slides || []
+                            });
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 shadow-lg shadow-blue-500/25"
+                        >
+                          <Play size={18} /> Start Presentation
+                        </button>
+                      </div>
+                    )}
+                    {!['quiz', 'tutorial', 'presentation'].includes(activeContent.content_type) && (
+                      <pre className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-800/50 p-4 rounded-xl">{JSON.stringify(activeContent.content_data, null, 2)}</pre>
                     )}
                   </div>
                 ) : (
@@ -480,6 +532,25 @@ export default function StudentPortalPage() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Screen Presentation Viewer */}
+      <AnimatePresence>
+        {viewingPresentation && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 bg-black z-[60]"
+          >
+            <PresentationViewer 
+              presentation={viewingPresentation} 
+              onClose={() => setViewingPresentation(null)}
+              showHeader={true}
+              initialFullscreen={false}
+            />
           </motion.div>
         )}
       </AnimatePresence>
