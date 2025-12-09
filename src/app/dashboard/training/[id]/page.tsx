@@ -46,6 +46,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
   
   const [batch, setBatch] = useState<Batch | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'students' | 'settings'>('content');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [copiedLink, setCopiedLink] = useState(false);
@@ -68,33 +69,48 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPreview, setGeneratedPreview] = useState<Record<string, unknown> | null>(null);
 
-  useEffect(() => { fetchBatch(); }, [id]);
+  useEffect(() => { 
+    if (id) fetchBatch(); 
+  }, [id]);
 
   const fetchBatch = async () => {
     try {
+      console.log('Fetching batch:', id);
       const res = await fetch(`/api/training/batches/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        const sections = Array.isArray(data.training_sections) ? data.training_sections : [];
-        const modules = Array.isArray(data.training_modules) ? data.training_modules : [];
-        const enrollments = Array.isArray(data.training_enrollments) ? data.training_enrollments : [];
-        
-        setBatch({
-          ...data,
-          training_sections: sections,
-          training_modules: modules.map((m: Module) => ({ ...m, training_content: Array.isArray(m.training_content) ? m.training_content : [] })),
-          training_enrollments: enrollments
-        });
-        
-        if (sections.length > 0) {
-          setExpandedSections(new Set(sections.map((s: Section) => s.id)));
-        }
-      } else {
-        router.push('/dashboard/training');
+      const data = await res.json();
+      console.log('Batch response:', res.status, data);
+      
+      if (!res.ok) {
+        setError(data.error || 'Failed to load batch');
+        setIsLoading(false);
+        return;
+      }
+      
+      const sections = Array.isArray(data.training_sections) ? data.training_sections : [];
+      const modules = Array.isArray(data.training_modules) ? data.training_modules : [];
+      const enrollments = Array.isArray(data.training_enrollments) ? data.training_enrollments : [];
+      
+      setBatch({
+        id: data.id,
+        title: data.title || 'Untitled Batch',
+        description: data.description || '',
+        status: data.status || 'draft',
+        access_code: data.access_code || '',
+        settings: data.settings || {},
+        training_sections: sections,
+        training_modules: modules.map((m: Module) => ({ 
+          ...m, 
+          training_content: Array.isArray(m.training_content) ? m.training_content : [] 
+        })),
+        training_enrollments: enrollments
+      });
+      
+      if (sections.length > 0) {
+        setExpandedSections(new Set(sections.map((s: Section) => s.id)));
       }
     } catch (e) {
-      console.error(e);
-      router.push('/dashboard/training');
+      console.error('Fetch batch error:', e);
+      setError('Failed to load batch');
     } finally {
       setIsLoading(false);
     }
@@ -249,6 +265,15 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[400px]"><Loader2 size={32} className="text-purple-400 animate-spin" /></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-400 mb-4">{error}</p>
+        <Link href="/dashboard/training" className="text-purple-400 hover:underline">Go back</Link>
+      </div>
+    );
   }
 
   if (!batch) {
