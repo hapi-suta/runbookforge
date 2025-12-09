@@ -139,6 +139,62 @@ Return JSON:
 }`;
         break;
 
+      case 'presentation':
+        systemPrompt = `You are an expert at creating professional training presentations. Create engaging slides with clear, concise content. Return valid JSON only.`;
+        userPrompt = `Create a presentation about "${topic}" for ${difficulty} level audience.
+
+Return JSON:
+{
+  "title": "Presentation title",
+  "description": "What this presentation covers",
+  "estimated_minutes": 30,
+  "slides": [
+    {
+      "title": "Slide title",
+      "content": "Main content (use bullet points with - prefix)",
+      "speaker_notes": "What the presenter should say",
+      "type": "title|content|code|diagram|summary"
+    }
+  ],
+  "learning_objectives": ["What audience will learn"],
+  "key_takeaways": ["Main points to remember"]
+}
+
+Create 8-12 slides including:
+1. Title slide
+2. Agenda/Overview
+3-9. Main content slides
+10. Summary/Key Takeaways
+11. Q&A slide
+
+Make content concise - bullet points, not paragraphs.`;
+        break;
+
+      case 'runbook':
+        systemPrompt = `You are an expert at creating operational runbooks and technical procedures. Create clear, step-by-step instructions. Return valid JSON only.`;
+        userPrompt = `Create a runbook/procedure for "${topic}" at ${difficulty} level.
+
+Return JSON:
+{
+  "title": "Runbook title",
+  "description": "What this runbook covers",
+  "estimated_minutes": 20,
+  "prerequisites": ["What's needed before starting"],
+  "steps": [
+    {
+      "title": "Step title",
+      "description": "What this step accomplishes",
+      "instructions": "Detailed instructions in markdown",
+      "commands": ["command1", "command2"],
+      "expected_output": "What you should see",
+      "troubleshooting": "What to do if it fails"
+    }
+  ],
+  "verification": "How to verify success",
+  "rollback": "How to undo if needed"
+}`;
+        break;
+
       default:
         return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
     }
