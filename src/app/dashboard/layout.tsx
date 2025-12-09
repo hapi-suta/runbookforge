@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
   FileText, 
-  Plus, 
   Settings, 
   Sparkles,
   BookOpen,
@@ -19,7 +18,9 @@ import {
   Shield,
   Presentation,
   GraduationCap,
-  Library
+  Library,
+  PanelLeftClose,
+  PanelLeft
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -53,9 +54,20 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Check admin status on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved === 'true') setSidebarCollapsed(true);
+  }, []);
+
+  const toggleCollapse = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', String(newState));
+  };
+
   useEffect(() => {
     const checkAdmin = async () => {
       try {
@@ -68,13 +80,9 @@ export default function DashboardLayout({
         console.error('Error checking admin status:', error);
       }
     };
-    
-    if (user) {
-      checkAdmin();
-    }
+    if (user) checkAdmin();
   }, [user]);
 
-  // Combine navigation with admin if applicable
   const fullNavigation = isAdmin ? [...navigation, ...adminNav] : navigation;
 
   return (
@@ -94,16 +102,17 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 z-50 h-full w-64 bg-slate-900 border-r border-slate-800 
-        transform transition-transform duration-300 ease-in-out
+        fixed top-0 left-0 z-50 h-full bg-slate-900 border-r border-slate-800 
+        transform transition-all duration-300 ease-in-out
+        ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'} w-64
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <svg width="36" height="36" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-between h-16 px-3 border-b border-slate-800">
+            <Link href="/dashboard" className={`flex items-center gap-3 ${sidebarCollapsed ? 'lg:justify-center lg:w-full' : ''}`}>
+              <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
                 <defs>
                   <linearGradient id="dashLogo" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#14b8a6"/>
@@ -118,79 +127,70 @@ export default function DashboardLayout({
                 <circle cx="33" cy="33" r="7" fill="white"/>
                 <path d="M30 33l2.5 2.5L36 31" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
-              <div className="flex flex-col">
+              <div className={`flex flex-col ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
                 <span className="text-lg font-bold text-white leading-tight">RunbookForge</span>
                 <span className="text-[10px] text-slate-500 tracking-wide">a SUTA company</span>
               </div>
             </Link>
-            <button 
-              className="lg:hidden text-slate-400 hover:text-white"
-              onClick={() => setSidebarOpen(false)}
-            >
+            <button className="lg:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
               <X size={20} />
             </button>
           </div>
 
           {/* Main Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {fullNavigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  title={sidebarCollapsed ? item.name : undefined}
                   className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                    transition-all duration-200
+                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                    ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}
                     ${isActive 
                       ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30' 
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                     }
                   `}
                 >
-                  <item.icon size={18} />
-                  {item.name}
-                  {isActive && (
-                    <ChevronRight size={16} className="ml-auto" />
-                  )}
+                  <item.icon size={18} className="shrink-0" />
+                  <span className={sidebarCollapsed ? 'lg:hidden' : ''}>{item.name}</span>
+                  {isActive && !sidebarCollapsed && <ChevronRight size={16} className="ml-auto hidden lg:block" />}
                 </Link>
               );
             })}
           </nav>
 
           {/* Bottom Navigation */}
-          <div className="px-3 py-4 border-t border-slate-800">
+          <div className="px-2 py-4 border-t border-slate-800">
             {bottomNav.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  title={sidebarCollapsed ? item.name : undefined}
                   className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                    transition-all duration-200
+                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                    ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}
                     ${isActive 
                       ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30' 
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                     }
                   `}
                 >
-                  <item.icon size={18} />
-                  {item.name}
+                  <item.icon size={18} className="shrink-0" />
+                  <span className={sidebarCollapsed ? 'lg:hidden' : ''}>{item.name}</span>
                 </Link>
               );
             })}
             
             {/* User */}
-            <div className="flex items-center gap-3 px-3 py-3 mt-3 rounded-lg bg-slate-800/50">
-              <UserButton 
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8"
-                  }
-                }}
-              />
-              <div className="flex-1 min-w-0">
+            <div className={`flex items-center gap-3 px-3 py-3 mt-3 rounded-lg bg-slate-800/50 ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : ''}`}>
+              <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
+              <div className={`flex-1 min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
                 <p className="text-sm font-medium text-white truncate">
                   {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'User'}
                 </p>
@@ -202,29 +202,30 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <div className="lg:pl-64">
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 bg-[#0a0f1a]/80 backdrop-blur-lg border-b border-slate-800 lg:px-8">
+        <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-[#0a0f1a]/80 backdrop-blur-lg border-b border-slate-800 lg:px-6">
+          {/* Mobile menu button */}
           <button 
-            className="lg:hidden text-slate-400 hover:text-white"
+            className="lg:hidden text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu size={24} />
           </button>
           
+          {/* Desktop collapse button */}
+          <button 
+            className="hidden lg:flex items-center justify-center w-10 h-10 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            onClick={toggleCollapse}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+          </button>
+          
           <div className="flex-1" />
           
-          <div className="flex items-center gap-4">
-            {/* User avatar visible on mobile */}
-            <div className="sm:hidden">
-              <UserButton 
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8"
-                  }
-                }}
-              />
-            </div>
+          <div className="lg:hidden">
+            <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
           </div>
         </header>
 

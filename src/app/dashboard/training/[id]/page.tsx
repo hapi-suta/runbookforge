@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, Users, BookOpen, Settings, Trash2, ExternalLink, Copy, Check, Loader2,
@@ -40,8 +40,9 @@ interface Module { id: string; section_id?: string; title: string; description?:
 interface Enrollment { id: string; student_email: string; student_name?: string; status: string; enrolled_at: string; access_token: string; }
 interface Batch { id: string; title: string; description?: string; status: 'draft' | 'active' | 'archived'; access_code: string; settings?: { template_type?: string }; training_sections: Section[]; training_modules: Module[]; training_enrollments: Enrollment[]; }
 
-export default function BatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function BatchDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
   const router = useRouter();
   
   const [batch, setBatch] = useState<Batch | null>(null);

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, BookOpen, Wrench, ClipboardCheck, FolderOpen, Briefcase, 
@@ -38,8 +39,9 @@ interface TrainingData {
   progress: Progress[];
 }
 
-export default function StudentPortalPage({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = use(params);
+export default function StudentPortalPage() {
+  const params = useParams();
+  const code = params.code as string;
   
   const [data, setData] = useState<TrainingData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
