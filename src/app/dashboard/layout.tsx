@@ -205,7 +205,7 @@ export default function DashboardLayout({
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-[#0a0f1a]/80 backdrop-blur-lg border-b border-slate-800 lg:px-6">
-          {/* Red Hamburger Menu Button */}
+          {/* Hamburger Menu Button */}
           <button 
             className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-800/50 transition-colors group"
             onClick={() => {
@@ -218,7 +218,7 @@ export default function DashboardLayout({
             }}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <Menu size={24} className="text-[#FF0000] group-hover:text-red-400 transition-colors" />
+            <Menu size={24} className="text-slate-400 group-hover:text-teal-400 transition-colors" />
           </button>
           
           <div className="flex-1" />
