@@ -417,9 +417,9 @@ export default function StudentAIActions({ contentTitle, contentText, topic, onC
   };
 
   return (
-    <div className="bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden">
+    <div className="bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden max-h-[80vh] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800">
+      <div className="flex items-center justify-between p-4 border-b border-slate-800 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
             <Sparkles size={18} className="text-white" />
@@ -436,8 +436,8 @@ export default function StudentAIActions({ contentTitle, contentText, topic, onC
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-4">
+      {/* Content - Scrollable */}
+      <div className="p-4 overflow-y-auto flex-1">
         {!selectedAction ? (
           // Action Selection
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

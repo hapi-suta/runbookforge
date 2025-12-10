@@ -728,11 +728,11 @@ export default function StudentPortalPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-700 shadow-2xl"
+              className="bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] border border-slate-700 shadow-2xl flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <div className="flex items-center justify-between p-4 border-b border-slate-800 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   {(() => {
                     const ContentIcon = CONTENT_ICONS[activeContent.content_type] || FileText;
@@ -761,7 +761,7 @@ export default function StudentPortalPage() {
               </div>
 
               {/* Modal Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="p-6 overflow-y-auto flex-1">
                 {activeContent.external_url ? (
                   <div className="text-center py-8">
                     <ExternalLink size={48} className="mx-auto text-cyan-400 mb-4" />
@@ -812,7 +812,7 @@ export default function StudentPortalPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-between p-4 border-t border-slate-800 bg-slate-800/50">
+              <div className="flex items-center justify-between p-4 border-t border-slate-800 bg-slate-800/50 flex-shrink-0">
                 <button
                   onClick={() => setActiveContent(null)}
                   className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
