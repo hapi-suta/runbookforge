@@ -16,6 +16,7 @@ import { Breadcrumbs, BreadcrumbItem } from '@/components/training/Breadcrumbs';
 import { FolderTree, FolderNode, ContentItem } from '@/components/training/FolderTree';
 import { PermissionsProvider, usePermissions, AIPendingBanner, AIGenerateButton } from '@/components/training/PermissionGate';
 import AIToolsPanel from '@/components/ai/AIToolsPanel';
+import TrainerGuard from '@/components/auth/TrainerGuard';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -1463,8 +1464,10 @@ function Modal({ children, onClose, title, wide = false }: { children: React.Rea
 
 export default function BatchDetailPage() {
   return (
-    <PermissionsProvider>
-      <BatchDetailPageContent />
-    </PermissionsProvider>
+    <TrainerGuard>
+      <PermissionsProvider>
+        <BatchDetailPageContent />
+      </PermissionsProvider>
+    </TrainerGuard>
   );
 }

@@ -25,17 +25,22 @@ import {
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Navigation visible to all authenticated users
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'My Runbooks', href: '/dashboard/runbooks', icon: FileText },
   { name: 'My Documents', href: '/dashboard/documents', icon: Presentation },
   { name: 'AI Builder', href: '/dashboard/import', icon: Sparkles },
-  { name: 'Training Center', href: '/dashboard/training', icon: GraduationCap },
   { name: 'Knowledge Base', href: '/dashboard/knowledge', icon: Library },
   { name: 'Templates', href: '/dashboard/templates', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
   { name: 'Purchases', href: '/dashboard/purchases', icon: Package },
   { name: 'Shared with Me', href: '/dashboard/shared', icon: Share2 },
+];
+
+// Navigation visible only to trainers/admins
+const trainerNav = [
+  { name: 'Training Center', href: '/dashboard/training', icon: GraduationCap },
 ];
 
 const adminNav = [
@@ -56,6 +61,8 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isTrainer, setIsTrainer] = useState(false);
+  const [userRole, setUserRole] = useState<string>('user');
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
@@ -69,21 +76,28 @@ export default function DashboardLayout({
   };
 
   useEffect(() => {
-    const checkAdmin = async () => {
+    const checkUserRole = async () => {
       try {
-        const response = await fetch('/api/admin/check');
+        const response = await fetch('/api/user/role');
         if (response.ok) {
           const data = await response.json();
-          setIsAdmin(data.isAdmin);
+          setUserRole(data.role);
+          setIsAdmin(data.role === 'admin');
+          setIsTrainer(data.role === 'trainer' || data.role === 'admin');
         }
       } catch (error) {
-        console.error('Error checking admin status:', error);
+        console.error('Error checking user role:', error);
       }
     };
-    if (user) checkAdmin();
+    if (user) checkUserRole();
   }, [user]);
 
-  const fullNavigation = isAdmin ? [...navigation, ...adminNav] : navigation;
+  // Build navigation based on user role
+  const fullNavigation = [
+    ...navigation,
+    ...(isTrainer ? trainerNav : []),
+    ...(isAdmin ? adminNav : []),
+  ];
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">

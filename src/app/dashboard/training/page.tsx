@@ -8,6 +8,7 @@ import {
   ExternalLink, Copy, Check, Loader2, Search, FolderOpen, Clock,
   CheckCircle, AlertCircle, BookMarked, Briefcase, Award, Layers, X
 } from 'lucide-react';
+import TrainerGuard from '@/components/auth/TrainerGuard';
 
 interface Batch {
   id: string;
@@ -29,7 +30,7 @@ const TEMPLATES = [
   { id: 'custom', name: 'Custom', icon: Plus, color: 'from-slate-500 to-slate-600', description: 'Start with a blank slate' }
 ];
 
-export default function TrainingCenterPage() {
+function TrainingCenterContent() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -228,5 +229,13 @@ export default function TrainingCenterPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TrainingCenterPage() {
+  return (
+    <TrainerGuard>
+      <TrainingCenterContent />
+    </TrainerGuard>
   );
 }

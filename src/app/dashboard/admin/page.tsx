@@ -19,7 +19,10 @@ import {
   UserPlus,
   Trash2,
   Mail,
-  X
+  X,
+  GraduationCap,
+  Sparkles,
+  UserCheck
 } from "lucide-react";
 
 interface Listing {
@@ -55,19 +58,35 @@ interface Admin {
   created_at: string;
 }
 
+interface Trainer {
+  id: string;
+  user_id: string;
+  role: string;
+  ai_approved: boolean;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'marketplace' | 'knowledge' | 'admins'>('marketplace');
+  const [activeTab, setActiveTab] = useState<'marketplace' | 'knowledge' | 'admins' | 'trainers'>('trainers');
   const [listings, setListings] = useState<Listing[]>([]);
   const [kbEntries, setKbEntries] = useState<KBEntry[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [showAddTrainer, setShowAddTrainer] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [newTrainerUserId, setNewTrainerUserId] = useState('');
+  const [newTrainerRole, setNewTrainerRole] = useState<'trainer' | 'admin'>('trainer');
+  const [newTrainerAI, setNewTrainerAI] = useState(true);
 
   useEffect(() => {
     checkAdminStatus();
@@ -77,6 +96,7 @@ export default function AdminPage() {
     if (isAdmin) {
       if (activeTab === 'marketplace') fetchListings();
       if (activeTab === 'knowledge') fetchKBEntries();
+      if (activeTab === 'trainers') fetchTrainers();
     }
   }, [isAdmin, activeTab, statusFilter]);
 
@@ -105,6 +125,56 @@ export default function AdminPage() {
       const res = await fetch(`/api/knowledge/review?status=${statusFilter}`);
       if (res.ok) setKbEntries(await res.json());
     } catch (e) { console.error(e); }
+  };
+
+  const fetchTrainers = async () => {
+    try {
+      const res = await fetch('/api/admin/trainers');
+      if (res.ok) setTrainers(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const addTrainer = async () => {
+    if (!newTrainerUserId) return;
+    try {
+      const res = await fetch('/api/user/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          targetUserId: newTrainerUserId, 
+          role: newTrainerRole,
+          aiApproved: newTrainerAI
+        })
+      });
+      if (res.ok) {
+        setShowAddTrainer(false);
+        setNewTrainerUserId('');
+        setNewTrainerRole('trainer');
+        setNewTrainerAI(true);
+        fetchTrainers();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to add trainer');
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const updateTrainerRole = async (userId: string, role: string, aiApproved: boolean) => {
+    setProcessingId(userId);
+    try {
+      const res = await fetch('/api/user/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: userId, role, aiApproved })
+      });
+      if (res.ok) fetchTrainers();
+    } catch (e) { console.error(e); }
+    finally { setProcessingId(null); }
+  };
+
+  const removeTrainer = async (userId: string) => {
+    if (!confirm('Remove this user\'s trainer access?')) return;
+    await updateTrainerRole(userId, 'user', false);
   };
 
   const handleListingAction = async (listingId: string, action: string, reason?: string) => {
@@ -196,8 +266,9 @@ export default function AdminPage() {
       </motion.div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-800/50 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-slate-800/50 rounded-lg p-1 w-fit flex-wrap">
         {[
+          { id: 'trainers', label: 'Trainer Access', icon: GraduationCap },
           { id: 'marketplace', label: 'Marketplace', icon: Package },
           { id: 'knowledge', label: 'Knowledge Base', icon: Library },
           { id: 'admins', label: 'Manage Admins', icon: Users }
@@ -333,6 +404,114 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Trainers Tab */}
+      {activeTab === 'trainers' && (
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <p className="text-slate-400">{trainers.length} user(s) with elevated access</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Trainers can access Training Center. Admins have full access.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddTrainer(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg"
+            >
+              <UserPlus size={18} />
+              Add Trainer
+            </button>
+          </div>
+
+          <div className="bg-slate-800/30 border border-slate-700 rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="grid grid-cols-4 gap-4 p-4 border-b border-slate-700 bg-slate-800/50 text-sm text-slate-400 font-medium">
+              <span>User ID</span>
+              <span>Role</span>
+              <span>AI Access</span>
+              <span>Actions</span>
+            </div>
+            
+            {trainers.length === 0 ? (
+              <div className="p-12 text-center text-slate-500">
+                <GraduationCap size={48} className="mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium text-slate-400 mb-2">No Trainers Yet</p>
+                <p className="text-sm">Add trainers to give them access to the Training Center</p>
+              </div>
+            ) : (
+              trainers.map(trainer => (
+                <div key={trainer.id} className="grid grid-cols-4 gap-4 p-4 border-b border-slate-700/50 last:border-0 items-center">
+                  <div>
+                    <p className="text-white font-mono text-sm truncate" title={trainer.user_id}>
+                      {trainer.user_id.slice(0, 20)}...
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Added {new Date(trainer.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <select
+                      value={trainer.role}
+                      onChange={(e) => updateTrainerRole(trainer.user_id, e.target.value, trainer.ai_approved)}
+                      disabled={processingId === trainer.user_id}
+                      className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white"
+                    >
+                      <option value="user">User (No Access)</option>
+                      <option value="student">Student</option>
+                      <option value="trainer">Trainer</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => updateTrainerRole(trainer.user_id, trainer.role, !trainer.ai_approved)}
+                      disabled={processingId === trainer.user_id}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+                        trainer.ai_approved 
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}
+                    >
+                      <Sparkles size={14} />
+                      {trainer.ai_approved ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => removeTrainer(trainer.user_id)}
+                      disabled={processingId === trainer.user_id}
+                      className="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-500/10"
+                      title="Remove access"
+                    >
+                      {processingId === trainer.user_id ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Info Box */}
+          <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+            <h4 className="text-blue-400 font-medium mb-2 flex items-center gap-2">
+              <AlertCircle size={18} />
+              Role Permissions
+            </h4>
+            <ul className="space-y-1 text-sm text-slate-400">
+              <li><span className="text-white font-medium">User:</span> Basic access - Runbooks, Documents, AI Builder</li>
+              <li><span className="text-white font-medium">Student:</span> Same as User (accesses courses via invitation links)</li>
+              <li><span className="text-white font-medium">Trainer:</span> + Training Center access (create/manage courses)</li>
+              <li><span className="text-white font-medium">Admin:</span> + Admin dashboard, user management</li>
+              <li><span className="text-white font-medium">AI Access:</span> Allows using AI generation features in Training Center</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Admins Tab */}
       {activeTab === 'admins' && (
         <div>
@@ -376,6 +555,101 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Add Trainer Modal */}
+      <AnimatePresence>
+        {showAddTrainer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowAddTrainer(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-slate-900 rounded-2xl p-6 w-full max-w-md border border-slate-700"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <GraduationCap className="text-teal-400" />
+                  Add Trainer Access
+                </h2>
+                <button onClick={() => setShowAddTrainer(false)} className="text-slate-400 hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Clerk User ID *</label>
+                  <input
+                    type="text"
+                    value={newTrainerUserId}
+                    onChange={(e) => setNewTrainerUserId(e.target.value)}
+                    placeholder="user_2abc123..."
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Find this in Clerk Dashboard → Users → Click user → Copy User ID
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Role</label>
+                  <select
+                    value={newTrainerRole}
+                    onChange={(e) => setNewTrainerRole(e.target.value as 'trainer' | 'admin')}
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  >
+                    <option value="trainer">Trainer (Training Center only)</option>
+                    <option value="admin">Admin (Full access)</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <div>
+                    <p className="text-white font-medium flex items-center gap-2">
+                      <Sparkles size={16} className="text-purple-400" />
+                      Enable AI Generation
+                    </p>
+                    <p className="text-xs text-slate-500">Allow using AI to create content</p>
+                  </div>
+                  <button
+                    onClick={() => setNewTrainerAI(!newTrainerAI)}
+                    className={`w-12 h-6 rounded-full transition-colors ${
+                      newTrainerAI ? 'bg-emerald-500' : 'bg-slate-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transform transition-transform ${
+                      newTrainerAI ? 'translate-x-6' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={() => setShowAddTrainer(false)} 
+                  className="flex-1 px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={addTrainer} 
+                  disabled={!newTrainerUserId} 
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg disabled:opacity-50"
+                >
+                  Add Trainer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Add Admin Modal */}
       <AnimatePresence>
