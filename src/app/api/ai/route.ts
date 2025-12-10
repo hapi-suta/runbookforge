@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { POSTGRESQL_SYSTEM_PROMPT, getAIPrompt } from '@/lib/ai-prompts';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -534,6 +535,95 @@ Return the certificate text in a formal, professional style suitable for printin
 - Main body
 - Achievement notes (if any)
 - Closing statement`;
+        break;
+      }
+
+      // ==========================================
+      // POSTGRESQL-SPECIFIC CONTENT GENERATION
+      // ==========================================
+
+      case 'generate_content': {
+        const { topic, contentType, difficulty = 'intermediate' } = params;
+        // Use the specialized PostgreSQL prompts
+        const fullPrompt = getAIPrompt(topic, contentType, difficulty);
+        systemPrompt = POSTGRESQL_SYSTEM_PROMPT;
+        userPrompt = fullPrompt;
+        maxTokens = 8000;
+        break;
+      }
+
+      case 'organize_content': {
+        const { content, topic, audience = 'intermediate' } = params;
+        systemPrompt = `You are an expert curriculum designer and content organizer. Analyze provided content and organize it into a logical course structure. Return valid JSON only.`;
+        userPrompt = `Analyze and organize this content into a structured course about "${topic}" for ${audience} level learners:
+
+CONTENT TO ORGANIZE:
+${content}
+
+Return JSON:
+{
+  "title": "Course title based on content",
+  "description": "Brief course description",
+  "modules": [
+    {
+      "title": "Module title",
+      "description": "What this module covers",
+      "content_items": [
+        {
+          "title": "Content item title",
+          "type": "presentation|tutorial|quiz|assignment|challenge",
+          "description": "Brief description",
+          "content": "Key content points from the input"
+        }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- Create 3-8 modules based on content depth
+- Each module should have 2-5 content items
+- Include a mix of content types (presentations for concepts, quizzes for assessment, assignments for practice)
+- Maintain logical progression from basics to advanced
+- Extract key information from the provided content
+- Group related topics together`;
+        maxTokens = 8000;
+        break;
+      }
+
+      case 'generate_learning_path': {
+        const { modules, targetAudience = 'intermediate' } = params;
+        systemPrompt = `You are an expert at designing learning paths. Create engaging, motivating milestone-based journeys. Return valid JSON only.`;
+        userPrompt = `Create a learning path for these modules:
+
+${JSON.stringify(modules, null, 2)}
+
+Target audience: ${targetAudience}
+
+Return JSON:
+{
+  "title": "Learning Path Title",
+  "description": "Path description",
+  "milestones": [
+    {
+      "title": "Milestone title",
+      "description": "What learner will achieve",
+      "module_ids": ["id1", "id2"],
+      "unlock_condition": "sequential|quiz_pass|manual",
+      "badge_icon": "🏆|⭐|🎯|🚀",
+      "estimated_minutes": 120,
+      "skills_gained": ["Skill 1", "Skill 2"]
+    }
+  ],
+  "estimated_total_hours": 20,
+  "difficulty_progression": "Description of how difficulty increases",
+  "completion_badge": {
+    "title": "Badge name",
+    "description": "What this badge represents"
+  }
+}
+
+Create 4-8 milestones that build logically. Make the journey feel rewarding.`;
         break;
       }
 
