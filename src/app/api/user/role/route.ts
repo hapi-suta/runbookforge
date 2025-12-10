@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-// Define admin emails (can be moved to env variable or database)
-const ADMIN_EMAILS = [
-  'admin@runbookforge.com',
-  'admin@suta.com',
-  // Add your admin emails here
-];
+// Get admin emails from environment variable
+function getAdminEmails(): string[] {
+  const envEmails = process.env.ADMIN_EMAILS || '';
+  return envEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+}
 
 export async function GET() {
   try {
@@ -29,7 +28,6 @@ export async function GET() {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      // PGRST116 = no rows returned, which is fine
       console.error('Error fetching permissions:', error);
     }
 
@@ -39,6 +37,34 @@ export async function GET() {
         role: permissions.role,
         aiApproved: permissions.ai_approved,
       });
+    }
+
+    // Check if user's email is in admin list (auto-admin)
+    const adminEmails = getAdminEmails();
+    if (adminEmails.length > 0) {
+      try {
+        const client = await clerkClient();
+        const user = await client.users.getUser(userId);
+        const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
+        
+        if (userEmail && adminEmails.includes(userEmail)) {
+          // Auto-create admin permissions for this user
+          await supabase.from('trainer_permissions').upsert({
+            user_id: userId,
+            role: 'admin',
+            ai_approved: true,
+            approved_by: 'auto',
+            approved_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
+          return NextResponse.json({
+            role: 'admin',
+            aiApproved: true,
+          });
+        }
+      } catch (e) {
+        console.warn('Could not check admin emails:', e);
+      }
     }
 
     // Default: regular user (no trainer/admin access)
@@ -64,14 +90,35 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseAdmin();
 
-    // Check if current user is admin
+    // Check if current user is admin (including auto-admin check)
+    let isAdmin = false;
+    
     const { data: currentUserPerms } = await supabase
       .from('trainer_permissions')
       .select('role')
       .eq('user_id', userId)
       .single();
 
-    if (currentUserPerms?.role !== 'admin') {
+    if (currentUserPerms?.role === 'admin') {
+      isAdmin = true;
+    } else {
+      // Check auto-admin emails
+      const adminEmails = getAdminEmails();
+      if (adminEmails.length > 0) {
+        try {
+          const client = await clerkClient();
+          const user = await client.users.getUser(userId);
+          const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
+          if (userEmail && adminEmails.includes(userEmail)) {
+            isAdmin = true;
+          }
+        } catch (e) {
+          console.warn('Could not verify admin email:', e);
+        }
+      }
+    }
+
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Only admins can change roles' }, { status: 403 });
     }
 
@@ -114,4 +161,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
-
