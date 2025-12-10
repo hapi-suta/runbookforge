@@ -1,13 +1,24 @@
-'use client'
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, Clock, RotateCcw, Maximize2, Minimize2, Settings,
-  CheckCircle, Circle, Play, Copy, Check, Sparkles, HelpCircle,
-  Terminal, BookOpen, ChevronRight, AlertTriangle, Loader2, X
+  ChevronLeft, Clock, RotateCcw, Maximize2, Minimize2,
+  CheckCircle, Play, Copy, Check, Sparkles, HelpCircle,
+  Terminal, BookOpen, ChevronRight, Loader2, X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+// Dynamically import Terminal to avoid SSR issues
+const LabTerminal = dynamic(() => import('./Terminal'), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-full flex items-center justify-center bg-[#0d1117]">
+      <Loader2 className="animate-spin text-teal-400" size={32} />
+    </div>
+  )
+});
 
 // ============================================================
 // TYPES
@@ -26,17 +37,10 @@ interface LabStep {
 
 interface LabSession {
   id: string;
+  podName: string;
   status: 'creating' | 'running' | 'paused' | 'completed' | 'error';
   websocketUrl?: string;
-  expiresAt?: string;
-  progress: {
-    completedSteps: number[];
-    currentStep: number;
-  };
-  metrics: {
-    commandsExecuted: number;
-    timeActive: number;
-  };
+  ready?: boolean;
 }
 
 interface PracticeLabPageProps {
@@ -44,8 +48,8 @@ interface PracticeLabPageProps {
   title: string;
   description?: string;
   steps: LabStep[];
-  templateSlug: string;
-  breadcrumbs: Array<{ label: string; href: string }>;
+  templateSlug?: string;
+  breadcrumbs?: Array<{ label: string; href: string }>;
 }
 
 // ============================================================
@@ -79,7 +83,6 @@ function SplitPane({
     const rect = containerRef.current.getBoundingClientRect();
     const newPosition = ((e.clientX - rect.left) / rect.width) * 100;
     
-    // Clamp between 20% and 80%
     setSplitPosition(Math.min(80, Math.max(20, newPosition)));
   }, [isDragging]);
 
@@ -96,15 +99,10 @@ function SplitPane({
 
   return (
     <div ref={containerRef} className="flex h-full select-none">
-      {/* Left Pane */}
-      <div 
-        className="overflow-hidden"
-        style={{ width: `${splitPosition}%` }}
-      >
+      <div className="overflow-hidden" style={{ width: `${splitPosition}%` }}>
         {left}
       </div>
 
-      {/* Divider */}
       <div
         onMouseDown={handleMouseDown}
         className={`w-2 bg-slate-700 hover:bg-teal-500 cursor-col-resize flex items-center justify-center transition-colors ${
@@ -114,11 +112,7 @@ function SplitPane({
         <div className="w-1 h-8 bg-slate-500 rounded-full" />
       </div>
 
-      {/* Right Pane */}
-      <div 
-        className="overflow-hidden flex-1"
-        style={{ width: `${100 - splitPosition}%` }}
-      >
+      <div className="overflow-hidden flex-1" style={{ width: `${100 - splitPosition}%` }}>
         {right}
       </div>
     </div>
@@ -194,7 +188,6 @@ function RunbookPane({
                   : 'bg-slate-800/50 border-slate-700/50'
               }`}
             >
-              {/* Step Header */}
               <button
                 onClick={() => onStepClick(step.number)}
                 className="w-full p-4 flex items-start gap-3 text-left"
@@ -227,13 +220,13 @@ function RunbookPane({
                 )}
               </button>
 
-              {/* Expanded Content */}
               {isCurrent && (
                 <div className="px-4 pb-4 space-y-4">
-                  <p className="text-sm text-slate-300 leading-relaxed" 
-                     dangerouslySetInnerHTML={{ __html: step.content }} />
+                  <div 
+                    className="text-sm text-slate-300 leading-relaxed prose prose-invert prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: step.content }} 
+                  />
 
-                  {/* Command Block */}
                   {step.command && (
                     <div className="rounded-lg overflow-hidden border border-slate-700">
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-800">
@@ -261,7 +254,6 @@ function RunbookPane({
                     </div>
                   )}
 
-                  {/* AI Help Buttons */}
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => onAIHelp(step, 'explain')}
@@ -295,110 +287,6 @@ function RunbookPane({
 }
 
 // ============================================================
-// TERMINAL PANE (Placeholder - requires xterm.js integration)
-// ============================================================
-
-function TerminalPane({
-  sessionId,
-  status,
-  onReset,
-  onFullscreen,
-  isFullscreen,
-  commandQueue
-}: {
-  sessionId?: string;
-  status: string;
-  onReset: () => void;
-  onFullscreen: () => void;
-  isFullscreen: boolean;
-  commandQueue: string[];
-}) {
-  const terminalRef = useRef<HTMLDivElement>(null);
-
-  // In production, this would initialize xterm.js and connect via WebSocket
-  // For now, showing a placeholder
-
-  if (status === 'creating') {
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#0d1117] text-slate-400">
-        <Loader2 size={40} className="animate-spin text-teal-400 mb-4" />
-        <p className="text-lg font-medium">Starting lab environment...</p>
-        <p className="text-sm mt-2">This may take 30-60 seconds</p>
-      </div>
-    );
-  }
-
-  if (status === 'error') {
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#0d1117] text-slate-400">
-        <AlertTriangle size={40} className="text-red-400 mb-4" />
-        <p className="text-lg font-medium">Failed to start environment</p>
-        <button
-          onClick={onReset}
-          className="mt-4 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full flex flex-col bg-[#0d1117]">
-      {/* Terminal Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
-        <div className="flex items-center gap-2">
-          <Terminal size={16} className="text-teal-400" />
-          <span className="text-sm text-slate-300 font-mono">ubuntu@lab:~</span>
-          <span className={`w-2 h-2 rounded-full ${
-            status === 'running' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
-          }`} />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onReset}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-            title="Reset Environment"
-          >
-            <RotateCcw size={16} />
-          </button>
-          <button
-            onClick={onFullscreen}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Terminal Content */}
-      <div 
-        ref={terminalRef}
-        className="flex-1 p-4 font-mono text-sm text-emerald-400 overflow-auto"
-      >
-        {/* Placeholder terminal output */}
-        <div className="space-y-1">
-          <p className="text-slate-500"># Welcome to RunbookForge Practice Lab</p>
-          <p className="text-slate-500"># PostgreSQL 15 environment ready</p>
-          <p className="text-slate-500"># Type commands below or click "Run" on any step</p>
-          <p></p>
-          {commandQueue.map((cmd, idx) => (
-            <div key={idx}>
-              <p><span className="text-blue-400">ubuntu@lab:~$</span> {cmd}</p>
-            </div>
-          ))}
-          <p>
-            <span className="text-blue-400">ubuntu@lab:~$</span>
-            <span className="animate-pulse ml-1">▊</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
 // MAIN COMPONENT
 // ============================================================
 
@@ -407,8 +295,8 @@ export default function PracticeLabPage({
   title,
   description,
   steps,
-  templateSlug,
-  breadcrumbs
+  templateSlug = 'postgresql',
+  breadcrumbs = []
 }: PracticeLabPageProps) {
   const router = useRouter();
   
@@ -417,9 +305,96 @@ export default function PracticeLabPage({
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(3600); // 1 hour
+  const [timeRemaining, setTimeRemaining] = useState(3600);
   const [commandQueue, setCommandQueue] = useState<string[]>([]);
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [aiResponse, setAiResponse] = useState<{ title: string; content: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Create lab session
+  const createLabSession = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/labs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: templateSlug, labId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create lab');
+      }
+
+      const data = await response.json();
+      setSession({
+        id: data.podName,
+        podName: data.podName,
+        status: 'creating',
+        websocketUrl: data.websocketUrl
+      });
+
+      // Poll for ready status
+      pollLabStatus(data.podName);
+    } catch (error) {
+      console.error('Error creating lab:', error);
+      setSession({
+        id: 'error',
+        podName: 'error',
+        status: 'error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Poll lab status
+  const pollLabStatus = (podName: string) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/labs/${podName}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        
+        if (data.ready) {
+          setSession(prev => prev ? {
+            ...prev,
+            status: 'running',
+            ready: true,
+            websocketUrl: data.websocketUrl
+          } : null);
+          
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+          }
+        }
+      } catch (error) {
+        console.error('Error polling lab status:', error);
+      }
+    }, 3000);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      // Delete lab on unmount
+      if (session?.podName && session.podName !== 'error') {
+        fetch(`/api/labs/${session.podName}`, { method: 'DELETE' }).catch(console.error);
+      }
+    };
+  }, [session?.podName]);
+
+  // Initialize on mount
+  useEffect(() => {
+    createLabSession();
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -431,17 +406,13 @@ export default function PracticeLabPage({
     }
   }, [session?.status, timeRemaining]);
 
-  // Format time
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Handlers
-  const handleStepClick = (stepNum: number) => {
-    setCurrentStep(stepNum);
-  };
+  const handleStepClick = (stepNum: number) => setCurrentStep(stepNum);
 
   const handleCopyCommand = (command: string) => {
     navigator.clipboard.writeText(command);
@@ -449,20 +420,44 @@ export default function PracticeLabPage({
 
   const handleRunCommand = (command: string) => {
     setCommandQueue(prev => [...prev, command]);
-    // In production, this would send to WebSocket
   };
 
   const handleAIHelp = async (step: LabStep, action: string) => {
-    // Call AI API for help
-    setAiResponse(`Loading ${action} for "${step.title}"...`);
-    // In production, call /api/ai with appropriate action
+    setAiResponse({ title: 'Loading...', content: 'Getting AI assistance...' });
+    
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'explain_simple',
+          content: action === 'explain' 
+            ? `Explain this step: ${step.title}\n\n${step.content}${step.command ? `\n\nCommand: ${step.command}` : ''}`
+            : action === 'expected'
+            ? `What is the expected output for this command: ${step.command}`
+            : step.hint
+        })
+      });
+
+      const data = await response.json();
+      setAiResponse({
+        title: action === 'explain' ? 'Explanation' : action === 'expected' ? 'Expected Output' : 'Hint',
+        content: data.result || data.error || 'No response'
+      });
+    } catch (error) {
+      setAiResponse({ title: 'Error', content: 'Failed to get AI response' });
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    if (session?.podName && session.podName !== 'error') {
+      await fetch(`/api/labs/${session.podName}`, { method: 'DELETE' }).catch(console.error);
+    }
     setCommandQueue([]);
     setCompletedSteps([]);
     setCurrentStep(1);
-    // In production, call reset API
+    setTimeRemaining(3600);
+    createLabSession();
   };
 
   const handleCompleteStep = () => {
@@ -474,16 +469,10 @@ export default function PracticeLabPage({
     }
   };
 
-  // Initialize session on mount
-  useEffect(() => {
-    // In production, call API to create session
-    setSession({
-      id: 'mock-session',
-      status: 'running',
-      progress: { completedSteps: [], currentStep: 1 },
-      metrics: { commandsExecuted: 0, timeActive: 0 }
-    });
-  }, []);
+  const handleCommandExecuted = (cmd: string) => {
+    // Remove from queue after execution
+    setCommandQueue(prev => prev.filter(c => c !== cmd));
+  };
 
   return (
     <div className={`h-screen flex flex-col bg-[#0a0f1a] ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
@@ -498,24 +487,24 @@ export default function PracticeLabPage({
             <span className="text-sm">Back</span>
           </button>
           
-          {/* Breadcrumbs */}
-          <nav className="hidden md:flex items-center gap-1 text-sm">
-            {breadcrumbs.map((crumb, idx) => (
-              <span key={crumb.href} className="flex items-center gap-1">
-                {idx > 0 && <ChevronRight size={14} className="text-slate-600" />}
-                <a
-                  href={crumb.href}
-                  className={idx === breadcrumbs.length - 1 ? 'text-white' : 'text-slate-400 hover:text-white'}
-                >
-                  {crumb.label}
-                </a>
-              </span>
-            ))}
-          </nav>
+          {breadcrumbs.length > 0 && (
+            <nav className="hidden md:flex items-center gap-1 text-sm">
+              {breadcrumbs.map((crumb, idx) => (
+                <span key={crumb.href} className="flex items-center gap-1">
+                  {idx > 0 && <ChevronRight size={14} className="text-slate-600" />}
+                  <a
+                    href={crumb.href}
+                    className={idx === breadcrumbs.length - 1 ? 'text-white' : 'text-slate-400 hover:text-white'}
+                  >
+                    {crumb.label}
+                  </a>
+                </span>
+              ))}
+            </nav>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Timer */}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
             timeRemaining < 300 ? 'bg-red-500/20 text-red-400' : 'bg-slate-700/50 text-slate-300'
           }`}>
@@ -523,12 +512,27 @@ export default function PracticeLabPage({
             <span className="font-mono font-semibold">{formatTime(timeRemaining)}</span>
           </div>
 
-          {/* Complete Step Button */}
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            title="Reset Lab"
+          >
+            <RotateCcw size={16} />
+            <span className="hidden sm:inline text-sm">Reset</span>
+          </button>
+
           <button
             onClick={handleCompleteStep}
             className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-lg hover:from-teal-600 hover:to-emerald-600 transition-colors"
           >
-            Mark Step Complete
+            Mark Complete
+          </button>
+
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
           </button>
 
           <button
@@ -556,13 +560,13 @@ export default function PracticeLabPage({
             />
           }
           right={
-            <TerminalPane
-              sessionId={session?.id}
+            <LabTerminal
+              websocketUrl={session?.websocketUrl}
+              podName={session?.podName}
               status={session?.status || 'creating'}
               onReset={handleReset}
-              onFullscreen={() => setIsFullscreen(!isFullscreen)}
-              isFullscreen={isFullscreen}
               commandQueue={commandQueue}
+              onCommandExecuted={handleCommandExecuted}
             />
           }
         />
@@ -575,25 +579,26 @@ export default function PracticeLabPage({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-slate-800 rounded-xl border border-purple-500/30 shadow-2xl p-4"
+            className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[480px] bg-slate-800 rounded-xl border border-purple-500/30 shadow-2xl overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between px-4 py-3 bg-purple-500/10 border-b border-purple-500/20">
               <div className="flex items-center gap-2">
                 <Sparkles size={16} className="text-purple-400" />
-                <span className="font-semibold text-white">AI Assistant</span>
+                <span className="font-semibold text-white">{aiResponse.title}</span>
               </div>
               <button
                 onClick={() => setAiResponse(null)}
-                className="p-1 text-slate-400 hover:text-white"
+                className="p-1 text-slate-400 hover:text-white rounded transition-colors"
               >
                 <X size={16} />
               </button>
             </div>
-            <p className="text-sm text-slate-300">{aiResponse}</p>
+            <div className="p-4 max-h-64 overflow-y-auto">
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{aiResponse.content}</p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
-
