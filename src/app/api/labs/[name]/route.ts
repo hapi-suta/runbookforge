@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 const LAB_API_URL = process.env.LAB_API_URL || 'http://178.156.177.96:443';
 
 // Get lab status

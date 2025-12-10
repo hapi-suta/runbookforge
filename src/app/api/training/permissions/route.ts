@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering - this route uses auth headers
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const { userId } = await auth();
