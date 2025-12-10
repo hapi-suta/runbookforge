@@ -17,6 +17,16 @@ export async function POST(
 
     const { id: batchId } = await params;
     const body = await request.json();
+    
+    console.log('Creating content - received body:', JSON.stringify({
+      section_id: body.section_id,
+      module_id: body.module_id,
+      title: body.title,
+      content_type: body.content_type,
+      is_folder: body.is_folder,
+      has_content_data: !!body.content_data
+    }));
+    
     const { 
       section_id, 
       module_id,
@@ -94,8 +104,10 @@ export async function POST(
 
     // If no module_id but section_id provided, create or find a default module
     if (!targetModuleId && section_id) {
-      // Look for existing module in section (non-folder)
-      const { data: existingModule } = await supabase
+      console.log('No module_id, looking for module in section:', section_id);
+      
+      // Look for existing module in section
+      const { data: existingModule, error: findError } = await supabase
         .from('training_modules')
         .select('id')
         .eq('batch_id', batchId)
@@ -105,7 +117,12 @@ export async function POST(
         .limit(1)
         .single();
 
+      if (findError) {
+        console.log('No existing module found, will create one. Error:', findError.message);
+      }
+
       if (existingModule) {
+        console.log('Found existing module:', existingModule.id);
         targetModuleId = existingModule.id;
       } else {
         // Get section title for module name
@@ -114,6 +131,8 @@ export async function POST(
           .select('title')
           .eq('id', section_id)
           .single();
+
+        console.log('Creating new module for section:', section?.title || 'Unknown');
 
         // Create new module
         const { data: newModule, error: moduleError } = await supabase
@@ -129,7 +148,15 @@ export async function POST(
           .select()
           .single();
 
-        if (moduleError) throw moduleError;
+        if (moduleError) {
+          console.error('Error creating module:', moduleError);
+          return NextResponse.json({ 
+            error: 'Failed to create module', 
+            details: moduleError.message 
+          }, { status: 500 });
+        }
+        
+        console.log('Created new module:', newModule.id);
         targetModuleId = newModule.id;
       }
     }
@@ -169,12 +196,24 @@ export async function POST(
 
     if (error) {
       console.error('Supabase error creating content:', error);
-      throw error;
+      return NextResponse.json({ 
+        error: 'Failed to create content', 
+        details: error.message || JSON.stringify(error)
+      }, { status: 500 });
     }
+    
+    console.log('Content created successfully:', content?.id);
     return NextResponse.json(content, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating content:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    let message = 'Unknown error';
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === 'object' && error !== null) {
+      message = JSON.stringify(error);
+    } else if (typeof error === 'string') {
+      message = error;
+    }
     return NextResponse.json({ error: 'Failed to create content', details: message }, { status: 500 });
   }
 }
