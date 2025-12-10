@@ -275,7 +275,8 @@ export default function StudentAIActions({ contentTitle, contentText, topic, onC
           
           {quizData.questions.map((q, idx) => {
             const isAnswered = quizAnswers[idx] !== undefined;
-            const isCorrect = isAnswered && quizAnswers[idx] === q.correct_answer;
+            const isCorrect = isAnswered && quizAnswers[idx]?.toLowerCase().trim() === q.correct_answer?.toLowerCase().trim();
+            const isShortAnswer = !q.options || q.options.length === 0;
             
             return (
               <div key={idx} className="bg-slate-800/50 rounded-xl p-4">
@@ -283,7 +284,8 @@ export default function StudentAIActions({ contentTitle, contentText, topic, onC
                   <span className="text-purple-400 font-medium">Q{idx + 1}.</span> {q.question}
                 </p>
                 
-                {q.options && (
+                {/* Multiple choice options */}
+                {q.options && q.options.length > 0 && (
                   <div className="space-y-2 mb-3">
                     {q.options.map((opt, optIdx) => (
                       <button
@@ -305,6 +307,30 @@ export default function StudentAIActions({ contentTitle, contentText, topic, onC
                         {opt}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Short answer input */}
+                {isShortAnswer && !showQuizResults && (
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      value={quizAnswers[idx] || ''}
+                      onChange={(e) => setQuizAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
+                      placeholder="Type your answer..."
+                      className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    {q.hint && (
+                      <p className="text-xs text-slate-500 mt-1">💡 Hint: {q.hint}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Show answer for short answer after submission */}
+                {isShortAnswer && showQuizResults && (
+                  <div className="mb-3 p-3 bg-slate-700/30 rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Your answer:</p>
+                    <p className="text-sm text-slate-300">{quizAnswers[idx] || '(no answer)'}</p>
                   </div>
                 )}
                 
@@ -538,6 +564,12 @@ function FlashcardViewer({ cards, title }: { cards: Array<{ front: string; back:
   const [knownCards, setKnownCards] = useState<Set<number>>(new Set());
 
   const card = cards[currentIndex];
+
+  // Format content to put numbers on new lines
+  const formatContent = (text: string) => {
+    // Split numbered items onto separate lines (e.g., "1. Item 2. Item" -> "1. Item\n2. Item")
+    return text.replace(/(\d+)\.\s+/g, '\n$1. ').trim();
+  };
   
   const nextCard = () => {
     setIsFlipped(false);
@@ -566,7 +598,7 @@ function FlashcardViewer({ cards, title }: { cards: Array<{ front: string; back:
       {/* Card */}
       <div
         onClick={() => setIsFlipped(!isFlipped)}
-        className="relative h-48 cursor-pointer perspective-1000"
+        className="relative h-64 cursor-pointer perspective-1000"
       >
         <motion.div
           animate={{ rotateY: isFlipped ? 180 : 0 }}
@@ -575,16 +607,16 @@ function FlashcardViewer({ cards, title }: { cards: Array<{ front: string; back:
           style={{ transformStyle: 'preserve-3d' }}
         >
           {/* Front */}
-          <div className={`absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 flex items-center justify-center backface-hidden ${isFlipped ? 'invisible' : ''}`}>
-            <p className="text-lg text-white text-center">{card.front}</p>
+          <div className={`absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 flex items-center justify-center backface-hidden overflow-y-auto ${isFlipped ? 'invisible' : ''}`}>
+            <p className="text-lg text-white text-center whitespace-pre-line">{formatContent(card.front)}</p>
           </div>
           
           {/* Back */}
           <div 
-            className={`absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-6 flex items-center justify-center ${!isFlipped ? 'invisible' : ''}`}
+            className={`absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-6 flex items-center justify-center overflow-y-auto ${!isFlipped ? 'invisible' : ''}`}
             style={{ transform: 'rotateY(180deg)' }}
           >
-            <p className="text-lg text-white text-center">{card.back}</p>
+            <p className="text-lg text-white text-center whitespace-pre-line">{formatContent(card.back)}</p>
           </div>
         </motion.div>
       </div>
