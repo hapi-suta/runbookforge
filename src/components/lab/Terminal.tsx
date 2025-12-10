@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Terminal, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Terminal as TerminalIcon, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface TerminalProps {
   websocketUrl?: string;
@@ -26,6 +26,7 @@ export default function LabTerminal({
   const fitAddonRef = useRef<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [terminalReady, setTerminalReady] = useState(false);
   const processedCommands = useRef<Set<string>>(new Set());
 
   // Initialize xterm.js
@@ -33,13 +34,25 @@ export default function LabTerminal({
     if (!terminalRef.current || xtermRef.current) return;
 
     try {
-      // Dynamic imports for xterm
-      const { Terminal } = await import('xterm');
-      const { FitAddon } = await import('xterm-addon-fit');
-      const { WebLinksAddon } = await import('xterm-addon-web-links');
-
-      // Import CSS
-      await import('xterm/css/xterm.css');
+      // Try new package names first, fall back to deprecated ones
+      let Terminal, FitAddon;
+      
+      try {
+        const xtermModule = await import('@xterm/xterm');
+        const fitModule = await import('@xterm/addon-fit');
+        Terminal = xtermModule.Terminal;
+        FitAddon = fitModule.FitAddon;
+        // Try to import CSS
+        await import('@xterm/xterm/css/xterm.css').catch(() => {});
+      } catch {
+        // Fall back to deprecated packages
+        const xtermModule = await import('xterm');
+        const fitModule = await import('xterm-addon-fit');
+        Terminal = xtermModule.Terminal;
+        FitAddon = fitModule.FitAddon;
+        // Try to import CSS
+        await import('xterm/css/xterm.css').catch(() => {});
+      }
 
       const term = new Terminal({
         cursorBlink: true,
@@ -72,15 +85,17 @@ export default function LabTerminal({
       });
 
       const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon();
-
       term.loadAddon(fitAddon);
-      term.loadAddon(webLinksAddon);
       term.open(terminalRef.current);
-      fitAddon.fit();
+      
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        fitAddon.fit();
+      }, 100);
 
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
+      setTerminalReady(true);
 
       // Welcome message
       term.writeln('\x1b[1;36m╔══════════════════════════════════════════════════════════╗\x1b[0m');
@@ -92,7 +107,11 @@ export default function LabTerminal({
       // Handle resize
       const handleResize = () => {
         if (fitAddonRef.current) {
-          fitAddonRef.current.fit();
+          try {
+            fitAddonRef.current.fit();
+          } catch (e) {
+            // Ignore resize errors
+          }
         }
       };
       window.addEventListener('resize', handleResize);
@@ -102,7 +121,7 @@ export default function LabTerminal({
       };
     } catch (error) {
       console.error('Failed to initialize terminal:', error);
-      setConnectionError('Failed to load terminal');
+      setConnectionError('Terminal libraries not available');
     }
   }, []);
 
@@ -137,7 +156,7 @@ export default function LabTerminal({
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        setConnectionError('Connection failed');
+        setConnectionError('Connection failed - lab may still be starting');
         setIsConnected(false);
       };
 
@@ -158,7 +177,6 @@ export default function LabTerminal({
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
     commandQueue.forEach((cmd) => {
-      const cmdId = `${cmd}-${Date.now()}`;
       if (!processedCommands.current.has(cmd)) {
         processedCommands.current.add(cmd);
         wsRef.current?.send(cmd + '\n');
@@ -176,10 +194,10 @@ export default function LabTerminal({
 
   // Connect when WebSocket URL is available
   useEffect(() => {
-    if (websocketUrl && xtermRef.current && status === 'running') {
+    if (websocketUrl && terminalReady && status === 'running') {
       connectWebSocket();
     }
-  }, [websocketUrl, status, connectWebSocket]);
+  }, [websocketUrl, status, terminalReady, connectWebSocket]);
 
   // Cleanup
   useEffect(() => {
@@ -201,7 +219,7 @@ export default function LabTerminal({
     );
   }
 
-  if (status === 'error' || connectionError) {
+  if (status === 'error') {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-[#0d1117] text-slate-400">
         <AlertTriangle size={48} className="text-red-400 mb-4" />
@@ -230,7 +248,7 @@ export default function LabTerminal({
             <div className="w-3 h-3 rounded-full bg-yellow-500" />
             <div className="w-3 h-3 rounded-full bg-green-500" />
           </div>
-          <Terminal size={16} className="text-teal-400" />
+          <TerminalIcon size={16} className="text-teal-400" />
           <span className="text-sm text-slate-300 font-mono">
             {podName || 'ubuntu@lab'}:~
           </span>
@@ -238,7 +256,7 @@ export default function LabTerminal({
             isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'
           }`} />
           <span className="text-xs text-slate-500">
-            {isConnected ? 'Connected' : 'Connecting...'}
+            {isConnected ? 'Connected' : connectionError ? 'Error' : 'Connecting...'}
           </span>
         </div>
       </div>
@@ -249,7 +267,13 @@ export default function LabTerminal({
         className="flex-1 p-2"
         style={{ minHeight: 0 }}
       />
+      
+      {/* Show error inline if terminal loaded but connection failed */}
+      {connectionError && terminalReady && (
+        <div className="px-4 py-2 bg-amber-500/10 border-t border-amber-500/30 text-amber-400 text-sm">
+          {connectionError}
+        </div>
+      )}
     </div>
   );
 }
-

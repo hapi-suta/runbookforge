@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronRight, Plus, Folder, FolderOpen, File, Sparkles,
   Trash2, Edit3, ExternalLink, Play, MoreVertical, Upload, Video,
   FileText, Presentation, HelpCircle, Target, ClipboardList, MessageSquare,
-  BookOpen, Link as LinkIcon, GripVertical
+  BookOpen, Link as LinkIcon, GripVertical, Terminal
 } from 'lucide-react';
 
 export interface ContentItem {
@@ -39,6 +39,7 @@ export interface FolderNode {
 const CONTENT_TYPE_INFO: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
   presentation: { icon: Presentation, color: 'text-blue-400', bg: 'bg-blue-500/10' },
   runbook: { icon: FileText, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+  lab: { icon: Terminal, color: 'text-orange-400', bg: 'bg-orange-500/10' },
   tutorial: { icon: BookOpen, color: 'text-amber-400', bg: 'bg-amber-500/10' },
   quiz: { icon: HelpCircle, color: 'text-purple-400', bg: 'bg-purple-500/10' },
   assignment: { icon: ClipboardList, color: 'text-pink-400', bg: 'bg-pink-500/10' },
@@ -63,6 +64,7 @@ interface FolderTreeProps {
   onEditFolder: (folder: FolderNode) => void;
   onViewPresentation: (content: ContentItem) => void;
   onSelectContent?: (content: ContentItem) => void;
+  onStartLab?: (content: ContentItem) => void;
   selectedContentId?: string;
   expandedFolders: Set<string>;
   onToggleFolder: (folderId: string) => void;
@@ -83,6 +85,7 @@ export function FolderTree({
   onEditFolder,
   onViewPresentation,
   onSelectContent,
+  onStartLab,
   selectedContentId,
   expandedFolders,
   onToggleFolder,
@@ -106,6 +109,7 @@ export function FolderTree({
           onEditFolder={onEditFolder}
           onViewPresentation={onViewPresentation}
           onSelectContent={onSelectContent}
+          onStartLab={onStartLab}
           selectedContentId={selectedContentId}
           expandedFolders={expandedFolders}
           onToggleFolder={onToggleFolder}
@@ -130,6 +134,7 @@ interface FolderItemProps {
   onEditFolder: (folder: FolderNode) => void;
   onViewPresentation: (content: ContentItem) => void;
   onSelectContent?: (content: ContentItem) => void;
+  onStartLab?: (content: ContentItem) => void;
   selectedContentId?: string;
   expandedFolders: Set<string>;
   onToggleFolder: (folderId: string) => void;
@@ -150,6 +155,7 @@ function FolderItem({
   onEditFolder,
   onViewPresentation,
   onSelectContent,
+  onStartLab,
   selectedContentId,
   expandedFolders,
   onToggleFolder,
@@ -309,6 +315,7 @@ function FolderItem({
                       onDelete={onDeleteContent}
                       onViewPresentation={onViewPresentation}
                       onSelect={onSelectContent}
+                      onStartLab={onStartLab}
                       isSelected={selectedContentId === content.id}
                     />
                   ))}
@@ -332,6 +339,7 @@ function FolderItem({
                   onEditFolder={onEditFolder}
                   onViewPresentation={onViewPresentation}
                   onSelectContent={onSelectContent}
+                  onStartLab={onStartLab}
                   selectedContentId={selectedContentId}
                   expandedFolders={expandedFolders}
                   onToggleFolder={onToggleFolder}
@@ -374,13 +382,15 @@ interface ContentItemRowProps {
   onDelete: (contentId: string) => void;
   onViewPresentation: (content: ContentItem) => void;
   onSelect?: (content: ContentItem) => void;
+  onStartLab?: (content: ContentItem) => void;
   isSelected?: boolean;
 }
 
-function ContentItemRow({ content, onEdit, onDelete, onViewPresentation, onSelect, isSelected }: ContentItemRowProps) {
+function ContentItemRow({ content, onEdit, onDelete, onViewPresentation, onSelect, onStartLab, isSelected }: ContentItemRowProps) {
   const typeInfo = CONTENT_TYPE_INFO[content.content_type] || CONTENT_TYPE_INFO.external_link;
   const Icon = typeInfo.icon;
   const hasPresentation = content.content_type === 'presentation' && content.content_data;
+  const isLab = content.content_type === 'lab';
 
   const handleClick = () => {
     if (onSelect) {
@@ -427,6 +437,16 @@ function ContentItemRow({ content, onEdit, onDelete, onViewPresentation, onSelec
 
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover/content:opacity-100 transition-opacity">
+        {isLab && onStartLab && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onStartLab(content); }}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-medium rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/25"
+            title="Start Practice Lab"
+          >
+            <Terminal size={12} />
+            Start Lab
+          </button>
+        )}
         {hasPresentation && (
           <button
             onClick={() => onViewPresentation(content)}

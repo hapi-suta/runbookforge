@@ -35,6 +35,7 @@ const SECTION_COLORS: Record<string, { bg: string; text: string; border: string;
 const CONTENT_TYPES = [
   { id: 'presentation', name: 'Presentation', icon: Presentation, color: 'text-blue-400', bg: 'bg-blue-500/10' },
   { id: 'runbook', name: 'Runbook', icon: FileText, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+  { id: 'lab', name: 'Practice Lab', icon: Wrench, color: 'text-orange-400', bg: 'bg-orange-500/10' },
   { id: 'tutorial', name: 'Tutorial', icon: BookOpen, color: 'text-amber-400', bg: 'bg-amber-500/10' },
   { id: 'quiz', name: 'Quiz', icon: HelpCircle, color: 'text-purple-400', bg: 'bg-purple-500/10' },
   { id: 'assignment', name: 'Assignment', icon: ClipboardList, color: 'text-pink-400', bg: 'bg-pink-500/10' },
@@ -800,6 +801,9 @@ function BatchDetailPageContent() {
                                   onEditFolder={openEditFolder}
                                   onViewPresentation={viewPresentation}
                                   onSelectContent={setSelectedContent}
+                                  onStartLab={(content) => {
+                                    window.open(`/dashboard/training/${id}/lab/${content.id}`, '_blank');
+                                  }}
                                   selectedContentId={selectedContent?.id}
                                   expandedFolders={expandedFolders}
                                   onToggleFolder={toggleFolder}
