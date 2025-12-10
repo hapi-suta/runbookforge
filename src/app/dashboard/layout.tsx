@@ -205,21 +205,20 @@ export default function DashboardLayout({
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-[#0a0f1a]/80 backdrop-blur-lg border-b border-slate-800 lg:px-6">
-          {/* Mobile menu button */}
+          {/* Red Hamburger Menu Button */}
           <button 
-            className="lg:hidden text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu size={24} />
-          </button>
-          
-          {/* Desktop collapse button */}
-          <button 
-            className="hidden lg:flex items-center justify-center w-10 h-10 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-            onClick={toggleCollapse}
+            className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-800/50 transition-colors group"
+            onClick={() => {
+              // Mobile: toggle sidebar open/close, Desktop: toggle collapse/expand
+              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                setSidebarOpen(true);
+              } else {
+                toggleCollapse();
+              }
+            }}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarCollapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+            <Menu size={24} className="text-[#FF0000] group-hover:text-red-400 transition-colors" />
           </button>
           
           <div className="flex-1" />
