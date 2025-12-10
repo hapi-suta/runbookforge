@@ -526,16 +526,16 @@ export default function StudentPortalPage() {
                       </div>
                     )}
                     {activeContent.content_type === 'assignment' && (
-                      <AssignmentViewer data={activeContent.content_data as AssignmentData} />
+                      <AssignmentViewer data={activeContent.content_data as unknown as AssignmentData} />
                     )}
                     {activeContent.content_type === 'challenge' && (
-                      <ChallengeViewer data={activeContent.content_data as ChallengeData} />
+                      <ChallengeViewer data={activeContent.content_data as unknown as ChallengeData} />
                     )}
                     {activeContent.content_type === 'interview_prep' && (
-                      <InterviewPrepViewer data={activeContent.content_data as InterviewPrepData} />
+                      <InterviewPrepViewer data={activeContent.content_data as unknown as InterviewPrepData} />
                     )}
                     {activeContent.content_type === 'runbook' && (
-                      <RunbookViewer data={activeContent.content_data as RunbookData} />
+                      <RunbookViewer data={activeContent.content_data as unknown as RunbookData} />
                     )}
                     {!['quiz', 'tutorial', 'presentation', 'assignment', 'challenge', 'interview_prep', 'runbook'].includes(activeContent.content_type) && (
                       <pre className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-800/50 p-4 rounded-xl">{JSON.stringify(activeContent.content_data, null, 2)}</pre>
