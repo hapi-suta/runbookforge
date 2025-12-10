@@ -338,7 +338,7 @@ export default function StudentLabPage() {
       <header className="flex items-center justify-between px-4 py-3 bg-slate-800/80 border-b border-slate-700 shrink-0">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push(`/training/${code}`)}
             className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
           >
             <ChevronLeft size={20} />
@@ -385,8 +385,8 @@ export default function StudentLabPage() {
           </button>
 
           <button
-            onClick={() => router.back()}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            onClick={() => router.push(`/training/${code}`)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
           >
             <X size={18} />
           </button>
