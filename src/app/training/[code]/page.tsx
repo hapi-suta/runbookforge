@@ -560,8 +560,8 @@ function TutorialViewer({ data, onCopy, copied }: { data: Record<string, unknown
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-bold text-white">{(data.title as string) || 'Tutorial'}</h3>
-        {data.description && <p className="text-slate-400 mt-2">{data.description as string}</p>}
+        <h3 className="text-xl font-bold text-white">{String(data.title || 'Tutorial')}</h3>
+        {data.description && <p className="text-slate-400 mt-2">{String(data.description)}</p>}
       </div>
 
       {sections.map((section, idx) => (
