@@ -9,7 +9,7 @@ import {
   ChevronDown, FileText, Presentation, Link as LinkIcon, UserPlus, X, Save, Sparkles,
   Video, HelpCircle, Target, ClipboardList, MessageSquare, Wrench, FolderOpen, Briefcase, 
   ClipboardCheck, Send, CheckCircle, Clock, Archive, Zap, GraduationCap, Mail, Globe, Hash, 
-  Edit3, Eye, Play, Folder, Search
+  Edit3, Eye, Play, Folder, Search, Terminal
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 import { Breadcrumbs, BreadcrumbItem } from '@/components/training/Breadcrumbs';
@@ -21,11 +21,12 @@ import TrainerGuard from '@/components/auth/TrainerGuard';
 import RichTextEditorCompact from '@/components/RichTextEditorCompact';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
-  learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
+  learn: BookOpen, labs: Terminal, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
 };
 
 const SECTION_COLORS: Record<string, { bg: string; text: string; border: string; gradient: string; shadow: string }> = {
   amber: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', gradient: 'from-amber-500 to-orange-500', shadow: 'shadow-amber-500/25' },
+  orange: { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30', gradient: 'from-orange-500 to-red-500', shadow: 'shadow-orange-500/25' },
   teal: { bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30', gradient: 'from-teal-500 to-emerald-500', shadow: 'shadow-teal-500/25' },
   purple: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', gradient: 'from-purple-500 to-violet-500', shadow: 'shadow-purple-500/25' },
   blue: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', gradient: 'from-blue-500 to-indigo-500', shadow: 'shadow-blue-500/25' },
@@ -484,10 +485,11 @@ function BatchDetailPageContent() {
 
   const getSectionContentTypes = (sectionKey: string) => {
     const mapping: Record<string, string[]> = {
-      learn: ['presentation', 'tutorial', 'external_link', 'recording', 'lab'],
-      practice: ['lab', 'runbook', 'tutorial', 'challenge'],
+      learn: ['presentation', 'tutorial', 'external_link', 'recording'],
+      labs: ['lab'],
+      practice: ['runbook', 'tutorial', 'challenge', 'lab'],
       assess: ['quiz', 'assignment', 'challenge'],
-      resources: ['runbook', 'external_link', 'recording', 'lab'],
+      resources: ['runbook', 'external_link', 'recording'],
       career: ['interview_prep', 'quiz', 'external_link'],
     };
     return CONTENT_TYPES.filter(ct => mapping[sectionKey]?.includes(ct.id) || !mapping[sectionKey]);

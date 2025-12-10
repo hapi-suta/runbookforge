@@ -8,14 +8,16 @@ export const dynamic = 'force-dynamic';
 const SECTION_TEMPLATES: Record<string, Array<{key: string; title: string; description: string; icon: string; color: string}>> = {
   technical_course: [
     { key: 'learn', title: 'Learn', description: 'Presentations, tutorials, and reading materials', icon: 'BookOpen', color: 'amber' },
-    { key: 'practice', title: 'Practice', description: 'Labs, runbooks, and hands-on exercises', icon: 'Wrench', color: 'teal' },
+    { key: 'labs', title: 'Labs', description: 'Interactive practice labs with live terminal', icon: 'Terminal', color: 'orange' },
+    { key: 'practice', title: 'Practice', description: 'Runbooks and hands-on exercises', icon: 'Wrench', color: 'teal' },
     { key: 'assess', title: 'Assess', description: 'Quizzes, assignments, and challenges', icon: 'ClipboardCheck', color: 'purple' },
     { key: 'resources', title: 'Resources', description: 'Reference materials and recordings', icon: 'FolderOpen', color: 'blue' },
     { key: 'career', title: 'Career', description: 'Interview prep and career resources', icon: 'Briefcase', color: 'emerald' },
   ],
   workshop: [
     { key: 'learn', title: 'Learn', description: 'Workshop materials', icon: 'BookOpen', color: 'amber' },
-    { key: 'practice', title: 'Labs', description: 'Hands-on labs and exercises', icon: 'Wrench', color: 'teal' },
+    { key: 'labs', title: 'Labs', description: 'Interactive practice labs with live terminal', icon: 'Terminal', color: 'orange' },
+    { key: 'practice', title: 'Exercises', description: 'Hands-on exercises', icon: 'Wrench', color: 'teal' },
     { key: 'assess', title: 'Challenges', description: 'Challenges and assessments', icon: 'Target', color: 'purple' },
   ],
   interview_prep: [

@@ -195,6 +195,43 @@ Return JSON:
 }`;
         break;
 
+      case 'lab':
+        systemPrompt = `You are an expert at creating hands-on practice labs for technical training. Create interactive labs with clear steps, commands to run, and expected outputs. The lab will run on a real Linux server with PostgreSQL installed. Return valid JSON only.`;
+        userPrompt = `Create a practice lab about "${topic}" for ${difficulty} level learners.
+
+Return JSON:
+{
+  "title": "Lab title",
+  "description": "What students will learn hands-on",
+  "estimated_minutes": 45,
+  "environment": "postgresql",
+  "prerequisites": ["What students should know"],
+  "learning_objectives": ["Hands-on skill 1", "Hands-on skill 2"],
+  "steps": [
+    {
+      "id": "1",
+      "number": 1,
+      "title": "Step title",
+      "content": "Clear explanation of what to do and why (use HTML for formatting)",
+      "command": "The exact command to run",
+      "expectedOutput": "What the output should look like",
+      "hint": "Help if stuck",
+      "verifyCommand": "Optional command to verify success"
+    }
+  ],
+  "cleanup": ["Commands to clean up after lab"],
+  "bonus_challenges": ["Extra challenges for fast learners"]
+}
+
+Create 8-12 steps that build on each other. Include:
+1. Setup/verification step
+2-9. Core hands-on steps with real commands
+10. Verification step
+11. Cleanup step
+
+Make commands real and runnable on Ubuntu with PostgreSQL 15.`;
+        break;
+
       default:
         return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
     }
