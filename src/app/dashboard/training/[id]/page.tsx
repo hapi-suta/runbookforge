@@ -15,6 +15,7 @@ import PresentationViewer, { PresentationData, SlideData } from '@/components/Pr
 import { Breadcrumbs, BreadcrumbItem } from '@/components/training/Breadcrumbs';
 import { FolderTree, FolderNode, ContentItem } from '@/components/training/FolderTree';
 import { PermissionsProvider, usePermissions, AIPendingBanner, AIGenerateButton } from '@/components/training/PermissionGate';
+import AIToolsPanel from '@/components/ai/AIToolsPanel';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -88,6 +89,7 @@ function BatchDetailPageContent() {
   const [showAddFolder, setShowAddFolder] = useState<{ parentId: string | null; sectionId: string } | null>(null);
   const [showEnrollStudents, setShowEnrollStudents] = useState(false);
   const [showAIGenerate, setShowAIGenerate] = useState<{ moduleId: string; sectionId: string } | null>(null);
+  const [showAIToolsPanel, setShowAIToolsPanel] = useState(false);
   
   // Form states
   const [contentTitle, setContentTitle] = useState('');
@@ -607,6 +609,16 @@ function BatchDetailPageContent() {
                   >
                     {copiedLink ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
                     {copiedLink ? 'Copied!' : 'Copy Link'}
+                  </motion.button>
+                  
+                  <motion.button 
+                    onClick={() => setShowAIToolsPanel(true)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl text-purple-400 hover:from-purple-500/30 hover:to-pink-500/30 transition-all"
+                  >
+                    <Sparkles size={16} />
+                    AI Tools
                   </motion.button>
                   
                   {batch.status === 'draft' && (
@@ -1406,6 +1418,17 @@ function BatchDetailPageContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* AI Tools Panel */}
+      <AIToolsPanel
+        isOpen={showAIToolsPanel}
+        onClose={() => setShowAIToolsPanel(false)}
+        initialTopic={batch.title}
+        onContentGenerated={(content, type) => {
+          console.log('AI Generated:', type, content);
+          // Content can be used to create new training materials
+        }}
+      />
     </div>
   );
 }

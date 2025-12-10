@@ -10,6 +10,9 @@ import {
   ExternalLink, Clock, X, Eye, AlertCircle, Trophy, Folder, RotateCcw
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
+import AITutorChat from '@/components/ai/AITutorChat';
+import StudentAIActions from '@/components/ai/StudentAIActions';
+import CertificateGenerator from '@/components/ai/CertificateGenerator';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -81,6 +84,8 @@ export default function StudentPortalPage() {
   const [token, setToken] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [viewingPresentation, setViewingPresentation] = useState<PresentationData | null>(null);
+  const [showAITools, setShowAITools] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -583,6 +588,14 @@ export default function StudentPortalPage() {
                 )}
               </div>
             </div>
+            {/* AI Tools Button */}
+            <button
+              onClick={() => setShowAITools(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl text-purple-400 hover:text-purple-300 hover:from-purple-500/30 hover:to-pink-500/30 transition-all"
+            >
+              <HelpCircle size={18} />
+              <span className="hidden sm:inline text-sm font-medium">AI Study Tools</span>
+            </button>
           </div>
 
           {/* Progress Bar */}
@@ -600,9 +613,17 @@ export default function StudentPortalPage() {
               />
             </div>
             {progress.percentage === 100 && (
-              <div className="flex items-center gap-2 mt-3 text-emerald-400">
-                <Trophy size={16} />
-                <span className="text-sm font-medium">Congratulations! You've completed this training!</span>
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Trophy size={16} />
+                  <span className="text-sm font-medium">Congratulations! You've completed this training!</span>
+                </div>
+                <button
+                  onClick={() => setShowCertificate(true)}
+                  className="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-sm font-medium rounded-lg hover:shadow-lg hover:shadow-amber-500/25 transition-all"
+                >
+                  🏆 Get Certificate
+                </button>
               </div>
             )}
           </div>
@@ -830,7 +851,70 @@ export default function StudentPortalPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* AI Study Tools Modal */}
+      <AnimatePresence>
+        {showAITools && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowAITools(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <StudentAIActions
+                topic={data.batch.title}
+                onClose={() => setShowAITools(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Certificate Modal */}
+      <AnimatePresence>
+        {showCertificate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowCertificate(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <CertificateGenerator
+                studentName={data.enrollment.student_name || data.enrollment.student_email}
+                courseName={data.batch.title}
+                completionDate={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Tutor Floating Chat - Only show when not in preview */}
+      {!isPreviewMode && (
+        <AITutorChat
+          courseName={data.batch.title}
+          courseContext={`Course: ${data.batch.title}\nDescription: ${data.batch.description || 'N/A'}\nSections: ${data.batch.sections.map(s => s.title).join(', ')}`}
+          isFloating={true}
+        />
+      )}
     </div>
   );
 }
+
 
