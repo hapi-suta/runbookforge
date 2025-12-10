@@ -381,7 +381,7 @@ export default function AdminPage() {
           >
             <tab.icon size={18} />
             {tab.label}
-            {'badge' in tab && tab.badge > 0 && (
+            {'badge' in tab && typeof tab.badge === 'number' && tab.badge > 0 && (
               <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">{tab.badge}</span>
             )}
           </button>
