@@ -7,8 +7,7 @@ import {
   GraduationCap, BookOpen, Wrench, ClipboardCheck, FolderOpen, Briefcase, 
   ChevronDown, ChevronRight, Loader2, CheckCircle, Circle, Play, FileText,
   Presentation, HelpCircle, Target, ClipboardList, MessageSquare, Video, Link as LinkIcon,
-  ExternalLink, Clock, Award, X, Eye, AlertCircle, Sparkles, Trophy,
-  ArrowRight, Lock, PlayCircle, RotateCcw
+  ExternalLink, Clock, X, Eye, AlertCircle, Trophy, Folder, RotateCcw
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 
@@ -16,12 +15,12 @@ const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
 };
 
-const SECTION_COLORS: Record<string, { bg: string; text: string; border: string; gradient: string; ring: string }> = {
-  amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500/30', gradient: 'from-amber-500 to-orange-500', ring: 'ring-amber-500/30' },
-  teal: { bg: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-500/30', gradient: 'from-teal-500 to-emerald-500', ring: 'ring-teal-500/30' },
-  purple: { bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500/30', gradient: 'from-purple-500 to-pink-500', ring: 'ring-purple-500/30' },
-  blue: { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500/30', gradient: 'from-blue-500 to-indigo-500', ring: 'ring-blue-500/30' },
-  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-400', border: 'border-emerald-500/30', gradient: 'from-emerald-500 to-green-500', ring: 'ring-emerald-500/30' },
+const SECTION_COLORS: Record<string, { bg: string; text: string; border: string; gradient: string }> = {
+  amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500/30', gradient: 'from-amber-500 to-orange-500' },
+  teal: { bg: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-500/30', gradient: 'from-teal-500 to-emerald-500' },
+  purple: { bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500/30', gradient: 'from-purple-500 to-pink-500' },
+  blue: { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500/30', gradient: 'from-blue-500 to-indigo-500' },
+  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-400', border: 'border-emerald-500/30', gradient: 'from-emerald-500 to-green-500' },
 };
 
 const CONTENT_ICONS: Record<string, React.ElementType> = {
@@ -44,7 +43,17 @@ interface Content {
   documents?: LinkedDocument;
   runbooks?: LinkedRunbook;
 }
-interface Module { id: string; section_id?: string; title: string; training_content: Content[]; }
+interface Module { 
+  id: string; 
+  section_id?: string; 
+  parent_id?: string | null;
+  title: string; 
+  description?: string;
+  is_folder?: boolean;
+  color?: string;
+  sort_order: number;
+  training_content: Content[]; 
+}
 interface Progress { content_id: string; status: string; completed_at?: string; }
 
 interface TrainingData {
@@ -52,6 +61,11 @@ interface TrainingData {
   batch: { id: string; title: string; description?: string; sections: Section[]; };
   modules: Module[];
   progress: Progress[];
+}
+
+// Recursive module tree node
+interface ModuleNode extends Module {
+  children: ModuleNode[];
 }
 
 export default function StudentPortalPage() {
@@ -62,6 +76,7 @@ export default function StudentPortalPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [activeContent, setActiveContent] = useState<Content | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -100,6 +115,11 @@ export default function StudentPortalPage() {
         if (trainingData.batch.sections?.length > 0) {
           setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
         }
+        // Expand all root modules by default
+        if (trainingData.modules?.length > 0) {
+          const rootModules = trainingData.modules.filter((m: Module) => !m.parent_id);
+          setExpandedModules(new Set(rootModules.map((m: Module) => m.id)));
+        }
       } else {
         const errData = await res.json();
         setError(errData.error || 'Failed to load preview');
@@ -122,6 +142,11 @@ export default function StudentPortalPage() {
         if (trainingData.batch.sections?.length > 0) {
           setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
         }
+        // Expand all root modules by default
+        if (trainingData.modules?.length > 0) {
+          const rootModules = trainingData.modules.filter((m: Module) => !m.parent_id);
+          setExpandedModules(new Set(rootModules.map((m: Module) => m.id)));
+        }
       } else {
         const errData = await res.json();
         setError(errData.error || 'Failed to load training');
@@ -141,15 +166,68 @@ export default function StudentPortalPage() {
     setExpandedSections(newSet);
   };
 
+  const toggleModule = (moduleId: string) => {
+    const newSet = new Set(expandedModules);
+    if (newSet.has(moduleId)) newSet.delete(moduleId);
+    else newSet.add(moduleId);
+    setExpandedModules(newSet);
+  };
+
   const [enrollEmail, setEnrollEmail] = useState('');
   const [enrollName, setEnrollName] = useState('');
   const [enrolling, setEnrolling] = useState(false);
 
-  const getContentForSection = (sectionId: string): Content[] => {
+  // Build module tree for a section
+  const buildModuleTree = (sectionId: string): ModuleNode[] => {
+    if (!data?.modules) return [];
+    
+    const sectionModules = data.modules.filter(m => m.section_id === sectionId);
+    
+    const buildTree = (parentId: string | null): ModuleNode[] => {
+      return sectionModules
+        .filter(m => m.parent_id === parentId)
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(module => ({
+          ...module,
+          children: buildTree(module.id)
+        }));
+    };
+    
+    return buildTree(null);
+  };
+
+  // Get all content for a section (flat)
+  const getAllSectionContent = (sectionId: string): Content[] => {
     if (!data?.modules) return [];
     return data.modules
       .filter(m => m.section_id === sectionId)
       .flatMap(m => m.training_content || []);
+  };
+
+  // Get module content count recursively
+  const getModuleContentCount = (module: ModuleNode): number => {
+    const directContent = module.training_content?.length || 0;
+    const childContent = module.children.reduce((acc, child) => acc + getModuleContentCount(child), 0);
+    return directContent + childContent;
+  };
+
+  // Get module completion count recursively
+  const getModuleCompletionCount = (module: ModuleNode): { completed: number; total: number } => {
+    const directContent = module.training_content || [];
+    const directCompleted = directContent.filter(c => getProgress(c.id)?.status === 'completed').length;
+    
+    const childCounts = module.children.reduce(
+      (acc, child) => {
+        const childCount = getModuleCompletionCount(child);
+        return { completed: acc.completed + childCount.completed, total: acc.total + childCount.total };
+      },
+      { completed: 0, total: 0 }
+    );
+    
+    return {
+      completed: directCompleted + childCounts.completed,
+      total: directContent.length + childCounts.total
+    };
   };
 
   const getProgress = (contentId: string): Progress | undefined => {
@@ -190,12 +268,6 @@ export default function StudentPortalPage() {
     return { completed, total, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
   };
 
-  const getSectionProgress = (sectionId: string) => {
-    const sectionContent = getContentForSection(sectionId);
-    const completed = sectionContent.filter(c => getProgress(c.id)?.status === 'completed').length;
-    return { completed, total: sectionContent.length, percentage: sectionContent.length > 0 ? Math.round((completed / sectionContent.length) * 100) : 0 };
-  };
-
   const handleSelfEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!enrollEmail.trim()) return;
@@ -207,11 +279,11 @@ export default function StudentPortalPage() {
         body: JSON.stringify({ code, email: enrollEmail, name: enrollName })
       });
       if (res.ok) {
-        const data = await res.json();
-        setToken(data.access_token);
-        localStorage.setItem(`training_token_${code}`, data.access_token);
+        const responseData = await res.json();
+        setToken(responseData.access_token);
+        localStorage.setItem(`training_token_${code}`, responseData.access_token);
         setError(null);
-        fetchTraining(data.access_token);
+        fetchTraining(responseData.access_token);
       } else {
         const errData = await res.json();
         setError(errData.error || 'Failed to enroll');
@@ -222,6 +294,182 @@ export default function StudentPortalPage() {
     } finally {
       setEnrolling(false);
     }
+  };
+
+  // Render module recursively
+  const renderModule = (module: ModuleNode, depth: number = 0) => {
+    const isExpanded = expandedModules.has(module.id);
+    const hasContent = (module.training_content?.length || 0) > 0;
+    const hasChildren = module.children.length > 0;
+    const contentCount = getModuleContentCount(module);
+    const completion = getModuleCompletionCount(module);
+    const isCompleted = completion.total > 0 && completion.completed === completion.total;
+
+    const moduleColors: Record<string, string> = {
+      amber: 'from-amber-500 to-orange-500',
+      teal: 'from-teal-500 to-emerald-500',
+      purple: 'from-purple-500 to-violet-500',
+      blue: 'from-blue-500 to-indigo-500',
+      pink: 'from-pink-500 to-rose-500',
+      slate: 'from-slate-500 to-slate-600',
+    };
+    const gradient = moduleColors[module.color || 'slate'] || moduleColors.slate;
+
+    return (
+      <div key={module.id} className={depth > 0 ? 'ml-6' : ''}>
+        {/* Module/Chapter Header */}
+        <button
+          onClick={() => toggleModule(module.id)}
+          className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all text-left ${
+            isExpanded 
+              ? 'bg-slate-800/80 border border-slate-700' 
+              : 'bg-slate-800/40 hover:bg-slate-800/60'
+          } ${depth > 0 ? 'mt-2' : ''}`}
+        >
+          {/* Expand Icon */}
+          <motion.div
+            animate={{ rotate: isExpanded ? 90 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-slate-400"
+          >
+            <ChevronRight size={18} />
+          </motion.div>
+
+          {/* Folder Icon */}
+          <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0`}>
+            <Folder size={16} className="text-white" />
+          </div>
+
+          {/* Module Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-white truncate">{module.title}</span>
+              {isCompleted && (
+                <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+              )}
+            </div>
+            {module.description && (
+              <p className="text-xs text-slate-500 truncate">{module.description}</p>
+            )}
+          </div>
+
+          {/* Progress */}
+          {contentCount > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className={isCompleted ? 'text-emerald-400' : 'text-slate-400'}>
+                {completion.completed}/{completion.total}
+              </span>
+            </div>
+          )}
+        </button>
+
+        {/* Module Content - Collapsible */}
+        <AnimatePresence>
+          {isExpanded && (hasContent || hasChildren) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className={`mt-1 ${depth > 0 ? '' : 'ml-6'} border-l-2 border-slate-700/50 pl-4`}>
+                {/* Direct Content Items */}
+                {module.training_content && module.training_content.length > 0 && (
+                  <div className="space-y-1 py-2">
+                    {module.training_content.map((content, idx) => {
+                      const ContentIcon = CONTENT_ICONS[content.content_type] || FileText;
+                      const progressItem = getProgress(content.id);
+                      const isContentCompleted = progressItem?.status === 'completed';
+                      const isInProgress = progressItem?.status === 'in_progress';
+
+                      return (
+                        <motion.button
+                          key={content.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.03 }}
+                          onClick={() => openContent(content)}
+                          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800/50 transition-colors text-left group"
+                        >
+                          {/* Status */}
+                          {isContentCompleted ? (
+                            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                              <CheckCircle size={14} className="text-white" />
+                            </div>
+                          ) : isInProgress ? (
+                            <div className="w-6 h-6 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center flex-shrink-0">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full border-2 border-slate-600 flex items-center justify-center flex-shrink-0 group-hover:border-slate-500">
+                              <Circle size={10} className="text-slate-600 group-hover:text-slate-500" />
+                            </div>
+                          )}
+
+                          {/* Content Icon */}
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            content.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
+                            content.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
+                            content.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
+                            content.content_type === 'assignment' ? 'bg-pink-500/10 text-pink-400' :
+                            content.content_type === 'challenge' ? 'bg-red-500/10 text-red-400' :
+                            content.content_type === 'runbook' ? 'bg-teal-500/10 text-teal-400' :
+                            content.content_type === 'tutorial' ? 'bg-amber-500/10 text-amber-400' :
+                            'bg-slate-700/50 text-slate-400'
+                          }`}>
+                            <ContentIcon size={16} />
+                          </div>
+
+                          {/* Content Info */}
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm ${isContentCompleted ? 'text-slate-400' : 'text-white'}`}>
+                              {content.title}
+                            </span>
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <span className="capitalize">{content.content_type.replace('_', ' ')}</span>
+                              {content.content_data && <span className="text-purple-400">• AI</span>}
+                              {content.estimated_minutes && (
+                                <span className="flex items-center gap-1">
+                                  • <Clock size={10} /> {content.estimated_minutes}m
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action */}
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            {isContentCompleted ? (
+                              <RotateCcw size={14} className="text-slate-400" />
+                            ) : (
+                              <Play size={14} className="text-teal-400" />
+                            )}
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Child Modules (Sub-folders) */}
+                {module.children.length > 0 && (
+                  <div className="py-2 space-y-2">
+                    {module.children.map(child => renderModule(child, depth + 1))}
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {!hasContent && !hasChildren && (
+                  <div className="py-6 text-center text-slate-500 text-sm">
+                    No content yet
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -363,14 +611,15 @@ export default function StudentPortalPage() {
 
       {/* Course Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="space-y-4">
+        <div className="space-y-6">
           {data.batch.sections.sort((a, b) => a.sort_order - b.sort_order).map((section, sectionIndex) => {
             const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
             const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
-            const sectionContent = getContentForSection(section.id);
-            const sectionProgress = getSectionProgress(section.id);
+            const moduleTree = buildModuleTree(section.id);
+            const sectionContent = getAllSectionContent(section.id);
+            const sectionCompleted = sectionContent.filter(c => getProgress(c.id)?.status === 'completed').length;
             const isExpanded = expandedSections.has(section.id);
-            const isCompleted = sectionProgress.total > 0 && sectionProgress.completed === sectionProgress.total;
+            const isSectionComplete = sectionContent.length > 0 && sectionCompleted === sectionContent.length;
 
             return (
               <motion.div
@@ -378,43 +627,30 @@ export default function StudentPortalPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: sectionIndex * 0.1 }}
-                className={`bg-slate-900 border rounded-2xl overflow-hidden transition-all ${
-                  isCompleted ? 'border-emerald-500/30' : 'border-slate-800'
+                className={`bg-slate-900 border rounded-2xl overflow-hidden ${
+                  isSectionComplete ? 'border-emerald-500/30' : 'border-slate-800'
                 }`}
               >
-                {/* Section Header - Clickable */}
+                {/* Section Header */}
                 <button
                   onClick={() => toggleSection(section.id)}
                   className="w-full flex items-center gap-4 p-5 hover:bg-slate-800/50 transition-colors text-left"
                 >
-                  {/* Section Icon with Progress Ring */}
-                  <div className="relative">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg`}>
-                      <Icon size={22} className="text-white" />
-                    </div>
-                    {isCompleted && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                        <CheckCircle size={12} className="text-white" />
-                      </div>
-                    )}
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg`}>
+                    <Icon size={22} className="text-white" />
                   </div>
-
-                  {/* Section Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-semibold text-white">{section.title}</h3>
+                      {isSectionComplete && <CheckCircle size={18} className="text-emerald-400" />}
                     </div>
                     <p className="text-sm text-slate-400">{section.description}</p>
                   </div>
-
-                  {/* Progress & Chevron */}
                   <div className="flex items-center gap-4">
                     {sectionContent.length > 0 && (
-                      <div className="text-right">
-                        <span className={`text-sm font-medium ${isCompleted ? 'text-emerald-400' : colors.text}`}>
-                          {sectionProgress.completed}/{sectionProgress.total}
-                        </span>
-                      </div>
+                      <span className={`text-sm font-medium ${isSectionComplete ? 'text-emerald-400' : colors.text}`}>
+                        {sectionCompleted}/{sectionContent.length}
+                      </span>
                     )}
                     <motion.div
                       animate={{ rotate: isExpanded ? 180 : 0 }}
@@ -426,7 +662,7 @@ export default function StudentPortalPage() {
                   </div>
                 </button>
 
-                {/* Section Content - Collapsible */}
+                {/* Section Content */}
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.div
@@ -436,97 +672,15 @@ export default function StudentPortalPage() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="border-t border-slate-800">
-                        {sectionContent.length > 0 ? (
-                          <div className="divide-y divide-slate-800/50">
-                            {sectionContent.map((content, contentIndex) => {
-                              const ContentIcon = CONTENT_ICONS[content.content_type] || FileText;
-                              const progressItem = getProgress(content.id);
-                              const isContentCompleted = progressItem?.status === 'completed';
-                              const isInProgress = progressItem?.status === 'in_progress';
-
-                              return (
-                                <motion.button
-                                  key={content.id}
-                                  initial={{ opacity: 0, x: -10 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: contentIndex * 0.05 }}
-                                  onClick={() => openContent(content)}
-                                  className="w-full flex items-center gap-4 p-4 pl-8 hover:bg-slate-800/30 transition-colors text-left group"
-                                >
-                                  {/* Status Indicator */}
-                                  <div className="flex-shrink-0">
-                                    {isContentCompleted ? (
-                                      <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
-                                        <CheckCircle size={16} className="text-white" />
-                                      </div>
-                                    ) : isInProgress ? (
-                                      <div className="w-8 h-8 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center">
-                                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                      </div>
-                                    ) : (
-                                      <div className="w-8 h-8 rounded-full border-2 border-slate-600 flex items-center justify-center group-hover:border-slate-500 transition-colors">
-                                        <Circle size={14} className="text-slate-600 group-hover:text-slate-500" />
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Content Icon */}
-                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                    content.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
-                                    content.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
-                                    content.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
-                                    content.content_type === 'assignment' ? 'bg-pink-500/10 text-pink-400' :
-                                    content.content_type === 'challenge' ? 'bg-red-500/10 text-red-400' :
-                                    content.content_type === 'runbook' ? 'bg-teal-500/10 text-teal-400' :
-                                    'bg-slate-700/50 text-slate-400'
-                                  }`}>
-                                    <ContentIcon size={18} />
-                                  </div>
-
-                                  {/* Content Info */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`font-medium ${isContentCompleted ? 'text-slate-400' : 'text-white'}`}>
-                                        {content.title}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                                      <span className="capitalize">{content.content_type.replace('_', ' ')}</span>
-                                      {content.estimated_minutes && (
-                                        <>
-                                          <span>•</span>
-                                          <span className="flex items-center gap-1">
-                                            <Clock size={10} />
-                                            {content.estimated_minutes} min
-                                          </span>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Action */}
-                                  <div className="flex-shrink-0">
-                                    {isContentCompleted ? (
-                                      <span className="flex items-center gap-1 text-sm text-slate-400 group-hover:text-white transition-colors">
-                                        <RotateCcw size={14} />
-                                        <span className="hidden sm:inline">Review</span>
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center gap-1 text-sm text-teal-400 group-hover:text-teal-300 transition-colors">
-                                        <Play size={14} />
-                                        <span className="hidden sm:inline">{isInProgress ? 'Continue' : 'Start'}</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                </motion.button>
-                              );
-                            })}
+                      <div className="border-t border-slate-800 p-4">
+                        {moduleTree.length > 0 ? (
+                          <div className="space-y-3">
+                            {moduleTree.map(module => renderModule(module, 0))}
                           </div>
                         ) : (
                           <div className="py-12 text-center">
                             <FolderOpen size={32} className="mx-auto text-slate-600 mb-3" />
-                            <p className="text-slate-500">No content available yet</p>
+                            <p className="text-slate-500">No chapters available yet</p>
                           </div>
                         )}
                       </div>
@@ -610,10 +764,10 @@ export default function StudentPortalPage() {
                     </p>
                     <button
                       onClick={() => {
-                        const data = activeContent.content_data as { title?: string; slides?: SlideData[] };
+                        const contentData = activeContent.content_data as { title?: string; slides?: SlideData[] };
                         setViewingPresentation({
-                          title: data.title || activeContent.title,
-                          slides: data.slides || []
+                          title: contentData.title || activeContent.title,
+                          slides: contentData.slides || []
                         });
                       }}
                       className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -679,3 +833,4 @@ export default function StudentPortalPage() {
     </div>
   );
 }
+
