@@ -200,14 +200,26 @@ export default function StudentLabPage() {
   const pollLabStatus = (podName: string) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
-    pollIntervalRef.current = setInterval(async () => {
+    const poll = async () => {
       try {
+        console.log('Polling lab status for:', podName);
         const response = await fetch(`/api/labs/${podName}`);
-        if (!response.ok) return;
+        
+        if (!response.ok) {
+          console.log('Poll response not ok:', response.status);
+          return;
+        }
 
         const data = await response.json();
+        console.log('Poll response data:', data);
         
-        if (data.ready || data.status === 'Running') {
+        // Check for running status (case insensitive)
+        const isRunning = data.ready || 
+          data.status?.toLowerCase() === 'running' ||
+          data.status?.toLowerCase() === 'succeeded';
+        
+        if (isRunning) {
+          console.log('Lab is ready!');
           setSession(prev => prev ? {
             ...prev,
             status: 'running',
@@ -220,7 +232,11 @@ export default function StudentLabPage() {
       } catch (err) {
         console.error('Error polling lab status:', err);
       }
-    }, 3000);
+    };
+
+    // Poll immediately, then every 2 seconds
+    poll();
+    pollIntervalRef.current = setInterval(poll, 2000);
   };
 
   // Start lab when data is loaded
