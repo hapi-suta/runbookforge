@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-// POST - Add content to a module (auto-creates module if section provided)
+// POST - Add content or folder to a module
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,6 +20,7 @@ export async function POST(
     const { 
       section_id, 
       module_id,
+      parent_id,        // For nested folders
       title, 
       content_type, 
       document_id, 
@@ -27,12 +28,12 @@ export async function POST(
       external_url,
       content_data,
       estimated_minutes,
-      is_required
+      is_required,
+      is_folder,        // Create a folder instead of content
+      description,
+      icon,
+      color
     } = body;
-
-    if (!title?.trim() || !content_type) {
-      return NextResponse.json({ error: 'Title and content type required' }, { status: 400 });
-    }
 
     const supabase = getSupabaseAdmin();
 
@@ -48,16 +49,57 @@ export async function POST(
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
     }
 
+    // If creating a folder (module)
+    if (is_folder) {
+      if (!title?.trim()) {
+        return NextResponse.json({ error: 'Title required for folder' }, { status: 400 });
+      }
+
+      // Get max sort order for modules
+      const sortQuery = parent_id 
+        ? supabase.from('training_modules').select('sort_order').eq('parent_id', parent_id)
+        : supabase.from('training_modules').select('sort_order').eq('section_id', section_id).is('parent_id', null);
+      
+      const { data: existingModules } = await sortQuery.order('sort_order', { ascending: false }).limit(1);
+      const nextOrder = (existingModules?.[0]?.sort_order ?? -1) + 1;
+
+      const { data: folder, error: folderError } = await supabase
+        .from('training_modules')
+        .insert({
+          batch_id: batchId,
+          section_id: section_id || null,
+          parent_id: parent_id || null,
+          title: title.trim(),
+          description: description || null,
+          is_folder: true,
+          icon: icon || null,
+          color: color || 'slate',
+          sort_order: nextOrder,
+          is_published: true
+        })
+        .select()
+        .single();
+
+      if (folderError) throw folderError;
+      return NextResponse.json(folder, { status: 201 });
+    }
+
+    // Creating content - need a module
+    if (!title?.trim() || !content_type) {
+      return NextResponse.json({ error: 'Title and content type required' }, { status: 400 });
+    }
+
     let targetModuleId = module_id;
 
     // If no module_id but section_id provided, create or find a default module
     if (!targetModuleId && section_id) {
-      // Look for existing module in section
+      // Look for existing module in section (non-folder)
       const { data: existingModule } = await supabase
         .from('training_modules')
         .select('id')
         .eq('batch_id', batchId)
         .eq('section_id', section_id)
+        .is('parent_id', null)
         .order('sort_order')
         .limit(1)
         .single();
@@ -79,7 +121,9 @@ export async function POST(
             batch_id: batchId,
             section_id: section_id,
             title: `${section?.title || 'Module'} Content`,
-            sort_order: 0
+            sort_order: 0,
+            is_folder: true,
+            is_published: true
           })
           .select()
           .single();
@@ -109,6 +153,7 @@ export async function POST(
       .insert({
         module_id: targetModuleId,
         title: title.trim(),
+        description: description || null,
         content_type,
         document_id: document_id || null,
         runbook_id: runbook_id || null,

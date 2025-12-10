@@ -1,16 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, Users, BookOpen, Settings, Trash2, ExternalLink, Copy, Check, Loader2,
-  ChevronDown, ChevronRight, FileText, Presentation, Link as LinkIcon, UserPlus, X, Save, Sparkles,
-  Video, HelpCircle, Target, ClipboardList, MessageSquare, Wrench, FolderOpen, Briefcase, ClipboardCheck, Send,
-  CheckCircle, Clock, Archive, Zap, GraduationCap, Mail, Globe, Hash, Edit3, Eye, Play
+  ChevronDown, FileText, Presentation, Link as LinkIcon, UserPlus, X, Save, Sparkles,
+  Video, HelpCircle, Target, ClipboardList, MessageSquare, Wrench, FolderOpen, Briefcase, 
+  ClipboardCheck, Send, CheckCircle, Clock, Archive, Zap, GraduationCap, Mail, Globe, Hash, 
+  Edit3, Eye, Play, Folder, Search
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
+import { Breadcrumbs, BreadcrumbItem } from '@/components/training/Breadcrumbs';
+import { FolderTree, FolderNode, ContentItem } from '@/components/training/FolderTree';
+import { PermissionsProvider, usePermissions, AIPendingBanner, AIGenerateButton } from '@/components/training/PermissionGate';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -37,33 +41,62 @@ const CONTENT_TYPES = [
 ];
 
 interface Section { id: string; section_key: string; title: string; description: string; icon: string; color: string; sort_order: number; is_enabled: boolean; }
-interface Content { id: string; title: string; description?: string; content_type: string; document_id?: string; runbook_id?: string; external_url?: string; content_data?: Record<string, unknown>; sort_order: number; estimated_minutes?: number; }
-interface Module { id: string; section_id?: string; title: string; description?: string; sort_order: number; is_published: boolean; training_content: Content[]; }
+interface Module { 
+  id: string; 
+  section_id?: string; 
+  parent_id?: string | null;
+  title: string; 
+  description?: string; 
+  sort_order: number; 
+  is_published: boolean; 
+  is_folder?: boolean;
+  icon?: string;
+  color?: string;
+  training_content: ContentItem[]; 
+}
 interface Enrollment { id: string; student_email: string; student_name?: string; status: string; enrolled_at: string; access_token: string; }
-interface Batch { id: string; title: string; description?: string; status: 'draft' | 'active' | 'archived'; access_code: string; settings?: { template_type?: string }; training_sections: Section[]; training_modules: Module[]; training_enrollments: Enrollment[]; }
+interface Batch { 
+  id: string; 
+  title: string; 
+  description?: string; 
+  status: 'draft' | 'active' | 'archived'; 
+  access_code: string; 
+  settings?: { template_type?: string }; 
+  training_sections: Section[]; 
+  training_modules: Module[]; 
+  training_enrollments: Enrollment[]; 
+}
 interface UserRunbook { id: string; title: string; }
 interface UserDocument { id: string; title: string; }
 
-export default function BatchDetailPage() {
+function BatchDetailPageContent() {
   const params = useParams();
   const id = params.id as string;
+  const { aiApproved, role } = usePermissions();
   
   const [batch, setBatch] = useState<Batch | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'students' | 'settings'>('content');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [copiedLink, setCopiedLink] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Modal states
-  const [showAddContent, setShowAddContent] = useState<Section | null>(null);
+  const [showAddContent, setShowAddContent] = useState<{ moduleId: string; sectionId: string } | null>(null);
+  const [showAddFolder, setShowAddFolder] = useState<{ parentId: string | null; sectionId: string } | null>(null);
   const [showEnrollStudents, setShowEnrollStudents] = useState(false);
-  const [showAIGenerate, setShowAIGenerate] = useState<{ section: Section; contentType: string } | null>(null);
+  const [showAIGenerate, setShowAIGenerate] = useState<{ moduleId: string; sectionId: string } | null>(null);
   
   // Form states
   const [contentTitle, setContentTitle] = useState('');
+  const [contentDesc, setContentDesc] = useState('');
   const [contentType, setContentType] = useState('presentation');
   const [contentUrl, setContentUrl] = useState('');
+  const [folderTitle, setFolderTitle] = useState('');
+  const [folderDesc, setFolderDesc] = useState('');
+  const [folderColor, setFolderColor] = useState('slate');
   const [studentEmails, setStudentEmails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -74,7 +107,8 @@ export default function BatchDetailPage() {
   const [generatedPreview, setGeneratedPreview] = useState<Record<string, unknown> | null>(null);
   
   // Edit Content states
-  const [editingContent, setEditingContent] = useState<Content | null>(null);
+  const [editingContent, setEditingContent] = useState<ContentItem | null>(null);
+  const [editingFolder, setEditingFolder] = useState<FolderNode | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editUrl, setEditUrl] = useState('');
@@ -88,11 +122,7 @@ export default function BatchDetailPage() {
   // Presentation viewer state
   const [viewingPresentation, setViewingPresentation] = useState<PresentationData | null>(null);
 
-  useEffect(() => { 
-    if (id) fetchBatch(); 
-  }, [id]);
-
-  const fetchBatch = async () => {
+  const fetchBatch = useCallback(async () => {
     try {
       const res = await fetch(`/api/training/batches/${id}`);
       const data = await res.json();
@@ -122,22 +152,36 @@ export default function BatchDetailPage() {
         training_enrollments: enrollments
       });
       
+      // Expand all sections and root folders by default
       if (sections.length > 0) {
         setExpandedSections(new Set(sections.map((s: Section) => s.id)));
       }
+      const rootFolderIds = modules.filter((m: Module) => !m.parent_id).map((m: Module) => m.id);
+      setExpandedFolders(new Set(rootFolderIds));
     } catch (e) {
       console.error('Fetch batch error:', e);
       setError('Failed to load batch');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => { 
+    if (id) fetchBatch(); 
+  }, [id, fetchBatch]);
 
   const toggleSection = (sectionId: string) => {
     const newSet = new Set(expandedSections);
     if (newSet.has(sectionId)) newSet.delete(sectionId);
     else newSet.add(sectionId);
     setExpandedSections(newSet);
+  };
+
+  const toggleFolder = (folderId: string) => {
+    const newSet = new Set(expandedFolders);
+    if (newSet.has(folderId)) newSet.delete(folderId);
+    else newSet.add(folderId);
+    setExpandedFolders(newSet);
   };
 
   const copyEnrollLink = () => {
@@ -176,16 +220,18 @@ export default function BatchDetailPage() {
     finally { setIsSubmitting(false); }
   };
 
-  const addContent = async (section: Section) => {
-    if (!contentTitle.trim()) return;
+  const addContent = async () => {
+    if (!contentTitle.trim() || !showAddContent) return;
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/training/batches/${id}/content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          section_id: section.id,
+          module_id: showAddContent.moduleId,
+          section_id: showAddContent.sectionId,
           title: contentTitle,
+          description: contentDesc || null,
           content_type: contentType,
           external_url: contentUrl || null
         })
@@ -193,8 +239,36 @@ export default function BatchDetailPage() {
       if (res.ok) {
         setShowAddContent(null);
         setContentTitle('');
+        setContentDesc('');
         setContentType('presentation');
         setContentUrl('');
+        fetchBatch();
+      }
+    } catch (e) { console.error(e); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const addFolder = async () => {
+    if (!folderTitle.trim() || !showAddFolder) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/training/batches/${id}/content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section_id: showAddFolder.sectionId,
+          parent_id: showAddFolder.parentId,
+          title: folderTitle,
+          description: folderDesc || null,
+          color: folderColor,
+          is_folder: true
+        })
+      });
+      if (res.ok) {
+        setShowAddFolder(null);
+        setFolderTitle('');
+        setFolderDesc('');
+        setFolderColor('slate');
         fetchBatch();
       }
     } catch (e) { console.error(e); }
@@ -209,7 +283,7 @@ export default function BatchDetailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: showAIGenerate.contentType,
+          type: contentType,
           topic: aiTopic,
           difficulty: aiDifficulty
         })
@@ -230,15 +304,17 @@ export default function BatchDetailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          section_id: showAIGenerate.section.id,
+          module_id: showAIGenerate.moduleId,
+          section_id: showAIGenerate.sectionId,
           title: (generatedPreview as { title?: string }).title || aiTopic,
-          content_type: showAIGenerate.contentType,
+          content_type: contentType,
           content_data: generatedPreview
         })
       });
       if (res.ok) {
         setShowAIGenerate(null);
         setAiTopic('');
+        setContentType('presentation');
         setGeneratedPreview(null);
         fetchBatch();
       }
@@ -254,8 +330,15 @@ export default function BatchDetailPage() {
     } catch (e) { console.error(e); }
   };
 
-  // Open edit modal
-  const openEditContent = async (content: Content) => {
+  const deleteFolder = async (folderId: string) => {
+    if (!confirm('Delete this folder and all its contents?')) return;
+    try {
+      const res = await fetch(`/api/training/modules/${folderId}`, { method: 'DELETE' });
+      if (res.ok) fetchBatch();
+    } catch (e) { console.error(e); }
+  };
+
+  const openEditContent = async (content: ContentItem) => {
     setEditingContent(content);
     setEditTitle(content.title);
     setEditDescription(content.description || '');
@@ -264,7 +347,6 @@ export default function BatchDetailPage() {
     setEditRunbookId(content.runbook_id || '');
     setEditContentData(content.content_data ? JSON.stringify(content.content_data, null, 2) : '');
     
-    // Fetch user's runbooks and documents for linking
     try {
       const [runbooksRes, docsRes] = await Promise.all([
         fetch('/api/runbooks'),
@@ -275,7 +357,13 @@ export default function BatchDetailPage() {
     } catch (e) { console.error(e); }
   };
 
-  // Save content edits
+  const openEditFolder = (folder: FolderNode) => {
+    setEditingFolder(folder);
+    setEditTitle(folder.title);
+    setEditDescription(folder.description || '');
+    setFolderColor(folder.color || 'slate');
+  };
+
   const saveContentEdit = async () => {
     if (!editingContent || !editTitle.trim()) return;
     setIsSavingEdit(true);
@@ -304,15 +392,34 @@ export default function BatchDetailPage() {
     finally { setIsSavingEdit(false); }
   };
 
-  // Open preview as student
+  const saveFolderEdit = async () => {
+    if (!editingFolder || !editTitle.trim()) return;
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/training/modules/${editingFolder.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          color: folderColor
+        })
+      });
+      if (res.ok) {
+        setEditingFolder(null);
+        fetchBatch();
+      }
+    } catch (e) { console.error(e); }
+    finally { setIsSavingEdit(false); }
+  };
+
   const openStudentPreview = () => {
     if (batch?.access_code) {
       window.open(`/training/${batch.access_code}?preview=true`, '_blank');
     }
   };
 
-  // View presentation content
-  const viewPresentation = (content: Content) => {
+  const viewPresentation = (content: ContentItem) => {
     if (content.content_data && content.content_type === 'presentation') {
       const data = content.content_data as { title?: string; slides?: SlideData[] };
       setViewingPresentation({
@@ -330,11 +437,39 @@ export default function BatchDetailPage() {
     } catch (e) { console.error(e); }
   };
 
-  const getContentForSection = (sectionId: string): Content[] => {
+  // Build folder tree from flat modules
+  const buildFolderTree = (sectionId: string): FolderNode[] => {
     if (!batch?.training_modules) return [];
+    
+    const sectionModules = batch.training_modules.filter(m => m.section_id === sectionId);
+    
+    const buildTree = (parentId: string | null): FolderNode[] => {
+      return sectionModules
+        .filter(m => m.parent_id === parentId)
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(module => ({
+          id: module.id,
+          title: module.title,
+          description: module.description,
+          is_folder: module.is_folder || false,
+          parent_id: module.parent_id,
+          section_id: module.section_id,
+          icon: module.icon,
+          color: module.color,
+          sort_order: module.sort_order,
+          children: buildTree(module.id),
+          content: module.training_content || []
+        }));
+    };
+    
+    return buildTree(null);
+  };
+
+  const getTotalContentCount = (sectionId: string): number => {
+    if (!batch?.training_modules) return 0;
     return batch.training_modules
       .filter(m => m.section_id === sectionId)
-      .flatMap(m => Array.isArray(m.training_content) ? m.training_content : []);
+      .reduce((acc, m) => acc + (m.training_content?.length || 0), 0);
   };
 
   const getSectionContentTypes = (sectionKey: string) => {
@@ -348,7 +483,10 @@ export default function BatchDetailPage() {
     return CONTENT_TYPES.filter(ct => mapping[sectionKey]?.includes(ct.id) || !mapping[sectionKey]);
   };
 
-  const getContentTypeInfo = (typeId: string) => CONTENT_TYPES.find(ct => ct.id === typeId) || CONTENT_TYPES[0];
+  // Breadcrumbs
+  const breadcrumbs: BreadcrumbItem[] = batch ? [
+    { label: batch.title, icon: GraduationCap }
+  ] : [];
 
   if (isLoading) {
     return (
@@ -375,19 +513,22 @@ export default function BatchDetailPage() {
     );
   }
 
-  const totalContent = batch.training_sections.reduce((acc, s) => acc + getContentForSection(s.id).length, 0);
+  const totalContent = batch.training_sections.reduce((acc, s) => acc + getTotalContentCount(s.id), 0);
+  const canAIGenerate = role !== 'student' && aiApproved;
+  const aiDisabledReason = role === 'student' ? undefined : (!aiApproved ? 'Awaiting AI access approval from admin' : undefined);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={breadcrumbs} />
+      
+      {/* AI Pending Banner */}
+      <AIPendingBanner />
+
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <Link href="/dashboard/training" className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors group">
-          <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> 
-          Back to Training Center
-        </Link>
-        
         {/* Hero Card */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 mb-8 border border-slate-700/50">
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-3xl p-8 mb-8 border border-slate-700/50 shadow-xl">
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
             <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
@@ -396,39 +537,39 @@ export default function BatchDetailPage() {
           <div className="relative z-10">
             <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                    <GraduationCap size={26} className="text-white" />
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
+                    <GraduationCap size={30} className="text-white" />
                   </div>
                   <div>
                     <h1 className="text-2xl lg:text-3xl font-bold text-white">{batch.title}</h1>
                     {batch.description && (
-                      <p className="text-slate-400 mt-1">{batch.description}</p>
+                      <p className="text-slate-400 mt-1 max-w-xl">{batch.description}</p>
                     )}
                   </div>
                 </div>
                 
                 {/* Stats */}
                 <div className="flex flex-wrap gap-4 mt-6">
-                  <div className="flex items-center gap-3 px-4 py-2.5 bg-white/5 rounded-xl border border-white/10">
-                    <BookOpen size={18} className="text-purple-400" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
+                    <BookOpen size={20} className="text-purple-400" />
                     <div>
-                      <div className="text-lg font-bold text-white">{totalContent}</div>
+                      <div className="text-xl font-bold text-white">{totalContent}</div>
                       <div className="text-xs text-slate-500">Content Items</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5 bg-white/5 rounded-xl border border-white/10">
-                    <Users size={18} className="text-blue-400" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
+                    <Users size={20} className="text-blue-400" />
                     <div>
-                      <div className="text-lg font-bold text-white">{batch.training_enrollments?.length || 0}</div>
+                      <div className="text-xl font-bold text-white">{batch.training_enrollments?.length || 0}</div>
                       <div className="text-xs text-slate-500">Students</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 px-4 py-2.5 bg-white/5 rounded-xl border border-white/10">
-                    <FolderOpen size={18} className="text-amber-400" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
+                    <Folder size={20} className="text-amber-400" />
                     <div>
-                      <div className="text-lg font-bold text-white">{batch.training_sections?.length || 0}</div>
-                      <div className="text-xs text-slate-500">Sections</div>
+                      <div className="text-xl font-bold text-white">{batch.training_modules?.length || 0}</div>
+                      <div className="text-xs text-slate-500">Modules</div>
                     </div>
                   </div>
                 </div>
@@ -538,165 +679,162 @@ export default function BatchDetailPage() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
         >
-          {(!batch?.training_sections || batch.training_sections.length === 0) ? (
-            <div className="relative overflow-hidden text-center py-20 bg-slate-800/30 rounded-3xl border border-slate-700/50">
-              <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-0 right-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
-              </div>
-              <div className="relative z-10">
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input
+              type="text"
+              placeholder="Search content..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none"
+            />
+          </div>
+
+          {/* Sections */}
+          <div className="space-y-6">
+            {(!batch?.training_sections || batch.training_sections.length === 0) ? (
+              <div className="relative overflow-hidden text-center py-20 bg-slate-800/30 rounded-3xl border border-slate-700/50">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border border-slate-600">
                   <FolderOpen size={36} className="text-slate-500" />
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-2">No Sections Found</h3>
                 <p className="text-slate-400">This batch was created without a template.</p>
               </div>
-            </div>
-          ) : (
-            batch.training_sections.sort((a, b) => a.sort_order - b.sort_order).map((section, idx) => {
-              const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
-              const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
-              const sectionContent = getContentForSection(section.id);
-              const isExpanded = expandedSections.has(section.id);
+            ) : (
+              batch.training_sections.sort((a, b) => a.sort_order - b.sort_order).map((section, idx) => {
+                const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
+                const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
+                const folderTree = buildFolderTree(section.id);
+                const contentCount = getTotalContentCount(section.id);
+                const isExpanded = expandedSections.has(section.id);
 
-              return (
-                <motion.div 
-                  key={section.id} 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className={`bg-slate-800/30 border rounded-2xl overflow-hidden transition-all ${colors.border} ${isExpanded ? 'shadow-lg' : ''}`}
-                >
-                  <button 
-                    onClick={() => toggleSection(section.id)} 
-                    className="w-full flex items-center justify-between p-5 hover:bg-slate-800/50 transition-colors"
+                return (
+                  <motion.div 
+                    key={section.id} 
+                    initial={{ opacity: 0, y: 20 }} 
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className={`bg-slate-800/40 border rounded-2xl overflow-hidden transition-all shadow-lg ${colors.border} ${isExpanded ? 'shadow-xl' : ''}`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg ${colors.shadow}`}>
-                        <Icon className="text-white" size={22} />
-                      </div>
-                      <div className="text-left">
-                        <h3 className="font-bold text-white text-lg">{section.title}</h3>
-                        <p className="text-sm text-slate-500">{section.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`px-3 py-1 rounded-lg text-sm font-medium ${colors.bg} ${colors.text}`}>
-                        {sectionContent.length} items
-                      </span>
-                      <motion.div
-                        animate={{ rotate: isExpanded ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <ChevronDown className="text-slate-400" size={20} />
-                      </motion.div>
-                    </div>
-                  </button>
-
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-5 pb-5">
-                          {sectionContent.length > 0 ? (
-                            <div className="space-y-2 mb-4">
-                              {sectionContent.map((content) => {
-                                const typeInfo = getContentTypeInfo(content.content_type);
-                                const hasPresentation = content.content_type === 'presentation' && content.content_data;
-                                return (
-                                  <motion.div 
-                                    key={content.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700/50 group hover:border-slate-600 transition-all"
-                                  >
-                                    <div className="flex items-center gap-4">
-                                      <div className={`w-10 h-10 rounded-lg ${typeInfo.bg} flex items-center justify-center`}>
-                                        <typeInfo.icon size={18} className={typeInfo.color} />
-                                      </div>
-                                      <div>
-                                        <span className="text-white font-medium">{content.title}</span>
-                                        <span className="text-xs text-slate-500 ml-2 capitalize">
-                                          {content.content_type.replace('_', ' ')}
-                                        </span>
-                                        {content.content_data && (
-                                          <span className="text-xs text-purple-400 ml-2">• AI Generated</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      {hasPresentation && (
-                                        <button 
-                                          onClick={() => viewPresentation(content)} 
-                                          className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg"
-                                          title="View Presentation"
-                                        >
-                                          <Play size={16} />
-                                        </button>
-                                      )}
-                                      {content.external_url && (
-                                        <a href={content.external_url} target="_blank" rel="noopener" className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="Open Link">
-                                          <ExternalLink size={16} />
-                                        </a>
-                                      )}
-                                      <button 
-                                        onClick={() => openEditContent(content)} 
-                                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"
-                                        title="Edit Content"
-                                      >
-                                        <Edit3 size={16} />
-                                      </button>
-                                      <button 
-                                        onClick={() => deleteContent(content.id)} 
-                                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
-                                        title="Delete"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    </div>
-                                  </motion.div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-slate-500 bg-slate-900/30 rounded-xl border border-dashed border-slate-700 mb-4">
-                              <FolderOpen size={28} className="mx-auto mb-2 opacity-50" />
-                              <p>No content in this section yet</p>
-                            </div>
-                          )}
-
-                          <div className="flex gap-3">
-                            <motion.button 
-                              onClick={() => setShowAddContent(section)} 
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              className="flex items-center gap-2 px-4 py-2.5 bg-slate-700/50 text-slate-300 rounded-xl hover:bg-slate-700 hover:text-white text-sm font-medium transition-all"
-                            >
-                              <Plus size={16} /> Add Content
-                            </motion.button>
-                            <motion.button 
-                              onClick={() => setShowAIGenerate({ section, contentType: getSectionContentTypes(section.section_key)[0]?.id || 'quiz' })} 
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-400 rounded-xl hover:from-purple-500/30 hover:to-pink-500/30 text-sm font-medium border border-purple-500/30 transition-all"
-                            >
-                              <Sparkles size={16} /> AI Generate
-                            </motion.button>
-                          </div>
+                    {/* Section Header */}
+                    <button 
+                      onClick={() => toggleSection(section.id)} 
+                      className="w-full flex items-center justify-between p-6 hover:bg-slate-800/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg ${colors.shadow}`}>
+                          <Icon className="text-white" size={24} />
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              );
-            })
-          )}
+                        <div className="text-left">
+                          <h3 className="font-bold text-white text-xl">{section.title}</h3>
+                          <p className="text-sm text-slate-500">{section.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`px-4 py-1.5 rounded-xl text-sm font-medium ${colors.bg} ${colors.text}`}>
+                          {contentCount} item{contentCount !== 1 ? 's' : ''}
+                        </span>
+                        <motion.div
+                          animate={{ rotate: isExpanded ? 180 : 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <ChevronDown className="text-slate-400" size={22} />
+                        </motion.div>
+                      </div>
+                    </button>
+
+                    {/* Section Content */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-6 pb-6 pt-2">
+                            {/* Folder Tree */}
+                            {folderTree.length > 0 ? (
+                              <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-700/30">
+                                <FolderTree
+                                  folders={folderTree}
+                                  sectionId={section.id}
+                                  canAIGenerate={canAIGenerate}
+                                  aiDisabledReason={aiDisabledReason}
+                                  onAddFolder={(parentId, sectionId) => setShowAddFolder({ parentId, sectionId })}
+                                  onAddContent={(moduleId, sectionId) => {
+                                    setShowAddContent({ moduleId, sectionId });
+                                    setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
+                                  }}
+                                  onAIGenerate={(moduleId, sectionId) => {
+                                    setShowAIGenerate({ moduleId, sectionId });
+                                    setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
+                                  }}
+                                  onEditContent={openEditContent}
+                                  onDeleteContent={deleteContent}
+                                  onDeleteFolder={deleteFolder}
+                                  onEditFolder={openEditFolder}
+                                  onViewPresentation={viewPresentation}
+                                  expandedFolders={expandedFolders}
+                                  onToggleFolder={toggleFolder}
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-center py-12 bg-slate-900/30 rounded-xl border border-dashed border-slate-700">
+                                <FolderOpen size={40} className="mx-auto mb-3 text-slate-600" />
+                                <p className="text-slate-500 mb-4">No modules in this section yet</p>
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap gap-3 mt-4">
+                              <motion.button 
+                                onClick={() => setShowAddFolder({ parentId: null, sectionId: section.id })} 
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 text-amber-400 rounded-xl hover:bg-amber-500/20 text-sm font-medium border border-amber-500/30 transition-all"
+                              >
+                                <Folder size={16} /> Add Module
+                              </motion.button>
+                              <motion.button 
+                                onClick={() => {
+                                  // Find first module in section or create one
+                                  const firstModule = batch.training_modules.find(m => m.section_id === section.id);
+                                  if (firstModule) {
+                                    setShowAddContent({ moduleId: firstModule.id, sectionId: section.id });
+                                  } else {
+                                    setShowAddFolder({ parentId: null, sectionId: section.id });
+                                  }
+                                  setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
+                                }} 
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-slate-700/50 text-slate-300 rounded-xl hover:bg-slate-700 hover:text-white text-sm font-medium transition-all"
+                              >
+                                <Plus size={16} /> Add Content
+                              </motion.button>
+                              <AIGenerateButton 
+                                onClick={() => {
+                                  const firstModule = batch.training_modules.find(m => m.section_id === section.id);
+                                  if (firstModule) {
+                                    setShowAIGenerate({ moduleId: firstModule.id, sectionId: section.id });
+                                    setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })
+            )}
+          </div>
         </motion.div>
       )}
 
@@ -720,24 +858,19 @@ export default function BatchDetailPage() {
 
           {(!batch?.training_enrollments || batch.training_enrollments.length === 0) ? (
             <div className="relative overflow-hidden text-center py-20 bg-slate-800/30 rounded-3xl border border-slate-700/50">
-              <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center border border-blue-500/20">
+                <Users size={36} className="text-blue-400" />
               </div>
-              <div className="relative z-10">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center border border-blue-500/20">
-                  <Users size={36} className="text-blue-400" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">No Students Yet</h3>
-                <p className="text-slate-400 mb-6">Start enrolling students to give them access to your content.</p>
-                <motion.button 
-                  onClick={() => setShowEnrollStudents(true)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500 rounded-xl text-white font-medium"
-                >
-                  <UserPlus size={18} /> Enroll Your First Student
-                </motion.button>
-              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">No Students Yet</h3>
+              <p className="text-slate-400 mb-6">Start enrolling students to give them access to your content.</p>
+              <motion.button 
+                onClick={() => setShowEnrollStudents(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500 rounded-xl text-white font-medium"
+              >
+                <UserPlus size={18} /> Enroll Your First Student
+              </motion.button>
             </div>
           ) : (
             <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden">
@@ -858,6 +991,7 @@ export default function BatchDetailPage() {
         </motion.div>
       )}
 
+      {/* Modals */}
       {/* Add Content Modal */}
       <AnimatePresence>
         {showAddContent && (
@@ -868,23 +1002,31 @@ export default function BatchDetailPage() {
                 <select 
                   value={contentType} 
                   onChange={(e) => setContentType(e.target.value)} 
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
                 >
-                  {getSectionContentTypes(showAddContent.section_key).map(ct => (
+                  {CONTENT_TYPES.map(ct => (
                     <option key={ct.id} value={ct.id}>{ct.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Title <span className="text-purple-400">*</span>
-                </label>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Title *</label>
                 <input 
                   type="text" 
                   value={contentTitle} 
                   onChange={(e) => setContentTitle(e.target.value)} 
                   placeholder="Content title..." 
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
+                <textarea 
+                  value={contentDesc} 
+                  onChange={(e) => setContentDesc(e.target.value)} 
+                  placeholder="Brief description..." 
+                  rows={2}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none" 
                 />
               </div>
               {(contentType === 'external_link' || contentType === 'recording') && (
@@ -895,26 +1037,82 @@ export default function BatchDetailPage() {
                     value={contentUrl} 
                     onChange={(e) => setContentUrl(e.target.value)} 
                     placeholder="https://..." 
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500" 
                   />
                 </div>
               )}
             </div>
             <div className="flex gap-3 mt-8">
-              <button 
-                onClick={() => setShowAddContent(null)} 
-                className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
-              >
-                Cancel
-              </button>
+              <button onClick={() => setShowAddContent(null)} className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700">Cancel</button>
               <motion.button 
-                onClick={() => addContent(showAddContent)} 
+                onClick={addContent} 
                 disabled={!contentTitle.trim() || isSubmitting}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 className="flex-1 px-4 py-3 bg-purple-500 text-white rounded-xl disabled:opacity-50 font-medium flex items-center justify-center gap-2"
               >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : 'Add Content'}
+              </motion.button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Add Folder Modal */}
+      <AnimatePresence>
+        {showAddFolder && (
+          <Modal onClose={() => setShowAddFolder(null)} title="Add Module/Folder">
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Module Name *</label>
+                <input 
+                  type="text" 
+                  value={folderTitle} 
+                  onChange={(e) => setFolderTitle(e.target.value)} 
+                  placeholder="e.g., Module 01 - Introduction" 
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
+                <textarea 
+                  value={folderDesc} 
+                  onChange={(e) => setFolderDesc(e.target.value)} 
+                  placeholder="What this module covers..." 
+                  rows={2}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Color</label>
+                <div className="flex gap-2">
+                  {['slate', 'amber', 'teal', 'purple', 'blue', 'pink'].map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setFolderColor(color)}
+                      className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
+                        color === 'slate' ? 'from-slate-500 to-slate-600' :
+                        color === 'amber' ? 'from-amber-500 to-orange-500' :
+                        color === 'teal' ? 'from-teal-500 to-emerald-500' :
+                        color === 'purple' ? 'from-purple-500 to-violet-500' :
+                        color === 'blue' ? 'from-blue-500 to-indigo-500' :
+                        'from-pink-500 to-rose-500'
+                      } ${folderColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setShowAddFolder(null)} className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700">Cancel</button>
+              <motion.button 
+                onClick={addFolder} 
+                disabled={!folderTitle.trim() || isSubmitting}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <><Folder size={18} /> Create Module</>}
               </motion.button>
             </div>
           </Modal>
@@ -932,17 +1130,12 @@ export default function BatchDetailPage() {
                 onChange={(e) => setStudentEmails(e.target.value)} 
                 placeholder="Enter emails separated by commas or new lines..." 
                 rows={5} 
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none" 
               />
               <p className="text-xs text-slate-500 mt-2">Students will receive a unique access link via email.</p>
             </div>
             <div className="flex gap-3 mt-8">
-              <button 
-                onClick={() => { setShowEnrollStudents(false); setStudentEmails(''); }} 
-                className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
-              >
-                Cancel
-              </button>
+              <button onClick={() => { setShowEnrollStudents(false); setStudentEmails(''); }} className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700">Cancel</button>
               <motion.button 
                 onClick={enrollStudents} 
                 disabled={!studentEmails.trim() || isSubmitting}
@@ -966,25 +1159,23 @@ export default function BatchDetailPage() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-300 mb-2">Content Type</label>
                   <select 
-                    value={showAIGenerate.contentType} 
-                    onChange={(e) => setShowAIGenerate({ ...showAIGenerate, contentType: e.target.value })} 
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                    value={contentType} 
+                    onChange={(e) => setContentType(e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
                   >
-                    {getSectionContentTypes(showAIGenerate.section.section_key).map(ct => (
+                    {CONTENT_TYPES.map(ct => (
                       <option key={ct.id} value={ct.id}>{ct.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">
-                    Topic <span className="text-purple-400">*</span>
-                  </label>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Topic *</label>
                   <input 
                     type="text" 
                     value={aiTopic} 
                     onChange={(e) => setAiTopic(e.target.value)} 
                     placeholder="e.g., PostgreSQL Backup and Recovery" 
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500" 
                   />
                 </div>
                 <div>
@@ -992,7 +1183,7 @@ export default function BatchDetailPage() {
                   <select 
                     value={aiDifficulty} 
                     onChange={(e) => setAiDifficulty(e.target.value as typeof aiDifficulty)} 
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
                   >
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
@@ -1030,12 +1221,7 @@ export default function BatchDetailPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-8">
-              <button 
-                onClick={() => { setShowAIGenerate(null); setAiTopic(''); setGeneratedPreview(null); }} 
-                className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
-              >
-                Cancel
-              </button>
+              <button onClick={() => { setShowAIGenerate(null); setAiTopic(''); setGeneratedPreview(null); }} className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700">Cancel</button>
               <motion.button 
                 onClick={saveGeneratedContent} 
                 disabled={!generatedPreview || isSubmitting}
@@ -1056,29 +1242,23 @@ export default function BatchDetailPage() {
           <Modal onClose={() => setEditingContent(null)} title="Edit Content" wide>
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Title <span className="text-purple-400">*</span>
-                </label>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Title *</label>
                 <input 
                   type="text" 
                   value={editTitle} 
                   onChange={(e) => setEditTitle(e.target.value)} 
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white" 
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
                 <textarea 
                   value={editDescription} 
                   onChange={(e) => setEditDescription(e.target.value)} 
-                  placeholder="Brief description..."
                   rows={2}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white resize-none" 
                 />
               </div>
-
-              {/* External URL field for links/recordings */}
               {(editingContent.content_type === 'external_link' || editingContent.content_type === 'recording') && (
                 <div>
                   <label className="block text-sm font-semibold text-slate-300 mb-2">URL</label>
@@ -1086,20 +1266,17 @@ export default function BatchDetailPage() {
                     type="url" 
                     value={editUrl} 
                     onChange={(e) => setEditUrl(e.target.value)} 
-                    placeholder="https://..."
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white" 
                   />
                 </div>
               )}
-
-              {/* Link to Runbook */}
               {editingContent.content_type === 'runbook' && (
                 <div>
                   <label className="block text-sm font-semibold text-slate-300 mb-2">Link to Runbook</label>
                   <select 
                     value={editRunbookId} 
                     onChange={(e) => setEditRunbookId(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
                   >
                     <option value="">Select a runbook...</option>
                     {userRunbooks.map(rb => (
@@ -1108,15 +1285,13 @@ export default function BatchDetailPage() {
                   </select>
                 </div>
               )}
-
-              {/* Link to Document/Presentation */}
-              {(editingContent.content_type === 'presentation' && !editingContent.content_data) && (
+              {editingContent.content_type === 'presentation' && !editingContent.content_data && (
                 <div>
                   <label className="block text-sm font-semibold text-slate-300 mb-2">Link to Document</label>
                   <select 
                     value={editDocumentId} 
                     onChange={(e) => setEditDocumentId(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
                   >
                     <option value="">Select a document...</option>
                     {userDocuments.map(doc => (
@@ -1125,37 +1300,26 @@ export default function BatchDetailPage() {
                   </select>
                 </div>
               )}
-
-              {/* AI Generated Content JSON Editor */}
               {editingContent.content_data && (
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">
-                    AI Generated Content (JSON)
-                  </label>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">AI Generated Content (JSON)</label>
                   <textarea 
                     value={editContentData} 
                     onChange={(e) => setEditContentData(e.target.value)} 
                     rows={10}
-                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-300 font-mono text-sm resize-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 outline-none transition-all" 
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-300 font-mono text-sm resize-none" 
                   />
-                  <p className="text-xs text-slate-500 mt-2">Edit the JSON structure carefully to modify the generated content.</p>
                 </div>
               )}
             </div>
-
             <div className="flex gap-3 mt-8">
-              <button 
-                onClick={() => setEditingContent(null)} 
-                className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
-              >
-                Cancel
-              </button>
+              <button onClick={() => setEditingContent(null)} className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700">Cancel</button>
               <motion.button 
                 onClick={saveContentEdit} 
                 disabled={!editTitle.trim() || isSavingEdit}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl disabled:opacity-50 font-medium flex items-center justify-center gap-2 shadow-lg shadow-teal-500/25"
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl disabled:opacity-50 font-medium flex items-center justify-center gap-2"
               >
                 {isSavingEdit ? <Loader2 size={18} className="animate-spin" /> : <><Save size={18} /> Save Changes</>}
               </motion.button>
@@ -1164,7 +1328,66 @@ export default function BatchDetailPage() {
         )}
       </AnimatePresence>
 
-      {/* Presentation Viewer Modal */}
+      {/* Edit Folder Modal */}
+      <AnimatePresence>
+        {editingFolder && (
+          <Modal onClose={() => setEditingFolder(null)} title="Edit Module">
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Module Name *</label>
+                <input 
+                  type="text" 
+                  value={editTitle} 
+                  onChange={(e) => setEditTitle(e.target.value)} 
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
+                <textarea 
+                  value={editDescription} 
+                  onChange={(e) => setEditDescription(e.target.value)} 
+                  rows={2}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white resize-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Color</label>
+                <div className="flex gap-2">
+                  {['slate', 'amber', 'teal', 'purple', 'blue', 'pink'].map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setFolderColor(color)}
+                      className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
+                        color === 'slate' ? 'from-slate-500 to-slate-600' :
+                        color === 'amber' ? 'from-amber-500 to-orange-500' :
+                        color === 'teal' ? 'from-teal-500 to-emerald-500' :
+                        color === 'purple' ? 'from-purple-500 to-violet-500' :
+                        color === 'blue' ? 'from-blue-500 to-indigo-500' :
+                        'from-pink-500 to-rose-500'
+                      } ${folderColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setEditingFolder(null)} className="flex-1 px-4 py-3 bg-slate-700/50 text-white rounded-xl hover:bg-slate-700">Cancel</button>
+              <motion.button 
+                onClick={saveFolderEdit} 
+                disabled={!editTitle.trim() || isSavingEdit}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+              >
+                {isSavingEdit ? <Loader2 size={18} className="animate-spin" /> : <><Save size={18} /> Save Changes</>}
+              </motion.button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Presentation Viewer */}
       <AnimatePresence>
         {viewingPresentation && (
           <motion.div 
@@ -1205,15 +1428,20 @@ function Modal({ children, onClose, title, wide = false }: { children: React.Rea
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{title}</h2>
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all"
-          >
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center">
             <X size={20} />
           </button>
         </div>
         {children}
       </motion.div>
     </motion.div>
+  );
+}
+
+export default function BatchDetailPage() {
+  return (
+    <PermissionsProvider>
+      <BatchDetailPageContent />
+    </PermissionsProvider>
   );
 }
