@@ -89,7 +89,8 @@ export async function POST(
       return NextResponse.json({ error: 'Title and content type required' }, { status: 400 });
     }
 
-    let targetModuleId = module_id;
+    // Handle empty string module_id as undefined
+    let targetModuleId = module_id && module_id.trim() ? module_id : undefined;
 
     // If no module_id but section_id provided, create or find a default module
     if (!targetModuleId && section_id) {
@@ -166,10 +167,14 @@ export async function POST(
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error creating content:', error);
+      throw error;
+    }
     return NextResponse.json(content, { status: 201 });
   } catch (error) {
     console.error('Error creating content:', error);
-    return NextResponse.json({ error: 'Failed to create content' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Failed to create content', details: message }, { status: 500 });
   }
 }

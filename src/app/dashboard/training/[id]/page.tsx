@@ -339,7 +339,7 @@ function BatchDetailPageContent() {
       } else {
         const error = await res.json();
         console.error('Save failed:', error);
-        alert('Failed to save: ' + (error.error || 'Unknown error'));
+        alert('Failed to save: ' + (error.error || 'Unknown error') + (error.details ? '\n\nDetails: ' + error.details : ''));
       }
     } catch (e) { 
       console.error('Save error:', e); 
