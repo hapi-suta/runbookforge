@@ -484,10 +484,10 @@ function BatchDetailPageContent() {
 
   const getSectionContentTypes = (sectionKey: string) => {
     const mapping: Record<string, string[]> = {
-      learn: ['presentation', 'tutorial', 'external_link', 'recording'],
-      practice: ['runbook', 'tutorial', 'challenge'],
+      learn: ['presentation', 'tutorial', 'external_link', 'recording', 'lab'],
+      practice: ['lab', 'runbook', 'tutorial', 'challenge'],
       assess: ['quiz', 'assignment', 'challenge'],
-      resources: ['runbook', 'external_link', 'recording'],
+      resources: ['runbook', 'external_link', 'recording', 'lab'],
       career: ['interview_prep', 'quiz', 'external_link'],
     };
     return CONTENT_TYPES.filter(ct => mapping[sectionKey]?.includes(ct.id) || !mapping[sectionKey]);
