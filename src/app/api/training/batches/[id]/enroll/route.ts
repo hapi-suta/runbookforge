@@ -97,6 +97,8 @@ export async function POST(
         // Send enrollment email
         if (sendNotification && enrollment) {
           const accessUrl = `${baseUrl}/training/${batch.access_code}?token=${enrollment.access_token}`;
+          console.log(`[Enrollment] Sending email to ${cleanEmail}, access URL: ${accessUrl}`);
+          
           const emailResult = await sendEnrollmentEmail({
             studentEmail: cleanEmail,
             batchTitle: batch.title,
@@ -106,9 +108,10 @@ export async function POST(
 
           if (emailResult.success) {
             results.emailsSent++;
+            console.log(`[Enrollment] Email sent successfully to ${cleanEmail}`);
           } else {
             results.emailsFailed++;
-            console.warn(`Failed to send email to ${cleanEmail}:`, emailResult.error);
+            console.error(`[Enrollment] Failed to send email to ${cleanEmail}:`, emailResult.error, emailResult);
           }
         }
       } catch (e) {

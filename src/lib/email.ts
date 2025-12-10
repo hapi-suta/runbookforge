@@ -17,13 +17,22 @@ interface EnrollmentEmailData {
 }
 
 // Send email using Resend API
-export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; error?: string }> {
+export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; error?: string; details?: unknown }> {
   const apiKey = process.env.RESEND_API_KEY;
   
   if (!apiKey) {
     console.warn('RESEND_API_KEY not configured - email not sent');
     return { success: false, error: 'Email service not configured' };
   }
+
+  const fromEmail = options.from || process.env.EMAIL_FROM || 'RunbookForge <onboarding@resend.dev>';
+  const toEmails = Array.isArray(options.to) ? options.to : [options.to];
+  
+  console.log('[Email] Attempting to send email:', {
+    from: fromEmail,
+    to: toEmails,
+    subject: options.subject,
+  });
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -33,23 +42,33 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: options.from || process.env.EMAIL_FROM || 'RunbookForge <onboarding@resend.dev>',
-        to: Array.isArray(options.to) ? options.to : [options.to],
+        from: fromEmail,
+        to: toEmails,
         subject: options.subject,
         html: options.html,
       }),
     });
 
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      const error = await response.json();
-      console.error('Email send failed:', error);
-      return { success: false, error: error.message || 'Failed to send email' };
+      console.error('[Email] Send failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: responseData
+      });
+      return { 
+        success: false, 
+        error: responseData.message || responseData.error?.message || 'Failed to send email',
+        details: responseData 
+      };
     }
 
-    return { success: true };
+    console.log('[Email] Send successful:', responseData);
+    return { success: true, details: responseData };
   } catch (error) {
-    console.error('Email send error:', error);
-    return { success: false, error: 'Failed to send email' };
+    console.error('[Email] Send exception:', error);
+    return { success: false, error: 'Failed to send email', details: error };
   }
 }
 
@@ -150,7 +169,8 @@ export function getEnrollmentEmailHtml(data: EnrollmentEmailData): string {
 }
 
 // Send enrollment notification email
-export async function sendEnrollmentEmail(data: EnrollmentEmailData): Promise<{ success: boolean; error?: string }> {
+export async function sendEnrollmentEmail(data: EnrollmentEmailData): Promise<{ success: boolean; error?: string; details?: unknown }> {
+  console.log('[EnrollmentEmail] Preparing to send enrollment email to:', data.studentEmail);
   return sendEmail({
     to: data.studentEmail,
     subject: `You're enrolled in: ${data.batchTitle}`,
