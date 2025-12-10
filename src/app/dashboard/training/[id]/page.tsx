@@ -18,6 +18,7 @@ import { PermissionsProvider, usePermissions, AIPendingBanner, AIGenerateButton 
 import ContentViewerPanel from '@/components/training/ContentViewerPanel';
 import AIToolsPanel from '@/components/ai/AIToolsPanel';
 import TrainerGuard from '@/components/auth/TrainerGuard';
+import RichTextEditorCompact from '@/components/RichTextEditorCompact';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
@@ -1057,12 +1058,11 @@ function BatchDetailPageContent() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
-                <textarea 
-                  value={contentDesc} 
-                  onChange={(e) => setContentDesc(e.target.value)} 
-                  placeholder="Brief description..." 
-                  rows={2}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none" 
+                <RichTextEditorCompact
+                  content={contentDesc}
+                  onChange={setContentDesc}
+                  placeholder="Brief description..."
+                  minHeight="60px"
                 />
               </div>
               {(contentType === 'external_link' || contentType === 'recording') && (
@@ -1111,12 +1111,11 @@ function BatchDetailPageContent() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
-                <textarea 
-                  value={folderDesc} 
-                  onChange={(e) => setFolderDesc(e.target.value)} 
-                  placeholder="What this module covers..." 
-                  rows={2}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 resize-none" 
+                <RichTextEditorCompact
+                  content={folderDesc}
+                  onChange={setFolderDesc}
+                  placeholder="What this module covers..."
+                  minHeight="60px"
                 />
               </div>
               <div>
@@ -1288,11 +1287,11 @@ function BatchDetailPageContent() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
-                <textarea 
-                  value={editDescription} 
-                  onChange={(e) => setEditDescription(e.target.value)} 
-                  rows={2}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white resize-none" 
+                <RichTextEditorCompact
+                  content={editDescription}
+                  onChange={setEditDescription}
+                  placeholder="Add description..."
+                  minHeight="60px"
                 />
               </div>
               {(editingContent.content_type === 'external_link' || editingContent.content_type === 'recording') && (
@@ -1380,11 +1379,11 @@ function BatchDetailPageContent() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
-                <textarea 
-                  value={editDescription} 
-                  onChange={(e) => setEditDescription(e.target.value)} 
-                  rows={2}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white resize-none" 
+                <RichTextEditorCompact
+                  content={editDescription}
+                  onChange={setEditDescription}
+                  placeholder="Module description..."
+                  minHeight="60px"
                 />
               </div>
               <div>
