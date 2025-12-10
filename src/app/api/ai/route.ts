@@ -552,6 +552,116 @@ Return the certificate text in a formal, professional style suitable for printin
         break;
       }
 
+      case 'high_class_presentation': {
+        const { topic, audience = 'intermediate', slideCount = 10, includeCode = true } = params;
+        systemPrompt = `You are an expert at creating high-class technical presentations and runbooks. 
+${POSTGRESQL_SYSTEM_PROMPT}
+
+Create visually stunning presentations with:
+- Professional dark theme aesthetics
+- Server architecture diagrams using comparison grids
+- Code blocks with syntax highlighting
+- Step-by-step instructions
+- Alert boxes for important notes
+- Tables for inventories and reference data
+- Traffic flow diagrams
+- Port and directory reference grids
+
+Return valid JSON only.`;
+        
+        userPrompt = `Create a professional presentation about "${topic}" for ${audience} level audience.
+
+Include approximately ${slideCount} slides with a mix of:
+- Overview/architecture slide with comparison grid
+- Server inventory table (if applicable)
+- Directory structure and port reference grids
+- Step-by-step setup instructions with code blocks
+- Configuration file examples (use isConfig: true)
+- Warning/info alerts for important notes
+- Day-2 operations commands
+
+Return JSON in this exact format:
+{
+  "title": "Presentation Title",
+  "subtitle": "Subtitle",
+  "badges": [
+    { "label": "Technology", "color": "green|violet|sky|amber|orange|teal|emerald" }
+  ],
+  "slides": [
+    {
+      "title": "Slide Title",
+      "subtitle": "Optional",
+      "comparison": [
+        { "title": "Option A", "items": ["Point 1"], "color": "emerald" },
+        { "title": "Option B", "items": ["Point 1"], "color": "orange" }
+      ],
+      "code": {
+        "content": "# bash commands",
+        "language": "bash|yaml|sql|python",
+        "runOn": "ALL Nodes",
+        "isConfig": false
+      },
+      "alert": { "type": "info|warning|danger|success", "content": "Message" },
+      "serverBadges": [{ "hostname": "server-01", "ip": "10.0.1.10", "role": "primary|standby|dr|etcd|app" }],
+      "table": { "headers": ["Col1"], "rows": [["value"]] },
+      "directories": [{ "title": "DATA", "path": "/path", "color": "emerald" }],
+      "ports": [{ "label": "Service", "port": "5432", "color": "sky" }],
+      "trafficFlow": [{ "label": "Client", "color": "teal" }, { "label": "Server", "color": "emerald" }],
+      "steps": [{ "title": "Step", "description": "Desc", "code": "optional" }],
+      "speakerNotes": "Notes for presenter"
+    }
+  ]
+}
+
+${includeCode ? 'Include detailed code examples and configuration files.' : 'Focus on concepts rather than code.'}
+
+Make it visually impressive and technically accurate.`;
+        maxTokens = 12000;
+        break;
+      }
+
+      case 'runbook_presentation': {
+        const { title, steps, servers, topic } = params;
+        systemPrompt = `You are creating an operational runbook in presentation format. 
+${POSTGRESQL_SYSTEM_PROMPT}
+
+Create clear, step-by-step operational documentation with:
+- Server badges showing which server to run commands on
+- Code blocks with actual commands
+- Warning alerts for dangerous operations
+- Success alerts for verification steps
+- Tables for reference data
+
+Return valid JSON only.`;
+
+        userPrompt = `Create a runbook presentation for: "${title}"
+Topic: ${topic || 'Database Operations'}
+${servers ? `Servers involved: ${JSON.stringify(servers)}` : ''}
+${steps ? `Key steps to cover: ${JSON.stringify(steps)}` : ''}
+
+Return JSON format:
+{
+  "title": "${title}",
+  "subtitle": "Operational Runbook",
+  "badges": [{ "label": "Runbook", "color": "amber" }],
+  "slides": [
+    {
+      "title": "Step Title",
+      "serverBadges": [{ "hostname": "server", "role": "primary" }],
+      "alert": { "type": "warning", "content": "Important note" },
+      "steps": [
+        { "title": "Step 1", "description": "What to do", "code": "command" }
+      ],
+      "code": { "content": "full command", "language": "bash", "runOn": "Server" }
+    }
+  ]
+}
+
+Include verification steps and rollback procedures where appropriate.`;
+        maxTokens = 10000;
+        break;
+      }
+
       case 'organize_content': {
         const { content, topic, audience = 'intermediate' } = params;
         systemPrompt = `You are an expert curriculum designer and content organizer. Analyze provided content and organize it into a logical course structure. Return valid JSON only.`;
