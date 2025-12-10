@@ -223,7 +223,7 @@ function HeroSection() {
           The all-in-one platform for runbooks, training, and knowledge sharing. Create beautiful documentation, train your team with AI-generated content, and build a community knowledge base.
         </motion.p>
 
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.8 }} className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.8 }} className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
           <motion.div whileHover={{ scale: 1.05, y: -3 }} whileTap={{ scale: 0.95 }}>
             <Link href="/sign-up" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-white font-semibold shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all">
               Start Building Free
@@ -236,6 +236,17 @@ function HeroSection() {
             </a>
           </motion.div>
         </motion.div>
+        
+        <motion.p 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          transition={{ duration: 0.8, delay: 1 }}
+          className="text-sm text-slate-500 mb-12 flex items-center justify-center gap-4 flex-wrap"
+        >
+          <span className="flex items-center gap-1.5"><Check size={14} className="text-teal-400" /> No credit card required</span>
+          <span className="flex items-center gap-1.5"><Check size={14} className="text-teal-400" /> Free plan forever</span>
+          <span className="flex items-center gap-1.5"><Check size={14} className="text-teal-400" /> Setup in 2 minutes</span>
+        </motion.p>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 1 }} className="flex flex-wrap justify-center gap-3">
           {[
@@ -753,6 +764,11 @@ function Footer() {
   )
 }
 
+// Import new sections
+import TrustedBySection from '@/components/landing/TrustedBySection'
+import FAQSection from '@/components/landing/FAQSection'
+import NewsletterSection from '@/components/landing/NewsletterSection'
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#0a0f1a] text-white overflow-x-hidden">
@@ -775,12 +791,15 @@ export default function LandingPage() {
       
       <Navigation />
       <HeroSection />
+      <TrustedBySection />
       <StatsSection />
       <FeaturesSection />
       <TrainingSection />
       <TestimonialsSection />
       <PricingSection />
+      <FAQSection />
       <CTASection />
+      <NewsletterSection />
       <Footer />
     </main>
   )
