@@ -311,25 +311,40 @@ function BatchDetailPageContent() {
     if (!generatedPreview || !showAIGenerate) return;
     setIsSubmitting(true);
     try {
+      // Build the request body - only include module_id if it exists
+      const requestBody: Record<string, unknown> = {
+        section_id: showAIGenerate.sectionId,
+        title: (generatedPreview as { title?: string }).title || aiTopic,
+        content_type: contentType,
+        content_data: generatedPreview
+      };
+      
+      // Only add module_id if it's not empty
+      if (showAIGenerate.moduleId) {
+        requestBody.module_id = showAIGenerate.moduleId;
+      }
+      
       const res = await fetch(`/api/training/batches/${id}/content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          module_id: showAIGenerate.moduleId,
-          section_id: showAIGenerate.sectionId,
-          title: (generatedPreview as { title?: string }).title || aiTopic,
-          content_type: contentType,
-          content_data: generatedPreview
-        })
+        body: JSON.stringify(requestBody)
       });
+      
       if (res.ok) {
         setShowAIGenerate(null);
         setAiTopic('');
         setContentType('presentation');
         setGeneratedPreview(null);
         fetchBatch();
+      } else {
+        const error = await res.json();
+        console.error('Save failed:', error);
+        alert('Failed to save: ' + (error.error || 'Unknown error'));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error('Save error:', e); 
+      alert('Failed to save content');
+    }
     finally { setIsSubmitting(false); }
   };
 
@@ -848,10 +863,12 @@ function BatchDetailPageContent() {
                               <AIGenerateButton 
                                 onClick={() => {
                                   const firstModule = batch.training_modules.find(m => m.section_id === section.id);
-                                  if (firstModule) {
-                                    setShowAIGenerate({ moduleId: firstModule.id, sectionId: section.id });
-                                    setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
-                                  }
+                                  // Allow AI Generate even without a module - the API will create one
+                                  setShowAIGenerate({ 
+                                    moduleId: firstModule?.id || '', 
+                                    sectionId: section.id 
+                                  });
+                                  setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
                                 }}
                               />
                             </div>
