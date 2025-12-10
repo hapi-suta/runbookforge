@@ -190,19 +190,27 @@ function PresentationContent({ content }: { content: ContentItem }) {
       {/* Slide Display */}
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-8 min-h-[300px] border border-slate-700/50">
         <h2 className="text-2xl font-bold text-white mb-6">{slide.title}</h2>
-        <ul className="space-y-3">
-          {slide.bullets?.map((bullet, idx) => (
-            <li key={idx} className="flex items-start gap-3 text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-purple-500 mt-2 shrink-0" />
-              <span>{bullet}</span>
-            </li>
-          ))}
-        </ul>
-        {slide.speakerNotes && (
-          <div className="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-            <p className="text-xs text-slate-500 mb-1">Speaker Notes</p>
-            <p className="text-sm text-slate-400">{slide.speakerNotes}</p>
-          </div>
+        {slide.subtitle && (
+          <p className="text-slate-400 mb-4">{slide.subtitle}</p>
+        )}
+        {slide.content && (
+          <p className="text-slate-300 mb-4">{slide.content}</p>
+        )}
+        {slide.items && slide.items.length > 0 && (
+          <ul className="space-y-3">
+            {slide.items.map((item, idx) => {
+              const itemObj = item as { title?: string; description?: string };
+              return (
+                <li key={idx} className="flex items-start gap-3 text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-purple-500 mt-2 shrink-0" />
+                  <div>
+                    {itemObj.title && <span className="font-medium text-white">{itemObj.title}: </span>}
+                    <span>{itemObj.description || itemObj.title || String(item)}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 
