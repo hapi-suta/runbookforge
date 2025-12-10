@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS trainer_permissions (
 CREATE INDEX IF NOT EXISTS idx_trainer_permissions_user ON trainer_permissions(user_id);
 
 ALTER TABLE trainer_permissions ENABLE ROW LEVEL SECURITY;
+
+-- Drop policy if exists, then create
+DROP POLICY IF EXISTS "Service role full access" ON trainer_permissions;
 CREATE POLICY "Service role full access" ON trainer_permissions FOR ALL USING (true);
 
 -- Add description to training_content for better organization

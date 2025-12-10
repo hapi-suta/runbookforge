@@ -7,8 +7,8 @@ import {
   GraduationCap, BookOpen, Wrench, ClipboardCheck, FolderOpen, Briefcase, 
   ChevronDown, ChevronRight, Loader2, CheckCircle, Circle, Play, FileText,
   Presentation, HelpCircle, Target, ClipboardList, MessageSquare, Video, Link as LinkIcon,
-  ExternalLink, Clock, Award, X, Eye, AlertCircle, Sparkles, Trophy, Flame,
-  ArrowRight, Lock, PlayCircle, Star
+  ExternalLink, Clock, Award, X, Eye, AlertCircle, Sparkles, Trophy,
+  ArrowRight, Lock, PlayCircle, RotateCcw
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 
@@ -16,29 +16,17 @@ const SECTION_ICONS: Record<string, React.ElementType> = {
   learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
 };
 
-const SECTION_COLORS: Record<string, { bg: string; text: string; border: string; gradient: string; lightBg: string }> = {
-  amber: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', gradient: 'from-amber-500 to-orange-500', lightBg: 'bg-amber-500/5' },
-  teal: { bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30', gradient: 'from-teal-500 to-emerald-500', lightBg: 'bg-teal-500/5' },
-  purple: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', gradient: 'from-purple-500 to-pink-500', lightBg: 'bg-purple-500/5' },
-  blue: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', gradient: 'from-blue-500 to-indigo-500', lightBg: 'bg-blue-500/5' },
-  emerald: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', gradient: 'from-emerald-500 to-green-500', lightBg: 'bg-emerald-500/5' },
+const SECTION_COLORS: Record<string, { bg: string; text: string; border: string; gradient: string; ring: string }> = {
+  amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500/30', gradient: 'from-amber-500 to-orange-500', ring: 'ring-amber-500/30' },
+  teal: { bg: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-500/30', gradient: 'from-teal-500 to-emerald-500', ring: 'ring-teal-500/30' },
+  purple: { bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500/30', gradient: 'from-purple-500 to-pink-500', ring: 'ring-purple-500/30' },
+  blue: { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500/30', gradient: 'from-blue-500 to-indigo-500', ring: 'ring-blue-500/30' },
+  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-400', border: 'border-emerald-500/30', gradient: 'from-emerald-500 to-green-500', ring: 'ring-emerald-500/30' },
 };
 
 const CONTENT_ICONS: Record<string, React.ElementType> = {
   presentation: Presentation, runbook: FileText, tutorial: BookOpen, quiz: HelpCircle,
   assignment: ClipboardList, challenge: Target, interview_prep: MessageSquare, recording: Video, external_link: LinkIcon
-};
-
-const CONTENT_COLORS: Record<string, { bg: string; text: string }> = {
-  presentation: { bg: 'bg-blue-500/10', text: 'text-blue-400' },
-  runbook: { bg: 'bg-teal-500/10', text: 'text-teal-400' },
-  tutorial: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
-  quiz: { bg: 'bg-purple-500/10', text: 'text-purple-400' },
-  assignment: { bg: 'bg-pink-500/10', text: 'text-pink-400' },
-  challenge: { bg: 'bg-red-500/10', text: 'text-red-400' },
-  interview_prep: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
-  recording: { bg: 'bg-rose-500/10', text: 'text-rose-400' },
-  external_link: { bg: 'bg-cyan-500/10', text: 'text-cyan-400' },
 };
 
 interface Section { id: string; section_key: string; title: string; description: string; icon: string; color: string; sort_order: number; }
@@ -73,7 +61,7 @@ export default function StudentPortalPage() {
   const [data, setData] = useState<TrainingData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [activeContent, setActiveContent] = useState<Content | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -108,8 +96,9 @@ export default function StudentPortalPage() {
       if (res.ok) {
         const trainingData = await res.json();
         setData(trainingData);
+        // Expand all sections by default
         if (trainingData.batch.sections?.length > 0) {
-          setActiveSection(trainingData.batch.sections[0].id);
+          setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
         }
       } else {
         const errData = await res.json();
@@ -129,8 +118,9 @@ export default function StudentPortalPage() {
       if (res.ok) {
         const trainingData = await res.json();
         setData(trainingData);
+        // Expand all sections by default
         if (trainingData.batch.sections?.length > 0) {
-          setActiveSection(trainingData.batch.sections[0].id);
+          setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
         }
       } else {
         const errData = await res.json();
@@ -142,6 +132,13 @@ export default function StudentPortalPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleSection = (sectionId: string) => {
+    const newSet = new Set(expandedSections);
+    if (newSet.has(sectionId)) newSet.delete(sectionId);
+    else newSet.add(sectionId);
+    setExpandedSections(newSet);
   };
 
   const [enrollEmail, setEnrollEmail] = useState('');
@@ -196,7 +193,7 @@ export default function StudentPortalPage() {
   const getSectionProgress = (sectionId: string) => {
     const sectionContent = getContentForSection(sectionId);
     const completed = sectionContent.filter(c => getProgress(c.id)?.status === 'completed').length;
-    return { completed, total: sectionContent.length };
+    return { completed, total: sectionContent.length, percentage: sectionContent.length > 0 ? Math.round((completed / sectionContent.length) * 100) : 0 };
   };
 
   const handleSelfEnroll = async (e: React.FormEvent) => {
@@ -231,7 +228,7 @@ export default function StudentPortalPage() {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 size={48} className="text-purple-400 animate-spin mx-auto mb-4" />
+          <Loader2 size={48} className="text-teal-400 animate-spin mx-auto mb-4" />
           <p className="text-slate-400">Loading your training...</p>
         </div>
       </div>
@@ -245,14 +242,14 @@ export default function StudentPortalPage() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-b from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl"
+          className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full shadow-2xl"
         >
           <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/25">
-              <GraduationCap size={40} className="text-white" />
+            <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-teal-500/25">
+              <GraduationCap size={32} className="text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Welcome!</h1>
-            <p className="text-slate-400">Enter your email to start learning</p>
+            <h1 className="text-2xl font-bold text-white mb-2">Access Training</h1>
+            <p className="text-slate-400">Enter your email to get started</p>
           </div>
           
           <form onSubmit={handleSelfEnroll} className="space-y-4">
@@ -264,7 +261,7 @@ export default function StudentPortalPage() {
                 onChange={(e) => setEnrollEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
               />
             </div>
             <div>
@@ -274,11 +271,11 @@ export default function StudentPortalPage() {
                 value={enrollName}
                 onChange={(e) => setEnrollName(e.target.value)}
                 placeholder="Your name"
-                className="w-full px-4 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
               />
             </div>
             {error && error !== 'Enter your email to access this training' && (
-              <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2">
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2">
                 <AlertCircle size={16} />
                 {error}
               </div>
@@ -288,15 +285,11 @@ export default function StudentPortalPage() {
               disabled={!enrollEmail.trim() || enrolling}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-teal-500/25"
             >
-              {enrolling ? <Loader2 className="animate-spin" size={20} /> : <><Sparkles size={18} /> Start Learning</>}
+              {enrolling ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Start Learning'}
             </motion.button>
           </form>
-          
-          <p className="text-center text-slate-500 text-xs mt-6">
-            Your progress will be saved automatically
-          </p>
         </motion.div>
       </div>
     );
@@ -305,15 +298,13 @@ export default function StudentPortalPage() {
   if (!data) return null;
 
   const progress = calculateProgress();
-  const currentSection = data.batch.sections.find(s => s.id === activeSection);
-  const currentSectionContent = activeSection ? getContentForSection(activeSection) : [];
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
       {/* Preview Mode Banner */}
       {isPreviewMode && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white py-3 px-4 shadow-lg">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 px-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Eye size={20} />
               <span className="font-semibold">Preview Mode</span>
@@ -328,270 +319,225 @@ export default function StudentPortalPage() {
           </div>
         </div>
       )}
-      
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <aside className="w-72 bg-slate-900/80 border-r border-slate-800 flex-shrink-0 hidden lg:flex flex-col">
-          {/* Course Header */}
-          <div className="p-6 border-b border-slate-800">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                <GraduationCap size={24} className="text-white" />
+
+      {/* Header */}
+      <header className="bg-slate-900 border-b border-slate-800">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20">
+                <GraduationCap size={28} className="text-white" />
               </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-lg font-bold text-white truncate">{data.batch.title}</h1>
-                <p className="text-xs text-slate-400 truncate">{data.enrollment.student_email}</p>
+              <div>
+                <h1 className="text-xl font-bold text-white">{data.batch.title}</h1>
+                {data.batch.description && (
+                  <p className="text-slate-400 text-sm mt-1 max-w-lg">{data.batch.description}</p>
+                )}
               </div>
-            </div>
-            
-            {/* Progress Card */}
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-slate-400">Your Progress</span>
-                <span className="text-lg font-bold text-white">{progress.percentage}%</span>
-              </div>
-              <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress.percentage}%` }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
-                />
-              </div>
-              <p className="text-xs text-slate-500 mt-2">
-                {progress.completed} of {progress.total} completed
-              </p>
             </div>
           </div>
-          
-          {/* Sections Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-            {data.batch.sections.sort((a, b) => a.sort_order - b.sort_order).map((section) => {
-              const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
-              const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
-              const sectionProgress = getSectionProgress(section.id);
-              const isActive = activeSection === section.id;
-              const contentCount = getContentForSection(section.id).length;
-              
-              return (
-                <motion.button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
-                    isActive 
-                      ? `${colors.lightBg} ${colors.border} border` 
-                      : 'hover:bg-slate-800/50'
-                  }`}
+
+          {/* Progress Bar */}
+          <div className="mt-6 bg-slate-800/50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-400">Your Progress</span>
+              <span className="text-sm font-semibold text-white">{progress.completed}/{progress.total} completed</span>
+            </div>
+            <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${progress.percentage}%` }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full"
+              />
+            </div>
+            {progress.percentage === 100 && (
+              <div className="flex items-center gap-2 mt-3 text-emerald-400">
+                <Trophy size={16} />
+                <span className="text-sm font-medium">Congratulations! You've completed this training!</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Course Content */}
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="space-y-4">
+          {data.batch.sections.sort((a, b) => a.sort_order - b.sort_order).map((section, sectionIndex) => {
+            const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
+            const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
+            const sectionContent = getContentForSection(section.id);
+            const sectionProgress = getSectionProgress(section.id);
+            const isExpanded = expandedSections.has(section.id);
+            const isCompleted = sectionProgress.total > 0 && sectionProgress.completed === sectionProgress.total;
+
+            return (
+              <motion.div
+                key={section.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: sectionIndex * 0.1 }}
+                className={`bg-slate-900 border rounded-2xl overflow-hidden transition-all ${
+                  isCompleted ? 'border-emerald-500/30' : 'border-slate-800'
+                }`}
+              >
+                {/* Section Header - Clickable */}
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="w-full flex items-center gap-4 p-5 hover:bg-slate-800/50 transition-colors text-left"
                 >
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${colors.gradient} flex items-center justify-center flex-shrink-0`}>
-                    <Icon size={18} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className={`font-medium truncate ${isActive ? 'text-white' : 'text-slate-300'}`}>
-                        {section.title}
-                      </span>
-                      {contentCount > 0 && (
-                        <span className={`text-xs ${colors.text}`}>
-                          {sectionProgress.completed}/{sectionProgress.total}
-                        </span>
-                      )}
+                  {/* Section Icon with Progress Ring */}
+                  <div className="relative">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg`}>
+                      <Icon size={22} className="text-white" />
                     </div>
-                    {contentCount > 0 && (
-                      <div className="w-full h-1 bg-slate-700 rounded-full mt-2 overflow-hidden">
-                        <div 
-                          className={`h-full bg-gradient-to-r ${colors.gradient}`}
-                          style={{ width: `${sectionProgress.total > 0 ? (sectionProgress.completed / sectionProgress.total) * 100 : 0}%` }}
-                        />
+                    {isCompleted && (
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <CheckCircle size={12} className="text-white" />
                       </div>
                     )}
                   </div>
-                </motion.button>
-              );
-            })}
-          </nav>
-          
-          {/* Achievement Badge */}
-          {progress.percentage >= 100 && (
-            <div className="p-4 border-t border-slate-800">
-              <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl p-4 text-center">
-                <Trophy className="mx-auto text-amber-400 mb-2" size={28} />
-                <p className="text-amber-400 font-semibold text-sm">Course Completed!</p>
-              </div>
-            </div>
-          )}
-        </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col">
-          {/* Mobile Header */}
-          <header className="lg:hidden sticky top-0 z-40 bg-slate-900/95 backdrop-blur-lg border-b border-slate-800 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                  <GraduationCap size={20} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-sm font-bold text-white truncate max-w-[200px]">{data.batch.title}</h1>
-                  <p className="text-xs text-slate-400">{progress.percentage}% complete</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Mobile Section Pills */}
-            <div className="flex gap-2 mt-4 overflow-x-auto pb-2 scrollbar-hide">
-              {data.batch.sections.sort((a, b) => a.sort_order - b.sort_order).map((section) => {
-                const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
-                const isActive = activeSection === section.id;
-                return (
-                  <button
-                    key={section.id}
-                    onClick={() => setActiveSection(section.id)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                      isActive 
-                        ? `bg-gradient-to-r ${colors.gradient} text-white` 
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {section.title}
-                  </button>
-                );
-              })}
-            </div>
-          </header>
-
-          {/* Content Area */}
-          <div className="flex-1 p-4 lg:p-8 overflow-y-auto">
-            {currentSection && (
-              <motion.div
-                key={currentSection.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Section Header */}
-                <div className="mb-8">
-                  <div className="flex items-center gap-3 mb-2">
-                    {(() => {
-                      const Icon = SECTION_ICONS[currentSection.section_key] || FolderOpen;
-                      const colors = SECTION_COLORS[currentSection.color] || SECTION_COLORS.blue;
-                      return (
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg`}>
-                          <Icon size={24} className="text-white" />
-                        </div>
-                      );
-                    })()}
-                    <div>
-                      <h2 className="text-2xl font-bold text-white">{currentSection.title}</h2>
-                      <p className="text-slate-400">{currentSection.description}</p>
+                  {/* Section Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-white">{section.title}</h3>
                     </div>
+                    <p className="text-sm text-slate-400">{section.description}</p>
                   </div>
-                </div>
 
-                {/* Content Grid */}
-                {currentSectionContent.length > 0 ? (
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {currentSectionContent.map((content, index) => {
-                      const Icon = CONTENT_ICONS[content.content_type] || FileText;
-                      const colors = CONTENT_COLORS[content.content_type] || CONTENT_COLORS.external_link;
-                      const progressItem = getProgress(content.id);
-                      const isCompleted = progressItem?.status === 'completed';
-                      const isInProgress = progressItem?.status === 'in_progress';
-                      
-                      return (
-                        <motion.div
-                          key={content.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          onClick={() => openContent(content)}
-                          className={`
-                            relative group cursor-pointer rounded-2xl p-5 border transition-all
-                            ${isCompleted 
-                              ? 'bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/50' 
-                              : isInProgress
-                                ? 'bg-blue-500/5 border-blue-500/30 hover:border-blue-500/50'
-                                : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600'
-                            }
-                          `}
-                        >
-                          {/* Status Badge */}
-                          <div className="absolute top-4 right-4">
-                            {isCompleted ? (
-                              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
-                                <CheckCircle size={18} className="text-white" />
-                              </div>
-                            ) : isInProgress ? (
-                              <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/50 flex items-center justify-center">
-                                <Play size={14} className="text-blue-400" />
-                              </div>
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-slate-700/50 border border-slate-600 flex items-center justify-center group-hover:bg-purple-500/20 group-hover:border-purple-500/50 transition-all">
-                                <Circle size={14} className="text-slate-500 group-hover:text-purple-400" />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Content Icon */}
-                          <div className={`w-12 h-12 rounded-xl ${colors.bg} flex items-center justify-center mb-4`}>
-                            <Icon size={24} className={colors.text} />
-                          </div>
-
-                          {/* Content Info */}
-                          <h3 className="font-semibold text-white mb-1 pr-10 line-clamp-2">{content.title}</h3>
-                          <div className="flex items-center gap-3 text-sm text-slate-500">
-                            <span className="capitalize">{content.content_type.replace('_', ' ')}</span>
-                            {content.estimated_minutes && (
-                              <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1">
-                                  <Clock size={12} />
-                                  {content.estimated_minutes} min
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Hover Action */}
-                          <div className="mt-4 flex items-center gap-2 text-sm text-slate-400 group-hover:text-white transition-colors">
-                            {isCompleted ? (
-                              <>
-                                <PlayCircle size={16} className="text-emerald-400" />
-                                <span>Review</span>
-                              </>
-                            ) : isInProgress ? (
-                              <>
-                                <PlayCircle size={16} className="text-blue-400" />
-                                <span>Continue</span>
-                              </>
-                            ) : (
-                              <>
-                                <PlayCircle size={16} />
-                                <span>Start</span>
-                              </>
-                            )}
-                            <ArrowRight size={14} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </motion.div>
-                      );
-                    })}
+                  {/* Progress & Chevron */}
+                  <div className="flex items-center gap-4">
+                    {sectionContent.length > 0 && (
+                      <div className="text-right">
+                        <span className={`text-sm font-medium ${isCompleted ? 'text-emerald-400' : colors.text}`}>
+                          {sectionProgress.completed}/{sectionProgress.total}
+                        </span>
+                      </div>
+                    )}
+                    <motion.div
+                      animate={{ rotate: isExpanded ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-slate-400"
+                    >
+                      <ChevronDown size={20} />
+                    </motion.div>
                   </div>
-                ) : (
-                  <div className="text-center py-16">
-                    <div className="w-20 h-20 rounded-2xl bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
-                      <FolderOpen size={36} className="text-slate-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white mb-2">No content available yet</h3>
-                    <p className="text-slate-400">Check back later for new materials</p>
-                  </div>
-                )}
+                </button>
+
+                {/* Section Content - Collapsible */}
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="border-t border-slate-800">
+                        {sectionContent.length > 0 ? (
+                          <div className="divide-y divide-slate-800/50">
+                            {sectionContent.map((content, contentIndex) => {
+                              const ContentIcon = CONTENT_ICONS[content.content_type] || FileText;
+                              const progressItem = getProgress(content.id);
+                              const isContentCompleted = progressItem?.status === 'completed';
+                              const isInProgress = progressItem?.status === 'in_progress';
+
+                              return (
+                                <motion.button
+                                  key={content.id}
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: contentIndex * 0.05 }}
+                                  onClick={() => openContent(content)}
+                                  className="w-full flex items-center gap-4 p-4 pl-8 hover:bg-slate-800/30 transition-colors text-left group"
+                                >
+                                  {/* Status Indicator */}
+                                  <div className="flex-shrink-0">
+                                    {isContentCompleted ? (
+                                      <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                                        <CheckCircle size={16} className="text-white" />
+                                      </div>
+                                    ) : isInProgress ? (
+                                      <div className="w-8 h-8 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full border-2 border-slate-600 flex items-center justify-center group-hover:border-slate-500 transition-colors">
+                                        <Circle size={14} className="text-slate-600 group-hover:text-slate-500" />
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Content Icon */}
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                    content.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
+                                    content.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
+                                    content.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
+                                    content.content_type === 'assignment' ? 'bg-pink-500/10 text-pink-400' :
+                                    content.content_type === 'challenge' ? 'bg-red-500/10 text-red-400' :
+                                    content.content_type === 'runbook' ? 'bg-teal-500/10 text-teal-400' :
+                                    'bg-slate-700/50 text-slate-400'
+                                  }`}>
+                                    <ContentIcon size={18} />
+                                  </div>
+
+                                  {/* Content Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-medium ${isContentCompleted ? 'text-slate-400' : 'text-white'}`}>
+                                        {content.title}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                                      <span className="capitalize">{content.content_type.replace('_', ' ')}</span>
+                                      {content.estimated_minutes && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="flex items-center gap-1">
+                                            <Clock size={10} />
+                                            {content.estimated_minutes} min
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Action */}
+                                  <div className="flex-shrink-0">
+                                    {isContentCompleted ? (
+                                      <span className="flex items-center gap-1 text-sm text-slate-400 group-hover:text-white transition-colors">
+                                        <RotateCcw size={14} />
+                                        <span className="hidden sm:inline">Review</span>
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1 text-sm text-teal-400 group-hover:text-teal-300 transition-colors">
+                                        <Play size={14} />
+                                        <span className="hidden sm:inline">{isInProgress ? 'Continue' : 'Start'}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </motion.button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="py-12 text-center">
+                            <FolderOpen size={32} className="mx-auto text-slate-600 mb-3" />
+                            <p className="text-slate-500">No content available yet</p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
-            )}
-          </div>
-        </main>
-      </div>
+            );
+          })}
+        </div>
+      </main>
 
       {/* Content Viewer Modal */}
       <AnimatePresence>
@@ -614,11 +560,15 @@ export default function StudentPortalPage() {
               <div className="flex items-center justify-between p-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   {(() => {
-                    const Icon = CONTENT_ICONS[activeContent.content_type] || FileText;
-                    const colors = CONTENT_COLORS[activeContent.content_type] || CONTENT_COLORS.external_link;
+                    const ContentIcon = CONTENT_ICONS[activeContent.content_type] || FileText;
                     return (
-                      <div className={`w-10 h-10 rounded-lg ${colors.bg} flex items-center justify-center`}>
-                        <Icon size={20} className={colors.text} />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        activeContent.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
+                        activeContent.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
+                        activeContent.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
+                        'bg-slate-700/50 text-slate-400'
+                      }`}>
+                        <ContentIcon size={20} />
                       </div>
                     );
                   })()}
