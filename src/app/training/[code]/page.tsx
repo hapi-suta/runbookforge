@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronRight, Loader2, CheckCircle, Circle, Play, FileText,
   Presentation, HelpCircle, Target, ClipboardList, MessageSquare, Video, Link as LinkIcon,
   ExternalLink, Clock, X, Eye, AlertCircle, Trophy, Folder, RotateCcw, 
-  ChevronLeft, Maximize2, Minimize2, Copy, Check
+  ChevronLeft, Maximize2, Minimize2, Copy, Check, Terminal
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 import AITutorChat from '@/components/ai/AITutorChat';
@@ -16,11 +16,12 @@ import StudentAIActions from '@/components/ai/StudentAIActions';
 import CertificateGenerator from '@/components/ai/CertificateGenerator';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
-  learn: BookOpen, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
+  learn: BookOpen, labs: Terminal, practice: Wrench, assess: ClipboardCheck, resources: FolderOpen, career: Briefcase
 };
 
 const SECTION_COLORS: Record<string, { bg: string; text: string; border: string; gradient: string }> = {
   amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500/30', gradient: 'from-amber-500 to-orange-500' },
+  orange: { bg: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-500/30', gradient: 'from-orange-500 to-red-500' },
   teal: { bg: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-500/30', gradient: 'from-teal-500 to-emerald-500' },
   purple: { bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500/30', gradient: 'from-purple-500 to-pink-500' },
   blue: { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500/30', gradient: 'from-blue-500 to-indigo-500' },
@@ -29,7 +30,8 @@ const SECTION_COLORS: Record<string, { bg: string; text: string; border: string;
 
 const CONTENT_ICONS: Record<string, React.ElementType> = {
   presentation: Presentation, runbook: FileText, tutorial: BookOpen, quiz: HelpCircle,
-  assignment: ClipboardList, challenge: Target, interview_prep: MessageSquare, recording: Video, external_link: LinkIcon
+  assignment: ClipboardList, challenge: Target, interview_prep: MessageSquare, recording: Video, 
+  external_link: LinkIcon, lab: Terminal
 };
 
 interface Section { id: string; section_key: string; title: string; description: string; icon: string; color: string; sort_order: number; }
@@ -836,6 +838,11 @@ export default function StudentPortalPage() {
   };
 
   const openContent = (content: Content) => {
+    // For lab content, redirect to the lab page
+    if (content.content_type === 'lab') {
+      window.location.href = `/training/${code}/lab/${content.id}`;
+      return;
+    }
     setActiveContent(content);
     if (!isPreviewMode) markProgress(content.id, 'in_progress');
   };
@@ -964,6 +971,7 @@ export default function StudentPortalPage() {
                           )}
 
                           <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            content.content_type === 'lab' ? 'bg-orange-500/20 text-orange-400' :
                             content.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
                             content.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
                             content.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
@@ -977,11 +985,23 @@ export default function StudentPortalPage() {
                             <span className={`text-sm ${isContentCompleted ? 'text-slate-400' : 'text-white'}`}>
                               {content.title}
                             </span>
+                            {content.content_type === 'lab' && (
+                              <span className="ml-2 text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded">
+                                Interactive Lab
+                              </span>
+                            )}
                           </div>
 
-                          <div className={`transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                            <Play size={12} className="text-teal-400" />
-                          </div>
+                          {content.content_type === 'lab' ? (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Terminal size={12} />
+                              Launch
+                            </div>
+                          ) : (
+                            <div className={`transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                              <Play size={12} className="text-teal-400" />
+                            </div>
+                          )}
                         </motion.button>
                       );
                     })}
