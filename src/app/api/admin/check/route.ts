@@ -10,19 +10,37 @@ export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ isAdmin: false });
+      return NextResponse.json({ isAdmin: false, isPrimaryAdmin: false, admins: [] });
     }
 
     const supabase = getSupabaseAdmin();
-    const { data } = await supabase
-      .from('admin_users')
-      .select('id')
+    
+    // Check trainer_permissions table for admin role
+    const { data: permissions } = await supabase
+      .from('trainer_permissions')
+      .select('role')
       .eq('user_id', userId)
       .single();
 
-    return NextResponse.json({ isAdmin: !!data });
+    const isAdmin = permissions?.role === 'admin';
+    
+    // Get list of all admins for management
+    let admins: Array<{ id: string; user_id: string; role: string; created_at: string }> = [];
+    if (isAdmin) {
+      const { data: adminList } = await supabase
+        .from('trainer_permissions')
+        .select('*')
+        .eq('role', 'admin');
+      admins = adminList || [];
+    }
+
+    return NextResponse.json({ 
+      isAdmin, 
+      isPrimaryAdmin: isAdmin, // First admin is primary
+      admins 
+    });
   } catch (error) {
     console.error('Admin check error:', error);
-    return NextResponse.json({ isAdmin: false });
+    return NextResponse.json({ isAdmin: false, isPrimaryAdmin: false, admins: [] });
   }
 }
