@@ -15,6 +15,7 @@ import PresentationViewer, { PresentationData, SlideData } from '@/components/Pr
 import { Breadcrumbs, BreadcrumbItem } from '@/components/training/Breadcrumbs';
 import { FolderTree, FolderNode, ContentItem } from '@/components/training/FolderTree';
 import { PermissionsProvider, usePermissions, AIPendingBanner, AIGenerateButton } from '@/components/training/PermissionGate';
+import ContentViewerPanel from '@/components/training/ContentViewerPanel';
 import AIToolsPanel from '@/components/ai/AIToolsPanel';
 import TrainerGuard from '@/components/auth/TrainerGuard';
 
@@ -124,6 +125,10 @@ function BatchDetailPageContent() {
   
   // Presentation viewer state
   const [viewingPresentation, setViewingPresentation] = useState<PresentationData | null>(null);
+  
+  // Split view state
+  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
+  const [isViewerFullscreen, setIsViewerFullscreen] = useState(false);
 
   const fetchBatch = useCallback(async () => {
     try {
@@ -705,8 +710,10 @@ function BatchDetailPageContent() {
             />
           </div>
 
-          {/* Sections */}
-          <div className="space-y-6">
+          {/* Split View Layout */}
+          <div className={`grid gap-6 ${selectedContent ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+            {/* Left Panel - Folder Tree */}
+            <div className="space-y-6">
             {(!batch?.training_sections || batch.training_sections.length === 0) ? (
               <div className="relative overflow-hidden text-center py-20 bg-slate-800/30 rounded-3xl border border-slate-700/50">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border border-slate-600">
@@ -791,6 +798,8 @@ function BatchDetailPageContent() {
                                   onDeleteFolder={deleteFolder}
                                   onEditFolder={openEditFolder}
                                   onViewPresentation={viewPresentation}
+                                  onSelectContent={setSelectedContent}
+                                  selectedContentId={selectedContent?.id}
                                   expandedFolders={expandedFolders}
                                   onToggleFolder={toggleFolder}
                                 />
@@ -846,6 +855,20 @@ function BatchDetailPageContent() {
                   </motion.div>
                 );
               })
+            )}
+            </div>
+
+            {/* Right Panel - Content Viewer */}
+            {selectedContent && (
+              <div className="lg:sticky lg:top-4 h-fit">
+                <ContentViewerPanel
+                  content={selectedContent}
+                  onClose={() => setSelectedContent(null)}
+                  onEdit={openEditContent}
+                  isFullscreen={isViewerFullscreen}
+                  onToggleFullscreen={() => setIsViewerFullscreen(!isViewerFullscreen)}
+                />
+              </div>
             )}
           </div>
         </motion.div>

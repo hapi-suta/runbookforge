@@ -62,6 +62,8 @@ interface FolderTreeProps {
   onDeleteFolder: (folderId: string) => void;
   onEditFolder: (folder: FolderNode) => void;
   onViewPresentation: (content: ContentItem) => void;
+  onSelectContent?: (content: ContentItem) => void;
+  selectedContentId?: string;
   expandedFolders: Set<string>;
   onToggleFolder: (folderId: string) => void;
 }
@@ -80,6 +82,8 @@ export function FolderTree({
   onDeleteFolder,
   onEditFolder,
   onViewPresentation,
+  onSelectContent,
+  selectedContentId,
   expandedFolders,
   onToggleFolder,
 }: FolderTreeProps) {
@@ -101,6 +105,8 @@ export function FolderTree({
           onDeleteFolder={onDeleteFolder}
           onEditFolder={onEditFolder}
           onViewPresentation={onViewPresentation}
+          onSelectContent={onSelectContent}
+          selectedContentId={selectedContentId}
           expandedFolders={expandedFolders}
           onToggleFolder={onToggleFolder}
         />
@@ -123,6 +129,8 @@ interface FolderItemProps {
   onDeleteFolder: (folderId: string) => void;
   onEditFolder: (folder: FolderNode) => void;
   onViewPresentation: (content: ContentItem) => void;
+  onSelectContent?: (content: ContentItem) => void;
+  selectedContentId?: string;
   expandedFolders: Set<string>;
   onToggleFolder: (folderId: string) => void;
 }
@@ -141,6 +149,8 @@ function FolderItem({
   onDeleteFolder,
   onEditFolder,
   onViewPresentation,
+  onSelectContent,
+  selectedContentId,
   expandedFolders,
   onToggleFolder,
 }: FolderItemProps) {
@@ -298,6 +308,8 @@ function FolderItem({
                       onEdit={onEditContent}
                       onDelete={onDeleteContent}
                       onViewPresentation={onViewPresentation}
+                      onSelect={onSelectContent}
+                      isSelected={selectedContentId === content.id}
                     />
                   ))}
                 </div>
@@ -319,6 +331,8 @@ function FolderItem({
                   onDeleteFolder={onDeleteFolder}
                   onEditFolder={onEditFolder}
                   onViewPresentation={onViewPresentation}
+                  onSelectContent={onSelectContent}
+                  selectedContentId={selectedContentId}
                   expandedFolders={expandedFolders}
                   onToggleFolder={onToggleFolder}
                 />
@@ -359,18 +373,31 @@ interface ContentItemRowProps {
   onEdit: (content: ContentItem) => void;
   onDelete: (contentId: string) => void;
   onViewPresentation: (content: ContentItem) => void;
+  onSelect?: (content: ContentItem) => void;
+  isSelected?: boolean;
 }
 
-function ContentItemRow({ content, onEdit, onDelete, onViewPresentation }: ContentItemRowProps) {
+function ContentItemRow({ content, onEdit, onDelete, onViewPresentation, onSelect, isSelected }: ContentItemRowProps) {
   const typeInfo = CONTENT_TYPE_INFO[content.content_type] || CONTENT_TYPE_INFO.external_link;
   const Icon = typeInfo.icon;
   const hasPresentation = content.content_type === 'presentation' && content.content_data;
+
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(content);
+    }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="group/content flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800/40 transition-all"
+      onClick={handleClick}
+      className={`group/content flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer ${
+        isSelected 
+          ? 'bg-purple-500/20 border border-purple-500/40 ring-1 ring-purple-500/30' 
+          : 'hover:bg-slate-800/40'
+      }`}
     >
       {/* Drag Handle */}
       <div className="opacity-0 group-hover/content:opacity-100 cursor-grab text-slate-600 hover:text-slate-400 transition-opacity">
