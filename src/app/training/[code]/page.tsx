@@ -444,11 +444,12 @@ function QuizViewer({ data }: { data: Record<string, unknown> }) {
   };
 
   const correctCount = questions.filter((q, idx) => answers[idx] === q.correct_answer).length;
+  const quizTitle = data.title as string | undefined;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-white">{(data.title as string) || 'Quiz'}</h3>
+        <h3 className="text-xl font-bold text-white">{quizTitle || 'Quiz'}</h3>
         <span className="text-sm text-slate-400">
           Question {currentQuestion + 1} of {questions.length}
         </span>
@@ -557,11 +558,14 @@ function TutorialViewer({ data, onCopy, copied }: { data: Record<string, unknown
     expected_output?: string;
   }>;
 
+  const title = data.title as string | undefined;
+  const description = data.description as string | undefined;
+
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-bold text-white">{(data.title as string) || 'Tutorial'}</h3>
-        {data.description && <p className="text-slate-400 mt-2">{data.description as string}</p>}
+        <h3 className="text-xl font-bold text-white">{title || 'Tutorial'}</h3>
+        {description && <p className="text-slate-400 mt-2">{description}</p>}
       </div>
 
       {sections.map((section, idx) => (
