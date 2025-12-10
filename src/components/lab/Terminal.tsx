@@ -34,25 +34,12 @@ export default function LabTerminal({
     if (!terminalRef.current || xtermRef.current) return;
 
     try {
-      // Try new package names first, fall back to deprecated ones
-      let Terminal, FitAddon;
+      // Use the installed deprecated packages
+      const xtermModule = await import('xterm');
+      const fitModule = await import('xterm-addon-fit');
       
-      try {
-        const xtermModule = await import('@xterm/xterm');
-        const fitModule = await import('@xterm/addon-fit');
-        Terminal = xtermModule.Terminal;
-        FitAddon = fitModule.FitAddon;
-        // Try to import CSS
-        await import('@xterm/xterm/css/xterm.css').catch(() => {});
-      } catch {
-        // Fall back to deprecated packages
-        const xtermModule = await import('xterm');
-        const fitModule = await import('xterm-addon-fit');
-        Terminal = xtermModule.Terminal;
-        FitAddon = fitModule.FitAddon;
-        // Try to import CSS
-        await import('xterm/css/xterm.css').catch(() => {});
-      }
+      const { Terminal } = xtermModule;
+      const { FitAddon } = fitModule;
 
       const term = new Terminal({
         cursorBlink: true,
