@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, BookOpen, Wrench, ClipboardCheck, FolderOpen, Briefcase, 
   ChevronDown, ChevronRight, Loader2, CheckCircle, Circle, Play, FileText,
   Presentation, HelpCircle, Target, ClipboardList, MessageSquare, Video, Link as LinkIcon,
-  ExternalLink, Clock, X, Eye, AlertCircle, Trophy, Folder, RotateCcw
+  ExternalLink, Clock, X, Eye, AlertCircle, Trophy, Folder, RotateCcw, 
+  ChevronLeft, Maximize2, Minimize2, Copy, Check
 } from 'lucide-react';
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 import AITutorChat from '@/components/ai/AITutorChat';
@@ -66,10 +67,615 @@ interface TrainingData {
   progress: Progress[];
 }
 
-// Recursive module tree node
 interface ModuleNode extends Module {
   children: ModuleNode[];
 }
+
+// ============================================================
+// SPLIT PANE COMPONENT
+// ============================================================
+
+function SplitPane({ 
+  left, 
+  right, 
+  showRight,
+  defaultSplit = 45 
+}: { 
+  left: React.ReactNode; 
+  right: React.ReactNode; 
+  showRight: boolean;
+  defaultSplit?: number;
+}) {
+  const [splitPosition, setSplitPosition] = useState(defaultSplit);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const newPosition = ((e.clientX - rect.left) / rect.width) * 100;
+    setSplitPosition(Math.min(70, Math.max(30, newPosition)));
+  }, [isDragging]);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  return (
+    <div ref={containerRef} className="flex h-full select-none">
+      {/* Left Pane - Course Content */}
+      <div 
+        className="overflow-hidden transition-all duration-300"
+        style={{ width: showRight ? `${splitPosition}%` : '100%' }}
+      >
+        {left}
+      </div>
+
+      {/* Divider */}
+      {showRight && (
+        <div
+          onMouseDown={handleMouseDown}
+          className={`w-1.5 bg-slate-700 hover:bg-teal-500 cursor-col-resize flex items-center justify-center transition-colors shrink-0 ${
+            isDragging ? 'bg-teal-500' : ''
+          }`}
+        >
+          <div className="w-0.5 h-12 bg-slate-500 rounded-full" />
+        </div>
+      )}
+
+      {/* Right Pane - Content Viewer */}
+      <AnimatePresence>
+        {showRight && (
+          <motion.div 
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: `${100 - splitPosition}%`, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            {right}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ============================================================
+// CONTENT VIEWER PANEL
+// ============================================================
+
+interface ContentViewerPanelProps {
+  content: Content;
+  onClose: () => void;
+  onComplete: () => void;
+  isCompleted: boolean;
+}
+
+function ContentViewerPanel({ content, onClose, onComplete, isCompleted }: ContentViewerPanelProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const ContentIcon = CONTENT_ICONS[content.content_type] || FileText;
+
+  // Get slides if presentation
+  const slides = content.content_type === 'presentation' && content.content_data
+    ? ((content.content_data as { slides?: SlideData[] }).slides || [])
+    : [];
+
+  // Keyboard navigation for presentations
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (content.content_type === 'presentation' && slides.length > 0) {
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          e.preventDefault();
+          setCurrentSlide(prev => Math.min(slides.length - 1, prev + 1));
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setCurrentSlide(prev => Math.max(0, prev - 1));
+        } else if (e.key === 'Escape') {
+          if (isFullscreen) setIsFullscreen(false);
+          else onClose();
+        } else if (e.key === 'f') {
+          setIsFullscreen(!isFullscreen);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [content.content_type, slides.length, isFullscreen, onClose]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const panelContent = (
+    <div className={`flex flex-col h-full bg-slate-900 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-800/50 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+            content.content_type === 'presentation' ? 'bg-blue-500/20 text-blue-400' :
+            content.content_type === 'recording' ? 'bg-rose-500/20 text-rose-400' :
+            content.content_type === 'quiz' ? 'bg-purple-500/20 text-purple-400' :
+            content.content_type === 'tutorial' ? 'bg-amber-500/20 text-amber-400' :
+            content.content_type === 'runbook' ? 'bg-teal-500/20 text-teal-400' :
+            'bg-slate-700/50 text-slate-400'
+          }`}>
+            <ContentIcon size={20} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-white truncate">{content.title}</h3>
+            <p className="text-xs text-slate-400 capitalize">{content.content_type.replace('_', ' ')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* PRESENTATION */}
+        {content.content_type === 'presentation' && slides.length > 0 ? (
+          <div className="h-full flex flex-col">
+            {/* Slide Content */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSlide}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <h2 className="text-2xl font-bold text-white mb-6">{slides[currentSlide]?.title}</h2>
+                  {slides[currentSlide]?.items && (
+                    <ul className="space-y-3">
+                      {slides[currentSlide].items.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-3 text-slate-300">
+                          <span className="w-2 h-2 rounded-full bg-teal-500 mt-2 shrink-0" />
+                          <div>
+                            {item.title && <span className="font-medium text-white">{item.title}: </span>}
+                            <span>{item.description || item.title}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Slide Navigation */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700 bg-slate-800/50 shrink-0">
+              <button
+                onClick={() => setCurrentSlide(prev => Math.max(0, prev - 1))}
+                disabled={currentSlide === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={18} /> Previous
+              </button>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-sm">
+                  Slide {currentSlide + 1} of {slides.length}
+                </span>
+                <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all"
+                    style={{ width: `${((currentSlide + 1) / slides.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setCurrentSlide(prev => Math.min(slides.length - 1, prev + 1))}
+                disabled={currentSlide === slides.length - 1}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-600 hover:to-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+              >
+                Next <ChevronRight size={18} />
+              </button>
+            </div>
+
+            {/* Slide Thumbnails */}
+            <div className="flex gap-2 px-6 py-3 border-t border-slate-800 overflow-x-auto shrink-0">
+              {slides.map((slide, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentSlide(idx)}
+                  className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
+                    idx === currentSlide
+                      ? 'bg-teal-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  {idx + 1}. {slide.title?.slice(0, 20)}...
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : 
+        
+        /* QUIZ */
+        content.content_type === 'quiz' && content.content_data ? (
+          <div className="p-6">
+            <QuizViewer data={content.content_data as Record<string, unknown>} />
+          </div>
+        ) : 
+        
+        /* TUTORIAL */
+        content.content_type === 'tutorial' && content.content_data ? (
+          <div className="p-6">
+            <TutorialViewer data={content.content_data as Record<string, unknown>} onCopy={copyToClipboard} copied={copied} />
+          </div>
+        ) :
+        
+        /* RUNBOOK */
+        content.content_type === 'runbook' && content.runbooks ? (
+          <div className="p-6">
+            <RunbookViewer runbook={content.runbooks} onCopy={copyToClipboard} copied={copied} />
+          </div>
+        ) :
+        
+        /* EXTERNAL LINK */
+        content.external_url ? (
+          <div className="flex flex-col items-center justify-center h-full p-6">
+            <ExternalLink size={64} className="text-cyan-400 mb-4" />
+            <p className="text-slate-300 mb-6 text-center">This content is hosted externally</p>
+            <a
+              href={content.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:from-cyan-600 hover:to-blue-600 transition-colors font-medium"
+            >
+              <ExternalLink size={18} />
+              Open External Link
+            </a>
+          </div>
+        ) :
+        
+        /* RECORDING */
+        content.content_type === 'recording' && content.content_data ? (
+          <div className="p-6">
+            <RecordingViewer data={content.content_data as Record<string, unknown>} />
+          </div>
+        ) :
+        
+        /* GENERIC JSON DATA */
+        content.content_data ? (
+          <div className="p-6">
+            <pre className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-800/50 p-4 rounded-xl overflow-x-auto">
+              {JSON.stringify(content.content_data, null, 2)}
+            </pre>
+          </div>
+        ) :
+        
+        /* EMPTY STATE */
+        (
+          <div className="flex flex-col items-center justify-center h-full p-6">
+            <FileText size={64} className="text-slate-600 mb-4" />
+            <p className="text-slate-400">Content coming soon</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700 bg-slate-800/50 shrink-0">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+        >
+          Close
+        </button>
+        <motion.button
+          onClick={onComplete}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-semibold transition-all ${
+            isCompleted 
+              ? 'bg-slate-700 text-slate-400'
+              : 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/25'
+          }`}
+        >
+          <CheckCircle size={18} />
+          {isCompleted ? 'Completed' : 'Mark as Complete'}
+        </motion.button>
+      </div>
+    </div>
+  );
+
+  return panelContent;
+}
+
+// ============================================================
+// CONTENT TYPE VIEWERS
+// ============================================================
+
+function QuizViewer({ data }: { data: Record<string, unknown> }) {
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [showResults, setShowResults] = useState(false);
+  
+  const questions = (data.questions || []) as Array<{
+    question: string;
+    type?: string;
+    options?: string[];
+    correct_answer: string;
+    explanation?: string;
+  }>;
+
+  const handleAnswer = (questionIdx: number, answer: string) => {
+    setAnswers(prev => ({ ...prev, [questionIdx]: answer }));
+  };
+
+  const checkAnswers = () => {
+    setShowResults(true);
+  };
+
+  const correctCount = questions.filter((q, idx) => answers[idx] === q.correct_answer).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-bold text-white">{(data.title as string) || 'Quiz'}</h3>
+        <span className="text-sm text-slate-400">
+          Question {currentQuestion + 1} of {questions.length}
+        </span>
+      </div>
+
+      {/* Progress */}
+      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
+          style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+        />
+      </div>
+
+      {/* Question */}
+      {questions[currentQuestion] && (
+        <div className="bg-slate-800/50 rounded-xl p-6">
+          <p className="text-lg text-white mb-4">
+            <span className="text-purple-400 font-bold">Q{currentQuestion + 1}.</span> {questions[currentQuestion].question}
+          </p>
+          
+          {questions[currentQuestion].options && (
+            <div className="space-y-2">
+              {questions[currentQuestion].options.map((option, idx) => {
+                const isSelected = answers[currentQuestion] === option;
+                const isCorrect = option === questions[currentQuestion].correct_answer;
+                
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => !showResults && handleAnswer(currentQuestion, option)}
+                    disabled={showResults}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                      showResults
+                        ? isCorrect
+                          ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                          : isSelected
+                          ? 'bg-red-500/20 border border-red-500/50 text-red-300'
+                          : 'bg-slate-700/50 text-slate-400'
+                        : isSelected
+                        ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300'
+                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {option}
+                    {showResults && isCorrect && <CheckCircle size={16} className="inline ml-2 text-emerald-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          
+          {showResults && questions[currentQuestion].explanation && (
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-300">💡 {questions[currentQuestion].explanation}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
+          disabled={currentQuestion === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 disabled:opacity-40"
+        >
+          <ChevronLeft size={18} /> Previous
+        </button>
+        
+        {currentQuestion === questions.length - 1 ? (
+          !showResults ? (
+            <button
+              onClick={checkAnswers}
+              className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium"
+            >
+              Submit Answers
+            </button>
+          ) : (
+            <div className="text-center">
+              <p className="text-lg font-bold text-white">
+                Score: {correctCount}/{questions.length}
+              </p>
+              <p className="text-sm text-slate-400">
+                {Math.round((correctCount / questions.length) * 100)}% correct
+              </p>
+            </div>
+          )
+        ) : (
+          <button
+            onClick={() => setCurrentQuestion(prev => Math.min(questions.length - 1, prev + 1))}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg font-medium"
+          >
+            Next <ChevronRight size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TutorialViewer({ data, onCopy, copied }: { data: Record<string, unknown>; onCopy: (text: string) => void; copied: boolean }) {
+  const sections = (data.sections || []) as Array<{
+    title: string;
+    content: string;
+    code_example?: string;
+    expected_output?: string;
+  }>;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-xl font-bold text-white">{(data.title as string) || 'Tutorial'}</h3>
+        {data.description && <p className="text-slate-400 mt-2">{data.description as string}</p>}
+      </div>
+
+      {sections.map((section, idx) => (
+        <div key={idx} className="bg-slate-800/50 rounded-xl p-5 border border-slate-700/50">
+          <h4 className="font-semibold text-white mb-3">{section.title}</h4>
+          <p className="text-slate-300 mb-4">{section.content}</p>
+          
+          {section.code_example && (
+            <div className="rounded-lg overflow-hidden border border-slate-700 mb-3">
+              <div className="flex items-center justify-between px-3 py-2 bg-slate-800">
+                <span className="text-xs text-slate-400 font-mono">Code</span>
+                <button
+                  onClick={() => onCopy(section.code_example!)}
+                  className="p-1 text-slate-400 hover:text-white"
+                >
+                  {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                </button>
+              </div>
+              <pre className="p-3 bg-slate-900 text-emerald-400 text-sm overflow-x-auto">
+                {section.code_example}
+              </pre>
+            </div>
+          )}
+          
+          {section.expected_output && (
+            <div className="p-3 bg-slate-900/50 rounded-lg">
+              <p className="text-xs text-slate-500 mb-1">Expected Output:</p>
+              <p className="text-sm text-slate-400 font-mono">{section.expected_output}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RunbookViewer({ runbook, onCopy, copied }: { runbook: LinkedRunbook; onCopy: (text: string) => void; copied: boolean }) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-white">{runbook.title}</h3>
+      
+      {runbook.sections?.map((section, idx) => (
+        <div key={idx} className="bg-slate-800/50 rounded-xl p-5 border border-slate-700/50">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+              {idx + 1}
+            </div>
+            <h4 className="font-semibold text-white pt-1">{section.title}</h4>
+          </div>
+          <div 
+            className="text-slate-300 prose prose-invert prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: section.content }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RecordingViewer({ data }: { data: Record<string, unknown> }) {
+  const url = data.url as string;
+  
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Video size={64} className="text-slate-600 mb-4" />
+        <p className="text-slate-400">No recording available</p>
+      </div>
+    );
+  }
+
+  // Handle YouTube
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    const videoId = url.includes('youtu.be') 
+      ? url.split('/').pop() 
+      : new URL(url).searchParams.get('v');
+    return (
+      <div className="aspect-video rounded-xl overflow-hidden bg-black">
+        <iframe
+          src={`https://www.youtube.com/embed/${videoId}`}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  // Handle Vimeo
+  if (url.includes('vimeo.com')) {
+    const videoId = url.split('/').pop();
+    return (
+      <div className="aspect-video rounded-xl overflow-hidden bg-black">
+        <iframe
+          src={`https://player.vimeo.com/video/${videoId}`}
+          className="w-full h-full"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  // Handle direct video
+  return (
+    <div className="aspect-video rounded-xl overflow-hidden bg-black">
+      <video src={url} controls className="w-full h-full" />
+    </div>
+  );
+}
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 
 export default function StudentPortalPage() {
   const params = useParams();
@@ -83,9 +689,11 @@ export default function StudentPortalPage() {
   const [activeContent, setActiveContent] = useState<Content | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [viewingPresentation, setViewingPresentation] = useState<PresentationData | null>(null);
   const [showAITools, setShowAITools] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [enrollEmail, setEnrollEmail] = useState('');
+  const [enrollName, setEnrollName] = useState('');
+  const [enrolling, setEnrolling] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -116,11 +724,9 @@ export default function StudentPortalPage() {
       if (res.ok) {
         const trainingData = await res.json();
         setData(trainingData);
-        // Expand all sections by default
         if (trainingData.batch.sections?.length > 0) {
           setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
         }
-        // Expand all root modules by default
         if (trainingData.modules?.length > 0) {
           const rootModules = trainingData.modules.filter((m: Module) => !m.parent_id);
           setExpandedModules(new Set(rootModules.map((m: Module) => m.id)));
@@ -143,11 +749,9 @@ export default function StudentPortalPage() {
       if (res.ok) {
         const trainingData = await res.json();
         setData(trainingData);
-        // Expand all sections by default
         if (trainingData.batch.sections?.length > 0) {
           setExpandedSections(new Set(trainingData.batch.sections.map((s: Section) => s.id)));
         }
-        // Expand all root modules by default
         if (trainingData.modules?.length > 0) {
           const rootModules = trainingData.modules.filter((m: Module) => !m.parent_id);
           setExpandedModules(new Set(rootModules.map((m: Module) => m.id)));
@@ -178,61 +782,41 @@ export default function StudentPortalPage() {
     setExpandedModules(newSet);
   };
 
-  const [enrollEmail, setEnrollEmail] = useState('');
-  const [enrollName, setEnrollName] = useState('');
-  const [enrolling, setEnrolling] = useState(false);
-
-  // Build module tree for a section
   const buildModuleTree = (sectionId: string): ModuleNode[] => {
     if (!data?.modules) return [];
-    
     const sectionModules = data.modules.filter(m => m.section_id === sectionId);
     
     const buildTree = (parentId: string | null): ModuleNode[] => {
       return sectionModules
         .filter(m => m.parent_id === parentId)
         .sort((a, b) => a.sort_order - b.sort_order)
-        .map(module => ({
-          ...module,
-          children: buildTree(module.id)
-        }));
+        .map(module => ({ ...module, children: buildTree(module.id) }));
     };
     
     return buildTree(null);
   };
 
-  // Get all content for a section (flat)
   const getAllSectionContent = (sectionId: string): Content[] => {
     if (!data?.modules) return [];
-    return data.modules
-      .filter(m => m.section_id === sectionId)
-      .flatMap(m => m.training_content || []);
+    return data.modules.filter(m => m.section_id === sectionId).flatMap(m => m.training_content || []);
   };
 
-  // Get module content count recursively
   const getModuleContentCount = (module: ModuleNode): number => {
     const directContent = module.training_content?.length || 0;
     const childContent = module.children.reduce((acc, child) => acc + getModuleContentCount(child), 0);
     return directContent + childContent;
   };
 
-  // Get module completion count recursively
   const getModuleCompletionCount = (module: ModuleNode): { completed: number; total: number } => {
     const directContent = module.training_content || [];
     const directCompleted = directContent.filter(c => getProgress(c.id)?.status === 'completed').length;
     
-    const childCounts = module.children.reduce(
-      (acc, child) => {
-        const childCount = getModuleCompletionCount(child);
-        return { completed: acc.completed + childCount.completed, total: acc.total + childCount.total };
-      },
-      { completed: 0, total: 0 }
-    );
+    const childCounts = module.children.reduce((acc, child) => {
+      const childCount = getModuleCompletionCount(child);
+      return { completed: acc.completed + childCount.completed, total: acc.total + childCount.total };
+    }, { completed: 0, total: 0 });
     
-    return {
-      completed: directCompleted + childCounts.completed,
-      total: directContent.length + childCounts.total
-    };
+    return { completed: directCompleted + childCounts.completed, total: directContent.length + childCounts.total };
   };
 
   const getProgress = (contentId: string): Progress | undefined => {
@@ -248,9 +832,7 @@ export default function StudentPortalPage() {
         body: JSON.stringify({ content_id: contentId, status })
       });
       fetchTraining(token);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const openContent = (content: Content) => {
@@ -261,7 +843,6 @@ export default function StudentPortalPage() {
   const completeContent = () => {
     if (activeContent) {
       if (!isPreviewMode) markProgress(activeContent.id, 'completed');
-      setActiveContent(null);
     }
   };
 
@@ -311,75 +892,43 @@ export default function StudentPortalPage() {
     const isCompleted = completion.total > 0 && completion.completed === completion.total;
 
     const moduleColors: Record<string, string> = {
-      amber: 'from-amber-500 to-orange-500',
-      teal: 'from-teal-500 to-emerald-500',
-      purple: 'from-purple-500 to-violet-500',
-      blue: 'from-blue-500 to-indigo-500',
-      pink: 'from-pink-500 to-rose-500',
-      slate: 'from-slate-500 to-slate-600',
+      amber: 'from-amber-500 to-orange-500', teal: 'from-teal-500 to-emerald-500',
+      purple: 'from-purple-500 to-violet-500', blue: 'from-blue-500 to-indigo-500',
+      pink: 'from-pink-500 to-rose-500', slate: 'from-slate-500 to-slate-600',
     };
     const gradient = moduleColors[module.color || 'slate'] || moduleColors.slate;
 
     return (
       <div key={module.id} className={depth > 0 ? 'ml-6' : ''}>
-        {/* Module/Chapter Header */}
         <button
           onClick={() => toggleModule(module.id)}
-          className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all text-left ${
-            isExpanded 
-              ? 'bg-slate-800/80 border border-slate-700' 
-              : 'bg-slate-800/40 hover:bg-slate-800/60'
+          className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${
+            isExpanded ? 'bg-slate-800/80 border border-slate-700' : 'bg-slate-800/40 hover:bg-slate-800/60'
           } ${depth > 0 ? 'mt-2' : ''}`}
         >
-          {/* Expand Icon */}
-          <motion.div
-            animate={{ rotate: isExpanded ? 90 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="text-slate-400"
-          >
-            <ChevronRight size={18} />
+          <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} className="text-slate-400">
+            <ChevronRight size={16} />
           </motion.div>
-
-          {/* Folder Icon */}
-          <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0`}>
-            <Folder size={16} className="text-white" />
+          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0`}>
+            <Folder size={14} className="text-white" />
           </div>
-
-          {/* Module Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-white truncate">{module.title}</span>
-              {isCompleted && (
-                <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
-              )}
+              <span className="font-medium text-white text-sm truncate">{module.title}</span>
+              {isCompleted && <CheckCircle size={14} className="text-emerald-400 shrink-0" />}
             </div>
-            {module.description && (
-              <p className="text-xs text-slate-500 truncate">{module.description}</p>
-            )}
           </div>
-
-          {/* Progress */}
           {contentCount > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className={isCompleted ? 'text-emerald-400' : 'text-slate-400'}>
-                {completion.completed}/{completion.total}
-              </span>
-            </div>
+            <span className={`text-xs ${isCompleted ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {completion.completed}/{completion.total}
+            </span>
           )}
         </button>
 
-        {/* Module Content - Collapsible */}
         <AnimatePresence>
           {isExpanded && (hasContent || hasChildren) && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
               <div className={`mt-1 ${depth > 0 ? '' : 'ml-6'} border-l-2 border-slate-700/50 pl-4`}>
-                {/* Direct Content Items */}
                 {module.training_content && module.training_content.length > 0 && (
                   <div className="space-y-1 py-2">
                     {module.training_content.map((content, idx) => {
@@ -387,6 +936,7 @@ export default function StudentPortalPage() {
                       const progressItem = getProgress(content.id);
                       const isContentCompleted = progressItem?.status === 'completed';
                       const isInProgress = progressItem?.status === 'in_progress';
+                      const isActive = activeContent?.id === content.id;
 
                       return (
                         <motion.button
@@ -395,79 +945,50 @@ export default function StudentPortalPage() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.03 }}
                           onClick={() => openContent(content)}
-                          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800/50 transition-colors text-left group"
+                          className={`w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors text-left group ${
+                            isActive 
+                              ? 'bg-teal-500/20 border border-teal-500/50' 
+                              : 'hover:bg-slate-800/50'
+                          }`}
                         >
-                          {/* Status */}
                           {isContentCompleted ? (
-                            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                              <CheckCircle size={14} className="text-white" />
+                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                              <CheckCircle size={12} className="text-white" />
                             </div>
                           ) : isInProgress ? (
-                            <div className="w-6 h-6 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center flex-shrink-0">
+                            <div className="w-5 h-5 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center shrink-0">
                               <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                             </div>
                           ) : (
-                            <div className="w-6 h-6 rounded-full border-2 border-slate-600 flex items-center justify-center flex-shrink-0 group-hover:border-slate-500">
-                              <Circle size={10} className="text-slate-600 group-hover:text-slate-500" />
-                            </div>
+                            <div className="w-5 h-5 rounded-full border-2 border-slate-600 shrink-0 group-hover:border-slate-500" />
                           )}
 
-                          {/* Content Icon */}
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                             content.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
                             content.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
                             content.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
-                            content.content_type === 'assignment' ? 'bg-pink-500/10 text-pink-400' :
-                            content.content_type === 'challenge' ? 'bg-red-500/10 text-red-400' :
-                            content.content_type === 'runbook' ? 'bg-teal-500/10 text-teal-400' :
                             content.content_type === 'tutorial' ? 'bg-amber-500/10 text-amber-400' :
                             'bg-slate-700/50 text-slate-400'
                           }`}>
-                            <ContentIcon size={16} />
+                            <ContentIcon size={14} />
                           </div>
 
-                          {/* Content Info */}
                           <div className="flex-1 min-w-0">
                             <span className={`text-sm ${isContentCompleted ? 'text-slate-400' : 'text-white'}`}>
                               {content.title}
                             </span>
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <span className="capitalize">{content.content_type.replace('_', ' ')}</span>
-                              {content.content_data && <span className="text-purple-400">• AI</span>}
-                              {content.estimated_minutes && (
-                                <span className="flex items-center gap-1">
-                                  • <Clock size={10} /> {content.estimated_minutes}m
-                                </span>
-                              )}
-                            </div>
                           </div>
 
-                          {/* Action */}
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            {isContentCompleted ? (
-                              <RotateCcw size={14} className="text-slate-400" />
-                            ) : (
-                              <Play size={14} className="text-teal-400" />
-                            )}
+                          <div className={`transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                            <Play size={12} className="text-teal-400" />
                           </div>
                         </motion.button>
                       );
                     })}
                   </div>
                 )}
-
-                {/* Child Modules (Sub-folders) */}
                 {module.children.length > 0 && (
-                  <div className="py-2 space-y-2">
-                    {module.children.map(child => renderModule(child, depth + 1))}
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {!hasContent && !hasChildren && (
-                  <div className="py-6 text-center text-slate-500 text-sm">
-                    No content yet
-                  </div>
+                  <div className="py-2 space-y-2">{module.children.map(child => renderModule(child, depth + 1))}</div>
                 )}
               </div>
             </motion.div>
@@ -488,15 +1009,10 @@ export default function StudentPortalPage() {
     );
   }
 
-  // Self-registration form
   if (!data && !isPreviewMode) {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full shadow-2xl"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full shadow-2xl">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-teal-500/25">
               <GraduationCap size={32} className="text-white" />
@@ -504,42 +1020,21 @@ export default function StudentPortalPage() {
             <h1 className="text-2xl font-bold text-white mb-2">Access Training</h1>
             <p className="text-slate-400">Enter your email to get started</p>
           </div>
-          
           <form onSubmit={handleSelfEnroll} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
-              <input
-                type="email"
-                value={enrollEmail}
-                onChange={(e) => setEnrollEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-              />
+              <input type="email" value={enrollEmail} onChange={(e) => setEnrollEmail(e.target.value)} placeholder="you@example.com" required className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Name (optional)</label>
-              <input
-                type="text"
-                value={enrollName}
-                onChange={(e) => setEnrollName(e.target.value)}
-                placeholder="Your name"
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-              />
+              <input type="text" value={enrollName} onChange={(e) => setEnrollName(e.target.value)} placeholder="Your name" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
             </div>
             {error && error !== 'Enter your email to access this training' && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2">
-                <AlertCircle size={16} />
-                {error}
+                <AlertCircle size={16} />{error}
               </div>
             )}
-            <motion.button
-              type="submit"
-              disabled={!enrollEmail.trim() || enrolling}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-teal-500/25"
-            >
+            <motion.button type="submit" disabled={!enrollEmail.trim() || enrolling} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-teal-500/25">
               {enrolling ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Start Learning'}
             </motion.button>
           </form>
@@ -553,326 +1048,131 @@ export default function StudentPortalPage() {
   const progress = calculateProgress();
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a]">
+    <div className="h-screen flex flex-col bg-[#0a0f1a] overflow-hidden">
       {/* Preview Mode Banner */}
       {isPreviewMode && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 px-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white py-2 px-4 shrink-0">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Eye size={20} />
-              <span className="font-semibold">Preview Mode</span>
-              <span className="text-white/80 text-sm hidden sm:inline">- This is how students see your training</span>
+              <Eye size={18} />
+              <span className="font-semibold text-sm">Preview Mode</span>
+              <span className="text-white/80 text-xs hidden sm:inline">- This is how students see your training</span>
             </div>
-            <button 
-              onClick={() => window.close()}
-              className="px-4 py-1.5 bg-white text-orange-600 rounded-lg text-sm font-semibold hover:bg-white/90"
-            >
-              Exit Preview
-            </button>
+            <button onClick={() => window.close()} className="px-3 py-1 bg-white text-orange-600 rounded-lg text-xs font-semibold hover:bg-white/90">Exit Preview</button>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20">
-                <GraduationCap size={28} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">{data.batch.title}</h1>
-                {data.batch.description && (
-                  <p className="text-slate-400 text-sm mt-1 max-w-lg">{data.batch.description}</p>
-                )}
+      <header className="bg-slate-900 border-b border-slate-800 px-4 py-4 shrink-0">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20 shrink-0">
+              <GraduationCap size={24} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">{data.batch.title}</h1>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-slate-400">{progress.completed}/{progress.total} completed</span>
+                <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full" style={{ width: `${progress.percentage}%` }} />
+                </div>
+                <span className="text-teal-400 font-medium">{progress.percentage}%</span>
               </div>
             </div>
-            {/* AI Tools Button */}
-            <button
-              onClick={() => setShowAITools(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl text-purple-400 hover:text-purple-300 hover:from-purple-500/30 hover:to-pink-500/30 transition-all"
-            >
-              <HelpCircle size={18} />
-              <span className="hidden sm:inline text-sm font-medium">AI Study Tools</span>
-            </button>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mt-6 bg-slate-800/50 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-400">Your Progress</span>
-              <span className="text-sm font-semibold text-white">{progress.completed}/{progress.total} completed</span>
-            </div>
-            <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${progress.percentage}%` }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full"
-              />
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
             {progress.percentage === 100 && (
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <Trophy size={16} />
-                  <span className="text-sm font-medium">Congratulations! You've completed this training!</span>
-                </div>
-                <button
-                  onClick={() => setShowCertificate(true)}
-                  className="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-sm font-medium rounded-lg hover:shadow-lg hover:shadow-amber-500/25 transition-all"
-                >
-                  🏆 Get Certificate
-                </button>
-              </div>
+              <button onClick={() => setShowCertificate(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-sm font-medium rounded-lg hover:shadow-lg hover:shadow-amber-500/25">
+                <Trophy size={16} /> Certificate
+              </button>
             )}
+            <button onClick={() => setShowAITools(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-400 hover:text-purple-300 hover:bg-purple-500/30">
+              <HelpCircle size={18} />
+              <span className="hidden sm:inline text-sm font-medium">AI Tools</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Course Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="space-y-6">
-          {data.batch.sections.sort((a, b) => a.sort_order - b.sort_order).map((section, sectionIndex) => {
-            const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
-            const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
-            const moduleTree = buildModuleTree(section.id);
-            const sectionContent = getAllSectionContent(section.id);
-            const sectionCompleted = sectionContent.filter(c => getProgress(c.id)?.status === 'completed').length;
-            const isExpanded = expandedSections.has(section.id);
-            const isSectionComplete = sectionContent.length > 0 && sectionCompleted === sectionContent.length;
+      {/* Main Split View */}
+      <div className="flex-1 overflow-hidden">
+        <SplitPane
+          showRight={activeContent !== null}
+          left={
+            /* LEFT PANE - Course Content */
+            <div className="h-full overflow-y-auto">
+              <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+                {data.batch.sections.sort((a, b) => a.sort_order - b.sort_order).map((section, sectionIndex) => {
+                  const Icon = SECTION_ICONS[section.section_key] || FolderOpen;
+                  const colors = SECTION_COLORS[section.color] || SECTION_COLORS.blue;
+                  const moduleTree = buildModuleTree(section.id);
+                  const sectionContent = getAllSectionContent(section.id);
+                  const sectionCompleted = sectionContent.filter(c => getProgress(c.id)?.status === 'completed').length;
+                  const isExpanded = expandedSections.has(section.id);
+                  const isSectionComplete = sectionContent.length > 0 && sectionCompleted === sectionContent.length;
 
-            return (
-              <motion.div
-                key={section.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: sectionIndex * 0.1 }}
-                className={`bg-slate-900 border rounded-2xl overflow-hidden ${
-                  isSectionComplete ? 'border-emerald-500/30' : 'border-slate-800'
-                }`}
-              >
-                {/* Section Header */}
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center gap-4 p-5 hover:bg-slate-800/50 transition-colors text-left"
-                >
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg`}>
-                    <Icon size={22} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold text-white">{section.title}</h3>
-                      {isSectionComplete && <CheckCircle size={18} className="text-emerald-400" />}
-                    </div>
-                    <p className="text-sm text-slate-400">{section.description}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {sectionContent.length > 0 && (
-                      <span className={`text-sm font-medium ${isSectionComplete ? 'text-emerald-400' : colors.text}`}>
-                        {sectionCompleted}/{sectionContent.length}
-                      </span>
-                    )}
-                    <motion.div
-                      animate={{ rotate: isExpanded ? 180 : 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="text-slate-400"
-                    >
-                      <ChevronDown size={20} />
-                    </motion.div>
-                  </div>
-                </button>
+                  return (
+                    <motion.div key={section.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: sectionIndex * 0.1 }} className={`bg-slate-900 border rounded-xl overflow-hidden ${isSectionComplete ? 'border-emerald-500/30' : 'border-slate-800'}`}>
+                      <button onClick={() => toggleSection(section.id)} className="w-full flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors text-left">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg shrink-0`}>
+                          <Icon size={20} className="text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-white">{section.title}</h3>
+                            {isSectionComplete && <CheckCircle size={16} className="text-emerald-400" />}
+                          </div>
+                          <p className="text-xs text-slate-400 truncate">{section.description}</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {sectionContent.length > 0 && (
+                            <span className={`text-sm font-medium ${isSectionComplete ? 'text-emerald-400' : colors.text}`}>{sectionCompleted}/{sectionContent.length}</span>
+                          )}
+                          <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} className="text-slate-400"><ChevronDown size={18} /></motion.div>
+                        </div>
+                      </button>
 
-                {/* Section Content */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="border-t border-slate-800 p-4">
-                        {moduleTree.length > 0 ? (
-                          <div className="space-y-3">
-                            {moduleTree.map(module => renderModule(module, 0))}
-                          </div>
-                        ) : (
-                          <div className="py-12 text-center">
-                            <FolderOpen size={32} className="mx-auto text-slate-600 mb-3" />
-                            <p className="text-slate-500">No chapters available yet</p>
-                          </div>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                            <div className="border-t border-slate-800 p-3">
+                              {moduleTree.length > 0 ? (
+                                <div className="space-y-2">{moduleTree.map(module => renderModule(module, 0))}</div>
+                              ) : (
+                                <div className="py-8 text-center"><FolderOpen size={28} className="mx-auto text-slate-600 mb-2" /><p className="text-slate-500 text-sm">No chapters available yet</p></div>
+                              )}
+                            </div>
+                          </motion.div>
                         )}
-                      </div>
+                      </AnimatePresence>
                     </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
-        </div>
-      </main>
-
-      {/* Content Viewer Modal */}
-      <AnimatePresence>
-        {activeContent && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setActiveContent(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] border border-slate-700 shadow-2xl flex flex-col"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-slate-800 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  {(() => {
-                    const ContentIcon = CONTENT_ICONS[activeContent.content_type] || FileText;
-                    return (
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        activeContent.content_type === 'presentation' ? 'bg-blue-500/10 text-blue-400' :
-                        activeContent.content_type === 'recording' ? 'bg-rose-500/10 text-rose-400' :
-                        activeContent.content_type === 'quiz' ? 'bg-purple-500/10 text-purple-400' :
-                        'bg-slate-700/50 text-slate-400'
-                      }`}>
-                        <ContentIcon size={20} />
-                      </div>
-                    );
-                  })()}
-                  <div>
-                    <h3 className="font-semibold text-white">{activeContent.title}</h3>
-                    <p className="text-xs text-slate-400 capitalize">{activeContent.content_type.replace('_', ' ')}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setActiveContent(null)}
-                  className="w-10 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                >
-                  <X size={20} />
-                </button>
+                  );
+                })}
               </div>
-
-              {/* Modal Content */}
-              <div className="p-6 overflow-y-auto flex-1">
-                {activeContent.external_url ? (
-                  <div className="text-center py-8">
-                    <ExternalLink size={48} className="mx-auto text-cyan-400 mb-4" />
-                    <p className="text-slate-300 mb-4">This content is hosted externally</p>
-                    <a
-                      href={activeContent.external_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-                    >
-                      <ExternalLink size={18} />
-                      Open Link
-                    </a>
-                  </div>
-                ) : activeContent.content_type === 'presentation' && activeContent.content_data ? (
-                  <div className="text-center py-8">
-                    <Presentation size={48} className="mx-auto text-blue-400 mb-4" />
-                    <p className="text-slate-300 mb-2">AI-Generated Presentation</p>
-                    <p className="text-slate-500 mb-4">
-                      {((activeContent.content_data as { slides?: SlideData[] }).slides || []).length} slides
-                    </p>
-                    <button
-                      onClick={() => {
-                        const contentData = activeContent.content_data as { title?: string; slides?: SlideData[] };
-                        setViewingPresentation({
-                          title: contentData.title || activeContent.title,
-                          slides: contentData.slides || []
-                        });
-                      }}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      <Play size={18} />
-                      View Presentation
-                    </button>
-                  </div>
-                ) : activeContent.content_data ? (
-                  <div className="prose prose-invert max-w-none">
-                    <pre className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-800/50 p-4 rounded-xl">
-                      {JSON.stringify(activeContent.content_data, null, 2)}
-                    </pre>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText size={48} className="mx-auto text-slate-600 mb-4" />
-                    <p className="text-slate-400">Content coming soon</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex items-center justify-between p-4 border-t border-slate-800 bg-slate-800/50 flex-shrink-0">
-                <button
-                  onClick={() => setActiveContent(null)}
-                  className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
-                >
-                  Close
-                </button>
-                <motion.button
-                  onClick={completeContent}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold rounded-lg shadow-lg shadow-emerald-500/25"
-                >
-                  <CheckCircle size={18} />
-                  Mark as Complete
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Presentation Viewer */}
-      <AnimatePresence>
-        {viewingPresentation && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-[60]"
-          >
-            <PresentationViewer
-              presentation={viewingPresentation}
-              onClose={() => setViewingPresentation(null)}
-              showHeader={true}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          }
+          right={
+            /* RIGHT PANE - Content Viewer */
+            activeContent && (
+              <ContentViewerPanel
+                content={activeContent}
+                onClose={() => setActiveContent(null)}
+                onComplete={completeContent}
+                isCompleted={getProgress(activeContent.id)?.status === 'completed'}
+              />
+            )
+          }
+        />
+      </div>
 
       {/* AI Study Tools Modal */}
       <AnimatePresence>
         {showAITools && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowAITools(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-2xl"
-              onClick={e => e.stopPropagation()}
-            >
-              <StudentAIActions
-                topic={data.batch.title}
-                onClose={() => setShowAITools(false)}
-              />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAITools(false)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+              <StudentAIActions topic={data.batch.title} onClose={() => setShowAITools(false)} />
             </motion.div>
           </motion.div>
         )}
@@ -881,40 +1181,18 @@ export default function StudentPortalPage() {
       {/* Certificate Modal */}
       <AnimatePresence>
         {showCertificate && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowCertificate(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-2xl"
-              onClick={e => e.stopPropagation()}
-            >
-              <CertificateGenerator
-                studentName={data.enrollment.student_name || data.enrollment.student_email}
-                courseName={data.batch.title}
-                completionDate={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCertificate(false)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+              <CertificateGenerator studentName={data.enrollment.student_name || data.enrollment.student_email} courseName={data.batch.title} completionDate={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} />
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* AI Tutor Floating Chat - Only show when not in preview */}
+      {/* AI Tutor Floating Chat */}
       {!isPreviewMode && (
-        <AITutorChat
-          courseName={data.batch.title}
-          courseContext={`Course: ${data.batch.title}\nDescription: ${data.batch.description || 'N/A'}\nSections: ${data.batch.sections.map(s => s.title).join(', ')}`}
-          isFloating={true}
-        />
+        <AITutorChat courseName={data.batch.title} courseContext={`Course: ${data.batch.title}\nDescription: ${data.batch.description || 'N/A'}\nSections: ${data.batch.sections.map(s => s.title).join(', ')}`} isFloating={true} />
       )}
     </div>
   );
 }
-
-
