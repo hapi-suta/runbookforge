@@ -10,6 +10,9 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
+// Direct connection to Hetzner k3s cluster - bypasses Next.js middleware
+const LAB_API_URL = 'http://178.156.177.96:443';
+
 // Dynamically import Terminal to avoid SSR issues
 const LabTerminal = dynamic(() => import('@/components/lab/Terminal'), { 
   ssr: false,
@@ -163,28 +166,37 @@ export default function StudentLabPage() {
     fetchLabContent();
   }, [code, labId]);
 
-  // Create lab session
+  // Create lab session - calls Hetzner k3s directly
   const createLabSession = async () => {
     try {
       setError(null);
-      const response = await fetch('/api/labs', {
+      console.log('Creating lab session via Hetzner API...');
+      
+      const response = await fetch(`${LAB_API_URL}/labs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           template: labData?.environment || 'postgresql', 
+          userId: 'student-' + Date.now(),
           labId 
         })
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Lab creation failed:', errorText);
         throw new Error('Failed to create lab environment');
       }
 
       const data = await response.json();
+      console.log('Lab created:', data);
+      
+      const wsUrl = `ws://${LAB_API_URL.replace('http://', '')}/terminal?pod=${data.podName}`;
+      
       setSession({
         podName: data.podName,
         status: 'creating',
-        websocketUrl: data.websocketUrl
+        websocketUrl: wsUrl
       });
 
       // Poll for ready status
@@ -196,14 +208,14 @@ export default function StudentLabPage() {
     }
   };
 
-  // Poll lab status
+  // Poll lab status - calls Hetzner k3s directly
   const pollLabStatus = (podName: string) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
     const poll = async () => {
       try {
         console.log('Polling lab status for:', podName);
-        const response = await fetch(`/api/labs/${podName}`);
+        const response = await fetch(`${LAB_API_URL}/labs/${podName}`);
         
         if (!response.ok) {
           console.log('Poll response not ok:', response.status);
@@ -220,11 +232,12 @@ export default function StudentLabPage() {
         
         if (isRunning) {
           console.log('Lab is ready!');
+          const wsUrl = `ws://${LAB_API_URL.replace('http://', '')}/terminal?pod=${podName}`;
           setSession(prev => prev ? {
             ...prev,
             status: 'running',
             ready: true,
-            websocketUrl: data.websocketUrl
+            websocketUrl: wsUrl
           } : null);
           
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -251,7 +264,7 @@ export default function StudentLabPage() {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       if (session?.podName && session.podName !== 'error') {
-        fetch(`/api/labs/${session.podName}`, { method: 'DELETE' }).catch(console.error);
+        fetch(`${LAB_API_URL}/labs/${session.podName}`, { method: 'DELETE' }).catch(console.error);
       }
     };
   }, [session?.podName]);
@@ -282,7 +295,7 @@ export default function StudentLabPage() {
 
   const handleReset = async () => {
     if (session?.podName && session.podName !== 'error') {
-      await fetch(`/api/labs/${session.podName}`, { method: 'DELETE' }).catch(console.error);
+      await fetch(`${LAB_API_URL}/labs/${session.podName}`, { method: 'DELETE' }).catch(console.error);
     }
     setSession(null);
     setCommandQueue([]);
