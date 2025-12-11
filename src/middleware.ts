@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -6,26 +7,20 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhook(.*)",
   "/training/(.*)",
-  "/api/training/access/(.*)",
-  "/api/training/quiz/(.*)",
-  "/api/training/submissions",
-  "/api/training/content/(.*)",
+  "/api/training/(.*)",
+  "/api/labs/(.*)",
   "/view/(.*)",
   "/api/runbooks/(.*)/public",
   "/api/documents/(.*)/public",
 ]);
 
 export default clerkMiddleware((auth, request) => {
-  const url = new URL(request.url);
-  
-  // Always allow labs API - students access without login
-  if (url.pathname.startsWith('/api/labs')) {
-    return;
+  // Skip auth for public routes
+  if (isPublicRoute(request)) {
+    return NextResponse.next();
   }
   
-  if (!isPublicRoute(request)) {
-    auth().protect();
-  }
+  auth().protect();
 });
 
 export const config = {
