@@ -1,25 +1,30 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/webhook(.*)",
-  "/training/(.*)",
-  "/api/training/(.*)",
-  "/api/labs/(.*)",
-  "/view/(.*)",
-  "/api/runbooks/(.*)/public",
-  "/api/documents/(.*)/public",
-]);
-
 export default clerkMiddleware((auth, request) => {
-  // Skip auth for public routes
-  if (isPublicRoute(request)) {
+  const pathname = request.nextUrl.pathname;
+  
+  // Public routes - no auth required
+  const publicPaths = [
+    '/api/labs',
+    '/api/training',
+    '/api/webhook',
+    '/training',
+    '/view',
+    '/sign-in',
+    '/sign-up',
+  ];
+  
+  // Check if current path starts with any public path
+  const isPublic = pathname === '/' || 
+    publicPaths.some(path => pathname.startsWith(path)) ||
+    pathname.includes('/public');
+  
+  if (isPublic) {
     return NextResponse.next();
   }
   
+  // Protected routes require auth
   auth().protect();
 });
 
