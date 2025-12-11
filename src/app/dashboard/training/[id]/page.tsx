@@ -809,6 +809,8 @@ function BatchDetailPageContent() {
                                     setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
                                   }}
                                   onAIGenerate={(moduleId, sectionId) => {
+                                    setAiTopic(''); // Reset topic
+                                    setGeneratedPreview(null); // Reset preview
                                     setShowAIGenerate({ moduleId, sectionId });
                                     setContentType(getSectionContentTypes(section.section_key)[0]?.id || 'presentation');
                                   }}
@@ -863,6 +865,8 @@ function BatchDetailPageContent() {
                               <AIGenerateButton 
                                 onClick={() => {
                                   const firstModule = batch.training_modules.find(m => m.section_id === section.id);
+                                  setAiTopic(''); // Reset topic
+                                  setGeneratedPreview(null); // Reset preview
                                   // Allow AI Generate even without a module - the API will create one
                                   setShowAIGenerate({ 
                                     moduleId: firstModule?.id || '', 
