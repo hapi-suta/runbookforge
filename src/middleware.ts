@@ -9,6 +9,7 @@ export default clerkMiddleware((auth, request) => {
     '/api/labs',
     '/api/training',
     '/api/webhook',
+    '/api/test-deploy',
     '/training',
     '/view',
     '/sign-in',
