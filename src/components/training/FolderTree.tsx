@@ -435,18 +435,20 @@ function ContentItemRow({ content, onEdit, onDelete, onViewPresentation, onSelec
         )}
       </div>
 
-      {/* Actions */}
+      {/* Start Lab Button - Always Visible */}
+      {isLab && onStartLab && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onStartLab(content); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-medium rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/25 shrink-0"
+          title="Start Practice Lab"
+        >
+          <Terminal size={12} />
+          Start Lab
+        </button>
+      )}
+
+      {/* Other Actions - Show on Hover */}
       <div className="flex items-center gap-1 opacity-0 group-hover/content:opacity-100 transition-opacity">
-        {isLab && onStartLab && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onStartLab(content); }}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-medium rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/25"
-            title="Start Practice Lab"
-          >
-            <Terminal size={12} />
-            Start Lab
-          </button>
-        )}
         {hasPresentation && (
           <button
             onClick={() => onViewPresentation(content)}
