@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // Prevent static rendering - this route uses auth headers
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,8 @@ export async function GET(request: Request) {
     const resourceType = searchParams.get('resource_type');
     const resourceId = searchParams.get('resource_id');
     const sharedWithMe = searchParams.get('shared_with_me');
+
+    const supabase = getSupabaseAdmin();
 
     if (sharedWithMe) {
       // Get items shared with the current user (need their email from Clerk)
@@ -82,6 +84,8 @@ export async function POST(request: Request) {
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
+
+    const supabase = getSupabaseAdmin();
 
     // Verify the user owns the resource
     let ownsResource = false;
@@ -149,6 +153,8 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Share ID is required' }, { status: 400 });
     }
 
+    const supabase = getSupabaseAdmin();
+
     const { error } = await supabase
       .from('shares')
       .delete()
@@ -181,6 +187,8 @@ export async function PATCH(request: Request) {
     if (!id || !permission) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    const supabase = getSupabaseAdmin();
 
     const { data: share, error } = await supabase
       .from('shares')

@@ -9,6 +9,7 @@ import {
   Terminal, BookOpen, ChevronRight, Loader2, X, AlertTriangle
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { createSanitizedHtml } from '@/lib/sanitize';
 
 // Use Next.js API route which proxies to Hetzner (avoids mixed content issue)
 const LAB_API_URL = '';
@@ -477,7 +478,7 @@ export default function StudentLabPage() {
                         <div className="px-4 pb-4 space-y-4">
                           <div 
                             className="text-sm text-slate-300 leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: step.content }} 
+                            dangerouslySetInnerHTML={createSanitizedHtml(step.content)} 
                           />
 
                           {step.command && (

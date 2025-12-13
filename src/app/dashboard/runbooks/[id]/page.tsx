@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { getColorClasses } from "@/components/ColorPicker";
 import CodeBlock from "@/components/CodeBlock";
+import { createSanitizedHtml } from "@/lib/sanitize";
 
 interface Card {
   title: string;
@@ -98,739 +99,6 @@ interface Runbook {
   updated_at: string;
 }
 
-// Syntax highlighting for code blocks
-function highlightCode(code: string, language: string = 'bash'): React.ReactNode[] {
-  if (!code) return [];
-  
-  const lines = code.split('\n');
-  const lang = language.toLowerCase();
-  
-  return lines.map((line, lineIndex) => {
-    let highlightedLine: React.ReactNode[];
-    
-    if (['bash', 'shell', 'sh', 'zsh', 'powershell', 'ps1'].includes(lang)) {
-      highlightedLine = highlightBashLine(line);
-    } else if (['sql', 'psql', 'mysql', 'plsql', 'pgsql'].includes(lang)) {
-      highlightedLine = highlightSQLLine(line);
-    } else if (['yaml', 'yml', 'ansible'].includes(lang)) {
-      highlightedLine = highlightYAMLLine(line);
-    } else if (['json', 'jsonc'].includes(lang)) {
-      highlightedLine = highlightJSONLine(line);
-    } else if (['python', 'py', 'python3'].includes(lang)) {
-      highlightedLine = highlightPythonLine(line);
-    } else if (['javascript', 'js', 'typescript', 'ts', 'jsx', 'tsx'].includes(lang)) {
-      highlightedLine = highlightJSLine(line);
-    } else if (['go', 'golang'].includes(lang)) {
-      highlightedLine = highlightGoLine(line);
-    } else if (['rust', 'rs'].includes(lang)) {
-      highlightedLine = highlightRustLine(line);
-    } else if (['java', 'kotlin', 'scala', 'c', 'cpp', 'c++', 'csharp', 'cs'].includes(lang)) {
-      highlightedLine = highlightCLikeLine(line);
-    } else if (['dockerfile', 'docker'].includes(lang)) {
-      highlightedLine = highlightDockerfileLine(line);
-    } else if (['terraform', 'tf', 'hcl'].includes(lang)) {
-      highlightedLine = highlightTerraformLine(line);
-    } else if (['toml', 'ini', 'conf', 'cfg'].includes(lang)) {
-      highlightedLine = highlightTOMLLine(line);
-    } else if (['xml', 'html', 'svg'].includes(lang)) {
-      highlightedLine = highlightXMLLine(line);
-    } else {
-      // Default generic highlighting
-      highlightedLine = highlightGenericLine(line);
-    }
-    
-    return (
-      <div key={lineIndex}>
-        {highlightedLine}
-        {lineIndex < lines.length - 1 ? '\n' : ''}
-      </div>
-    );
-  });
-}
-
-function highlightBashLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let key = 0;
-  
-  // Check for comment
-  if (line.trim().startsWith('#')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  // Common shell commands
-  const commands = new Set([
-    'sudo', 'apt', 'apt-get', 'yum', 'dnf', 'brew', 'npm', 'pip', 'pip3', 'git', 'docker', 'docker-compose',
-    'kubectl', 'systemctl', 'service', 'curl', 'wget', 'cat', 'echo', 'printf', 'grep', 'egrep', 'fgrep',
-    'sed', 'awk', 'find', 'ls', 'll', 'cd', 'mv', 'cp', 'rm', 'mkdir', 'rmdir', 'chmod', 'chown', 'chgrp',
-    'tar', 'gzip', 'gunzip', 'zip', 'unzip', 'ssh', 'scp', 'rsync', 'sftp',
-    'psql', 'pg_dump', 'pg_restore', 'pg_basebackup', 'pg_ctl', 'postgres', 'pgbackrest', 'pg_isready',
-    'patronictl', 'patroni', 'etcdctl', 'etcd', 'haproxy', 'nginx', 'apache2', 'httpd',
-    'vim', 'vi', 'nano', 'emacs', 'less', 'more', 'head', 'tail', 'cat', 'tac',
-    'sort', 'uniq', 'wc', 'xargs', 'tee', 'touch', 'ln', 'readlink', 'realpath',
-    'df', 'du', 'free', 'top', 'htop', 'ps', 'pgrep', 'kill', 'pkill', 'killall',
-    'nohup', 'screen', 'tmux', 'bg', 'fg', 'jobs', 'disown',
-    'crontab', 'at', 'batch', 'journalctl', 'dmesg', 'logger',
-    'mount', 'umount', 'fdisk', 'parted', 'mkfs', 'fsck', 'lsblk', 'blkid',
-    'useradd', 'userdel', 'usermod', 'passwd', 'groupadd', 'groupdel', 'groups', 'id', 'whoami', 'su',
-    'chroot', 'export', 'source', 'alias', 'unalias', 'unset', 'set', 'env', 'printenv',
-    'which', 'whereis', 'type', 'file', 'stat', 'man', 'info', 'help', 'apropos',
-    'exit', 'logout', 'reboot', 'shutdown', 'poweroff', 'halt', 'init',
-    'make', 'cmake', 'gcc', 'g++', 'clang', 'ld', 'ar', 'nm',
-    'python', 'python3', 'node', 'npm', 'npx', 'yarn', 'java', 'javac', 'go', 'ruby', 'perl', 'php',
-    'bash', 'sh', 'zsh', 'dash', 'fish', 'csh', 'tcsh',
-    'test', 'true', 'false', 'yes', 'no', 'sleep', 'wait', 'time', 'date', 'cal',
-    'hostname', 'hostnamectl', 'uname', 'arch', 'nproc', 'lscpu', 'lsmem',
-    'ip', 'ifconfig', 'netstat', 'ss', 'ping', 'traceroute', 'dig', 'nslookup', 'host', 'nmap',
-    'iptables', 'firewall-cmd', 'ufw', 'fail2ban-client',
-    'aws', 'gcloud', 'az', 'terraform', 'ansible', 'ansible-playbook', 'vagrant',
-    'openssl', 'gpg', 'base64', 'md5sum', 'sha256sum', 'sha1sum',
-    'jq', 'yq', 'xmllint', 'csvtool',
-    'cut', 'paste', 'join', 'comm', 'diff', 'patch', 'cmp',
-    'tr', 'rev', 'fold', 'fmt', 'column', 'expand', 'unexpand',
-  ]);
-  
-  // Shell keywords
-  const keywords = new Set([
-    'if', 'then', 'else', 'elif', 'fi', 'case', 'esac', 'for', 'while', 'until', 'do', 'done',
-    'in', 'function', 'select', 'time', 'coproc', 'break', 'continue', 'return',
-  ]);
-  
-  // Split line into tokens while preserving whitespace
-  const tokenRegex = /(\s+)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*|\$\(|\$\?|\$\$|\$!|\$@|\$\*|\$#|\$\d)|(\|\||&&|;;|<<|>>|[|><;&])|(-{1,2}[A-Za-z][A-Za-z0-9_-]*)|([A-Za-z_][A-Za-z0-9_.-]*)|(\d+)|(.)/g;
-  
-  let match;
-  let isFirstWord = true;
-  let afterPipe = false;
-  
-  while ((match = tokenRegex.exec(line)) !== null) {
-    const token = match[0];
-    
-    // Whitespace
-    if (match[1]) {
-      tokens.push(<span key={key++} className="text-white">{token}</span>);
-      continue;
-    }
-    
-    // String (double or single quoted)
-    if (match[2]) {
-      tokens.push(<span key={key++} className="text-amber-300">{token}</span>);
-      isFirstWord = false;
-      continue;
-    }
-    
-    // Variable
-    if (match[3]) {
-      tokens.push(<span key={key++} className="text-violet-400">{token}</span>);
-      isFirstWord = false;
-      continue;
-    }
-    
-    // Operators (pipe, redirect, etc.)
-    if (match[4]) {
-      tokens.push(<span key={key++} className="text-pink-400 font-semibold">{token}</span>);
-      if (token === '|' || token === '||' || token === '&&' || token === ';') {
-        afterPipe = true;
-      }
-      continue;
-    }
-    
-    // Flags (--flag or -f)
-    if (match[5]) {
-      tokens.push(<span key={key++} className="text-cyan-400">{token}</span>);
-      isFirstWord = false;
-      continue;
-    }
-    
-    // Word (potential command or keyword)
-    if (match[6]) {
-      if ((isFirstWord || afterPipe) && commands.has(token)) {
-        tokens.push(<span key={key++} className="text-blue-400 font-semibold">{token}</span>);
-      } else if (keywords.has(token)) {
-        tokens.push(<span key={key++} className="text-pink-400 font-semibold">{token}</span>);
-      } else if (token.includes('/') || token.includes('.')) {
-        // Path or filename
-        tokens.push(<span key={key++} className="text-emerald-300">{token}</span>);
-      } else {
-        tokens.push(<span key={key++} className="text-slate-200">{token}</span>);
-      }
-      isFirstWord = false;
-      afterPipe = false;
-      continue;
-    }
-    
-    // Number
-    if (match[7]) {
-      tokens.push(<span key={key++} className="text-orange-400">{token}</span>);
-      isFirstWord = false;
-      continue;
-    }
-    
-    // Any other character
-    tokens.push(<span key={key++} className="text-slate-300">{token}</span>);
-    isFirstWord = false;
-  }
-  
-  return tokens;
-}
-
-function highlightSQLLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  // Check for comment
-  if (remaining.trim().startsWith('--')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    // Strings
-    { regex: /'(?:[^'\\]|\\.)*'/, className: 'text-amber-300' },
-    // Keywords
-    { regex: /\b(SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|ALTER|DROP|TABLE|INDEX|VIEW|DATABASE|SCHEMA|PRIMARY|KEY|FOREIGN|REFERENCES|CONSTRAINT|NOT|NULL|DEFAULT|UNIQUE|CHECK|AND|OR|IN|BETWEEN|LIKE|IS|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|AS|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|IF|EXISTS|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|TRANSACTION|CASCADE|RESTRICT|WITH|RECURSIVE|RETURNING|TRIGGER|FUNCTION|PROCEDURE|EXECUTE|CALL)\b/i, className: 'text-blue-400 font-semibold' },
-    // Functions
-    { regex: /\b(now|current_timestamp|current_date|coalesce|nullif|cast|to_char|to_date|to_timestamp|extract|date_trunc|pg_sleep|generate_series|array_agg|string_agg|row_number|rank|dense_rank|lag|lead|first_value|last_value)\b/i, className: 'text-violet-400' },
-    // Numbers
-    { regex: /\b\d+\.?\d*\b/, className: 'text-orange-400' },
-    // Operators
-    { regex: /[=<>!]+|::|->|->>/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-emerald-400">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-emerald-400">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  
-  return tokens;
-}
-
-function highlightYAMLLine(line: string): React.ReactNode[] {
-  // Check for comment
-  if (line.trim().startsWith('#')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  // Key: value pattern
-  const keyValueMatch = line.match(/^(\s*)([^:]+)(:)(.*)$/);
-  if (keyValueMatch) {
-    const [, indent, key, colon, value] = keyValueMatch;
-    const tokens: React.ReactNode[] = [];
-    tokens.push(<span key={0} className="text-white">{indent}</span>);
-    tokens.push(<span key={1} className="text-cyan-400">{key}</span>);
-    tokens.push(<span key={2} className="text-white">{colon}</span>);
-    
-    // Highlight value
-    const trimmedValue = value.trim();
-    if (trimmedValue.startsWith('"') || trimmedValue.startsWith("'")) {
-      tokens.push(<span key={3} className="text-amber-300">{value}</span>);
-    } else if (/^(true|false|yes|no|null|~)$/i.test(trimmedValue)) {
-      tokens.push(<span key={3} className="text-orange-400">{value}</span>);
-    } else if (/^\d+\.?\d*$/.test(trimmedValue)) {
-      tokens.push(<span key={3} className="text-orange-400">{value}</span>);
-    } else {
-      tokens.push(<span key={3} className="text-emerald-400">{value}</span>);
-    }
-    return tokens;
-  }
-  
-  return [<span key={0} className="text-emerald-400">{line}</span>];
-}
-
-function highlightJSONLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    // Strings (keys and values)
-    { regex: /"(?:[^"\\]|\\.)*"/, className: 'text-amber-300' },
-    // Numbers
-    { regex: /-?\d+\.?\d*([eE][+-]?\d+)?/, className: 'text-orange-400' },
-    // Booleans and null
-    { regex: /\b(true|false|null)\b/, className: 'text-violet-400' },
-    // Brackets and braces
-    { regex: /[{}\[\]]/, className: 'text-white' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-400">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-400">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  
-  return tokens;
-}
-
-function highlightPythonLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  // Check for comment
-  if (remaining.trim().startsWith('#')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    // Triple-quoted strings
-    { regex: /"""[\s\S]*?"""|'''[\s\S]*?'''/, className: 'text-amber-300' },
-    // Strings
-    { regex: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/, className: 'text-amber-300' },
-    // Keywords
-    { regex: /\b(and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|True|False|None)\b/, className: 'text-blue-400 font-semibold' },
-    // Built-in functions
-    { regex: /\b(print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|hasattr|getattr|setattr|open|input|format|sorted|reversed|enumerate|zip|map|filter|reduce|sum|min|max|abs|round|pow|divmod|hex|oct|bin|chr|ord|repr|eval|exec|compile|globals|locals|vars|dir|help|id|hash|callable|iter|next)\b/, className: 'text-cyan-400' },
-    // Decorators
-    { regex: /@\w+/, className: 'text-violet-400' },
-    // Numbers
-    { regex: /\b\d+\.?\d*\b/, className: 'text-orange-400' },
-    // Self
-    { regex: /\bself\b/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-emerald-400">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-emerald-400">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  
-  return tokens;
-}
-
-// JavaScript/TypeScript highlighter
-function highlightJSLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  // Check for comment
-  if (remaining.trim().startsWith('//')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const keywords = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|delete|typeof|instanceof|void|this|super|class|extends|import|export|default|from|as|async|await|yield|static|get|set|of|in|null|undefined|true|false)\b/;
-  const builtins = /\b(console|document|window|Array|Object|String|Number|Boolean|Date|Math|JSON|Promise|Map|Set|Symbol|RegExp|Error|parseInt|parseFloat|isNaN|isFinite|encodeURI|decodeURI|setTimeout|setInterval|fetch|require|module|exports)\b/;
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /`(?:[^`\\]|\\.)*`/, className: 'text-amber-300' }, // Template literals
-    { regex: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/, className: 'text-amber-300' }, // Strings
-    { regex: /\/(?:[^\/\\]|\\.)+\/[gimsuy]*/, className: 'text-pink-400' }, // Regex
-    { regex: keywords, className: 'text-blue-400 font-semibold' },
-    { regex: builtins, className: 'text-cyan-400' },
-    { regex: /\b\d+\.?\d*\b/, className: 'text-orange-400' },
-    { regex: /[{}()\[\];,.]/, className: 'text-slate-300' },
-    { regex: /=>|===|!==|==|!=|<=|>=|&&|\|\||[+\-*/%=<>!&|^~?:]/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-200">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
-// Go highlighter
-function highlightGoLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  if (remaining.trim().startsWith('//')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const keywords = /\b(package|import|func|return|var|const|type|struct|interface|map|chan|go|select|case|default|if|else|for|range|switch|break|continue|goto|fallthrough|defer|nil|true|false|iota)\b/;
-  const types = /\b(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|complex64|complex128|byte|rune|bool|error|any)\b/;
-  const builtins = /\b(make|new|len|cap|append|copy|delete|close|panic|recover|print|println|complex|real|imag)\b/;
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /`[^`]*`/, className: 'text-amber-300' }, // Raw strings
-    { regex: /"(?:[^"\\]|\\.)*"/, className: 'text-amber-300' },
-    { regex: keywords, className: 'text-blue-400 font-semibold' },
-    { regex: types, className: 'text-cyan-400' },
-    { regex: builtins, className: 'text-violet-400' },
-    { regex: /\b\d+\.?\d*\b/, className: 'text-orange-400' },
-    { regex: /:=|<-|&&|\|\||[+\-*/%=<>!&|^]/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-200">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
-// Rust highlighter
-function highlightRustLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  if (remaining.trim().startsWith('//')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const keywords = /\b(fn|let|mut|const|static|struct|enum|impl|trait|type|where|pub|mod|use|crate|super|self|Self|if|else|match|loop|while|for|in|break|continue|return|async|await|move|ref|dyn|unsafe|extern|true|false)\b/;
-  const types = /\b(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell|HashMap|HashSet|BTreeMap|BTreeSet)\b/;
-  const macros = /\b\w+!/;
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /r#*"[^"]*"#*|"(?:[^"\\]|\\.)*"/, className: 'text-amber-300' },
-    { regex: keywords, className: 'text-blue-400 font-semibold' },
-    { regex: types, className: 'text-cyan-400' },
-    { regex: macros, className: 'text-violet-400' },
-    { regex: /'[a-z_]\w*/, className: 'text-pink-400' }, // Lifetimes
-    { regex: /#\[[\w:(),\s="]*\]/, className: 'text-slate-400' }, // Attributes
-    { regex: /\b\d+\.?\d*\b/, className: 'text-orange-400' },
-    { regex: /=>|->|::|\.\.|&&|\|\||[+\-*/%=<>!&|^?]/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-200">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
-// C-like languages (Java, C, C++, C#, Kotlin)
-function highlightCLikeLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  if (remaining.trim().startsWith('//')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const keywords = /\b(public|private|protected|static|final|abstract|class|interface|extends|implements|new|return|if|else|for|while|do|switch|case|default|break|continue|try|catch|finally|throw|throws|import|package|void|null|true|false|this|super|synchronized|volatile|transient|native|instanceof|enum|const|goto|assert|virtual|override|sealed|readonly|namespace|using|internal|extern|sizeof|typedef|struct|union)\b/;
-  const types = /\b(int|long|short|byte|float|double|char|boolean|bool|string|String|var|val|auto|void|Integer|Long|Double|Float|Boolean|Character|Object|List|ArrayList|Map|HashMap|Set|HashSet)\b/;
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/, className: 'text-amber-300' },
-    { regex: keywords, className: 'text-blue-400 font-semibold' },
-    { regex: types, className: 'text-cyan-400' },
-    { regex: /@\w+/, className: 'text-violet-400' }, // Annotations
-    { regex: /\b\d+\.?\d*[fFdDlL]?\b/, className: 'text-orange-400' },
-    { regex: /&&|\|\||[+\-*/%=<>!&|^~?:]/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-200">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
-// Dockerfile highlighter
-function highlightDockerfileLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let key = 0;
-  
-  if (line.trim().startsWith('#')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const instructions = /^(FROM|RUN|CMD|LABEL|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL|MAINTAINER)\b/i;
-  const match = line.match(instructions);
-  
-  if (match) {
-    tokens.push(<span key={key++} className="text-blue-400 font-semibold">{match[0]}</span>);
-    const rest = line.slice(match[0].length);
-    // Highlight the rest with basic bash-like highlighting
-    const varMatch = rest.match(/\$\{?[\w]+\}?/g);
-    if (varMatch) {
-      let remaining = rest;
-      for (const v of varMatch) {
-        const idx = remaining.indexOf(v);
-        if (idx > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, idx)}</span>);
-        }
-        tokens.push(<span key={key++} className="text-violet-400">{v}</span>);
-        remaining = remaining.slice(idx + v.length);
-      }
-      if (remaining) {
-        tokens.push(<span key={key++} className="text-slate-200">{remaining}</span>);
-      }
-    } else {
-      tokens.push(<span key={key++} className="text-slate-200">{rest}</span>);
-    }
-    return tokens;
-  }
-  
-  return [<span key={0} className="text-slate-200">{line}</span>];
-}
-
-// Terraform/HCL highlighter
-function highlightTerraformLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  if (remaining.trim().startsWith('#') || remaining.trim().startsWith('//')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const blocks = /\b(resource|data|variable|output|provider|terraform|module|locals|backend|required_providers)\b/;
-  const keywords = /\b(for|for_each|if|count|depends_on|lifecycle|provisioner|connection|dynamic|content|each|self|var|local|path|null|true|false)\b/;
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /"(?:[^"\\]|\\.)*"/, className: 'text-amber-300' },
-    { regex: blocks, className: 'text-blue-400 font-semibold' },
-    { regex: keywords, className: 'text-cyan-400' },
-    { regex: /\$\{[^}]+\}/, className: 'text-violet-400' },
-    { regex: /\b\d+\.?\d*\b/, className: 'text-orange-400' },
-    { regex: /[{}()\[\]=]/, className: 'text-pink-400' },
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-200">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
-// TOML/INI highlighter
-function highlightTOMLLine(line: string): React.ReactNode[] {
-  if (line.trim().startsWith('#') || line.trim().startsWith(';')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  // Section headers
-  if (line.trim().match(/^\[[\w.-]+\]$/)) {
-    return [<span key={0} className="text-blue-400 font-semibold">{line}</span>];
-  }
-  
-  // Key = value
-  const kvMatch = line.match(/^(\s*)([^=]+)(=)(.*)$/);
-  if (kvMatch) {
-    const [, indent, key, eq, value] = kvMatch;
-    const tokens: React.ReactNode[] = [];
-    tokens.push(<span key={0} className="text-white">{indent}</span>);
-    tokens.push(<span key={1} className="text-cyan-400">{key}</span>);
-    tokens.push(<span key={2} className="text-pink-400">{eq}</span>);
-    
-    const trimmedValue = value.trim();
-    if (trimmedValue.startsWith('"') || trimmedValue.startsWith("'")) {
-      tokens.push(<span key={3} className="text-amber-300">{value}</span>);
-    } else if (/^(true|false)$/i.test(trimmedValue)) {
-      tokens.push(<span key={3} className="text-orange-400">{value}</span>);
-    } else if (/^\d+\.?\d*$/.test(trimmedValue)) {
-      tokens.push(<span key={3} className="text-orange-400">{value}</span>);
-    } else {
-      tokens.push(<span key={3} className="text-slate-200">{value}</span>);
-    }
-    return tokens;
-  }
-  
-  return [<span key={0} className="text-slate-200">{line}</span>];
-}
-
-// XML/HTML highlighter
-function highlightXMLLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  // Comments
-  if (remaining.includes('<!--')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /<\/?[\w:-]+/, className: 'text-blue-400' }, // Tags
-    { regex: /[\w:-]+(?==)/, className: 'text-cyan-400' }, // Attribute names
-    { regex: /"[^"]*"|'[^']*'/, className: 'text-amber-300' }, // Attribute values
-    { regex: /[<>=\/]/, className: 'text-slate-400' }, // Brackets
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-slate-200">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-slate-200">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
-// Generic highlighter for unknown languages
-function highlightGenericLine(line: string): React.ReactNode[] {
-  const tokens: React.ReactNode[] = [];
-  let remaining = line;
-  let key = 0;
-  
-  // Check for common comment patterns
-  if (remaining.trim().startsWith('//') || remaining.trim().startsWith('#') || remaining.trim().startsWith('--')) {
-    return [<span key={0} className="text-slate-500 italic">{line}</span>];
-  }
-  
-  const patterns: { regex: RegExp; className: string }[] = [
-    { regex: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/, className: 'text-amber-300' }, // Strings
-    { regex: /\b(true|false|null|nil|none|undefined)\b/i, className: 'text-orange-400' }, // Constants
-    { regex: /\b\d+\.?\d*([eE][+-]?\d+)?\b/, className: 'text-orange-400' }, // Numbers
-    { regex: /\$[\w{][^}\s]*\}?/, className: 'text-violet-400' }, // Variables
-    { regex: /[{}()\[\];,]/, className: 'text-slate-400' }, // Brackets
-    { regex: /[+\-*/%=<>!&|^~?:]+/, className: 'text-pink-400' }, // Operators
-  ];
-  
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const { regex, className } of patterns) {
-      const match = remaining.match(regex);
-      if (match && match.index !== undefined) {
-        if (match.index > 0) {
-          tokens.push(<span key={key++} className="text-emerald-400">{remaining.slice(0, match.index)}</span>);
-        }
-        tokens.push(<span key={key++} className={className}>{match[0]}</span>);
-        remaining = remaining.slice(match.index + match[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      tokens.push(<span key={key++} className="text-emerald-400">{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-  }
-  return tokens;
-}
-
 function LocalCodeBlock({ content, language, tags }: { content: string; language?: string; tags?: string[] }) {
   return (
     <div className="space-y-2">
@@ -859,7 +127,7 @@ function StepBlock({ block, stepNumber }: { block: Block; stepNumber: number }) 
         {block.content && (
           <div 
             className="prose prose-invert prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: block.content }}
+            dangerouslySetInnerHTML={createSanitizedHtml(block.content)}
           />
         )}
       </div>
@@ -881,7 +149,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
           <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
           <div 
             className="prose prose-invert prose-sm max-w-none prose-p:text-amber-200"
-            dangerouslySetInnerHTML={{ __html: block.content }}
+            dangerouslySetInnerHTML={createSanitizedHtml(block.content)}
           />
         </div>
       );
@@ -892,7 +160,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
           <Info size={20} className="text-sky-400 flex-shrink-0 mt-0.5" />
           <div 
             className="prose prose-invert prose-sm max-w-none prose-p:text-sky-200"
-            dangerouslySetInnerHTML={{ __html: block.content }}
+            dangerouslySetInnerHTML={createSanitizedHtml(block.content)}
           />
         </div>
       );
@@ -903,7 +171,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
           <FileText size={20} className="text-violet-400 flex-shrink-0 mt-0.5" />
           <div 
             className="prose prose-invert prose-sm max-w-none prose-p:text-violet-200"
-            dangerouslySetInnerHTML={{ __html: block.content }}
+            dangerouslySetInnerHTML={createSanitizedHtml(block.content)}
           />
         </div>
       );
@@ -1074,7 +342,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
             )}
             <div 
               className="prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: block.leftContent || '' }}
+              dangerouslySetInnerHTML={createSanitizedHtml(block.leftContent)}
             />
           </div>
           <div className={`p-4 bg-slate-800/50 border ${rightColors.border} rounded-lg`}>
@@ -1086,7 +354,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
             )}
             <div 
               className="prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: block.rightContent || '' }}
+              dangerouslySetInnerHTML={createSanitizedHtml(block.rightContent)}
             />
           </div>
         </div>
@@ -1113,7 +381,7 @@ function BlockRenderer({ block, stepNumber }: { block: Block; stepNumber?: numbe
       return (
         <div 
           className="prose prose-invert prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: block.content }}
+          dangerouslySetInnerHTML={createSanitizedHtml(block.content)}
         />
       );
   }
@@ -1178,20 +446,9 @@ export default function ViewRunbookPage() {
   };
   const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchRunbook();
-  }, [params.id]);
-
-  // Close export menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setShowExportMenu(false);
-    if (showExportMenu) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showExportMenu]);
-
-  const fetchRunbook = async () => {
+  const fetchRunbook = useCallback(async () => {
+    setError(null);
+    setIsLoading(true);
     try {
       const response = await fetch(`/api/runbooks/${params.id}`);
       if (!response.ok) {
@@ -1210,7 +467,20 @@ export default function ViewRunbookPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchRunbook();
+  }, [fetchRunbook]);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    if (!showExportMenu) return;
+    
+    const handleClickOutside = () => setShowExportMenu(false);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showExportMenu]);
 
   // Export to PDF
   const exportToPDF = async () => {

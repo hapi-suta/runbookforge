@@ -13,6 +13,7 @@ import {
 import PresentationViewer, { PresentationData, SlideData } from '@/components/PresentationViewer';
 import AITutorChat from '@/components/ai/AITutorChat';
 import StudentAIActions from '@/components/ai/StudentAIActions';
+import { createSanitizedHtml } from '@/lib/sanitize';
 import CertificateGenerator from '@/components/ai/CertificateGenerator';
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
@@ -615,7 +616,7 @@ function RunbookViewer({ runbook, onCopy, copied }: { runbook: LinkedRunbook; on
           </div>
           <div 
             className="text-slate-300 prose prose-invert prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: section.content }}
+            dangerouslySetInnerHTML={createSanitizedHtml(section.content)}
           />
         </div>
       ))}
@@ -697,30 +698,7 @@ export default function StudentPortalPage() {
   const [enrollName, setEnrollName] = useState('');
   const [enrolling, setEnrolling] = useState(false);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    const isPreview = urlParams.get('preview') === 'true';
-    const storedToken = localStorage.getItem(`training_token_${code}`);
-    const accessToken = urlToken || storedToken;
-    
-    if (isPreview) {
-      setIsPreviewMode(true);
-      fetchPreview();
-    } else if (accessToken) {
-      setToken(accessToken);
-      if (urlToken) {
-        localStorage.setItem(`training_token_${code}`, urlToken);
-        window.history.replaceState({}, '', `/training/${code}`);
-      }
-      fetchTraining(accessToken);
-    } else {
-      setError('Enter your email to access this training');
-      setIsLoading(false);
-    }
-  }, [code]);
-
-  const fetchPreview = async () => {
+  const fetchPreview = useCallback(async () => {
     try {
       const res = await fetch(`/api/training/access/lookup?code=${code}&preview=true`);
       if (res.ok) {
@@ -743,9 +721,9 @@ export default function StudentPortalPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [code]);
 
-  const fetchTraining = async (accessToken: string) => {
+  const fetchTraining = useCallback(async (accessToken: string) => {
     try {
       const res = await fetch(`/api/training/access/${accessToken}`);
       if (res.ok) {
@@ -768,7 +746,30 @@ export default function StudentPortalPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    const isPreview = urlParams.get('preview') === 'true';
+    const storedToken = localStorage.getItem(`training_token_${code}`);
+    const accessToken = urlToken || storedToken;
+    
+    if (isPreview) {
+      setIsPreviewMode(true);
+      fetchPreview();
+    } else if (accessToken) {
+      setToken(accessToken);
+      if (urlToken) {
+        localStorage.setItem(`training_token_${code}`, urlToken);
+        window.history.replaceState({}, '', `/training/${code}`);
+      }
+      fetchTraining(accessToken);
+    } else {
+      setError('Enter your email to access this training');
+      setIsLoading(false);
+    }
+  }, [code, fetchPreview, fetchTraining]);
 
   const toggleSection = (sectionId: string) => {
     const newSet = new Set(expandedSections);

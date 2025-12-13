@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createSanitizedHtml } from '@/lib/sanitize';
 import {
   ChevronLeft, ChevronRight, Maximize2, Minimize2, X, Download,
   Copy, Check, Play, Pause, BookOpen, Terminal, FileText, AlertCircle,
@@ -306,7 +307,7 @@ function ComparisonGrid({ items }: { items: Array<{ title: string; description?:
                 {item.items.map((li, liIdx) => (
                   <li key={liIdx} className="text-sm text-slate-300 flex items-start gap-2">
                     <span className="text-slate-500">•</span>
-                    <span dangerouslySetInnerHTML={{ __html: li }} />
+                    <span dangerouslySetInnerHTML={createSanitizedHtml(li)} />
                   </li>
                 ))}
               </ul>
@@ -326,7 +327,7 @@ function SlideRenderer({ slide }: { slide: PresentationSlide }) {
   const renderContent = (content: SlideContent, idx: number) => {
     switch (content.type) {
       case 'text':
-        return <p key={idx} className="text-slate-300 mb-4" dangerouslySetInnerHTML={{ __html: content.content || '' }} />;
+        return <p key={idx} className="text-slate-300 mb-4" dangerouslySetInnerHTML={createSanitizedHtml(content.content)} />;
       
       case 'code':
         return <CodeBlock key={idx} code={content.content || ''} language={content.language} runOn={content.runOn} />;
@@ -466,6 +467,25 @@ export default function HighClassPresentation({
 
   const slide = data.slides[currentSlide];
   const progress = ((currentSlide + 1) / data.slides.length) * 100;
+
+  // Guard against empty slides or out of bounds
+  if (!slide || data.slides.length === 0) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900">
+        <div className="text-center">
+          <p className="text-white text-lg mb-4">No slides available</p>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600"
+            >
+              Close
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div

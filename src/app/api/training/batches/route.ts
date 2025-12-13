@@ -121,6 +121,11 @@ export async function POST(request: Request) {
 
       if (sectionsError) {
         console.error('Error creating sections:', sectionsError);
+        // Don't fail the entire request, but include warning in response
+        return NextResponse.json(
+          { ...batch, warning: 'Batch created but sections failed to initialize' },
+          { status: 201 }
+        );
       }
     }
 

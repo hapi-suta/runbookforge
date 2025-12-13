@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { createSanitizedHtml } from '@/lib/sanitize';
 
 // Dynamically import Terminal to avoid SSR issues
 const LabTerminal = dynamic(() => import('./Terminal'), { 
@@ -224,7 +225,7 @@ function RunbookPane({
                 <div className="px-4 pb-4 space-y-4">
                   <div 
                     className="text-sm text-slate-300 leading-relaxed prose prose-invert prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: step.content }} 
+                    dangerouslySetInnerHTML={createSanitizedHtml(step.content)} 
                   />
 
                   {step.command && (

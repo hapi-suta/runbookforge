@@ -24,6 +24,7 @@ export default function LabTerminal({
   const xtermRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<any>(null);
+  const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [terminalReady, setTerminalReady] = useState(false);
@@ -87,7 +88,7 @@ export default function LabTerminal({
       // Welcome message
       term.writeln('\x1b[1;36m╔══════════════════════════════════════════════════════════╗\x1b[0m');
       term.writeln('\x1b[1;36m║\x1b[0m  \x1b[1;32mRunbookForge Practice Lab\x1b[0m                               \x1b[1;36m║\x1b[0m');
-      term.writeln('\x1b[1;36m║\x1b[0m  PostgreSQL 15 Environment Ready                         \x1b[1;36m║\x1b[0m');
+      term.writeln('\x1b[1;36m║\x1b[0m  Interactive Environment Ready                           \x1b[1;36m║\x1b[0m');
       term.writeln('\x1b[1;36m╚══════════════════════════════════════════════════════════╝\x1b[0m');
       term.writeln('');
 
@@ -118,6 +119,12 @@ export default function LabTerminal({
 
     setConnectionError(null);
 
+    // Clean up any existing onData listener before creating a new one
+    if (onDataDisposableRef.current) {
+      onDataDisposableRef.current.dispose();
+      onDataDisposableRef.current = null;
+    }
+
     try {
       const ws = new WebSocket(websocketUrl);
       wsRef.current = ws;
@@ -147,12 +154,14 @@ export default function LabTerminal({
         setIsConnected(false);
       };
 
-      // Handle user input
-      xtermRef.current.onData((data: string) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
+      // Handle user input - store the disposable for cleanup
+      if (xtermRef.current) {
+        onDataDisposableRef.current = xtermRef.current.onData((data: string) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+          }
+        });
+      }
     } catch (error) {
       console.error('Failed to connect WebSocket:', error);
       setConnectionError('Failed to connect');
@@ -189,7 +198,14 @@ export default function LabTerminal({
   // Cleanup
   useEffect(() => {
     return () => {
+      // Dispose the onData listener first
+      if (onDataDisposableRef.current) {
+        onDataDisposableRef.current.dispose();
+        onDataDisposableRef.current = null;
+      }
+      // Close WebSocket connection
       wsRef.current?.close();
+      // Dispose the terminal instance
       xtermRef.current?.dispose();
     };
   }, []);

@@ -10,6 +10,7 @@ import {
   ThumbsUp, Sparkles, Clock, Target, Award, Share2
 } from "lucide-react";
 import CodeBlock from "@/components/CodeBlock";
+import { createSanitizedHtml } from "@/lib/sanitize";
 
 interface Block {
   id: string;
@@ -163,7 +164,7 @@ export default function ViewRunbookPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: blockIndex * 0.05 }}
             className="prose prose-invert max-w-none" 
-            dangerouslySetInnerHTML={{ __html: block.content }} 
+            dangerouslySetInnerHTML={createSanitizedHtml(block.content)} 
           />
         );
       

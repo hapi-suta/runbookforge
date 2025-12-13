@@ -63,14 +63,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { runbook_id, title, description, price, category, preview_sections, tags } = body;
 
-    if (!runbook_id || !title) {
-      return NextResponse.json({ error: 'runbook_id and title are required' }, { status: 400 });
+    if (!runbook_id) {
+      return NextResponse.json({ error: 'runbook_id is required' }, { status: 400 });
     }
 
-    // Verify ownership
+    // Verify ownership and get runbook details
     const { data: runbook } = await supabase
       .from('runbooks')
-      .select('id')
+      .select('id, title, description')
       .eq('id', runbook_id)
       .eq('user_id', userId)
       .single();
@@ -79,13 +79,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Runbook not found' }, { status: 404 });
     }
 
+    // Use provided title or fallback to runbook title
+    const listingTitle = title || runbook.title;
+    if (!listingTitle) {
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from('marketplace_listings')
       .insert({
         seller_id: userId,
         runbook_id,
-        title,
-        description: description || '',
+        title: listingTitle,
+        description: description || runbook.description || '',
         price: price || 0,
         category: category || 'other',
         preview_sections: preview_sections || [],

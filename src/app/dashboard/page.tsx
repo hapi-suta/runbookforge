@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -54,11 +54,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const firstName = user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'there';
 
-  useEffect(() => {
-    fetchRunbooks();
-  }, []);
-
-  const fetchRunbooks = async () => {
+  const fetchRunbooks = useCallback(async () => {
     try {
       const response = await fetch('/api/runbooks');
       if (response.ok) {
@@ -70,7 +66,11 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchRunbooks();
+  }, [fetchRunbooks]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
